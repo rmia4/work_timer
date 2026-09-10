@@ -2,7 +2,7 @@ import {sql} from 'drizzle-orm';
 import {sqliteTable,text,integer,index,uniqueIndex} from 'drizzle-orm/sqlite-core';
 export const tasks=sqliteTable('tasks',{
  id:text('id').primaryKey(), owner:text('owner').notNull(), day:text('day').notNull(),
- title:text('title').notNull(), note:text('note').notNull().default(''),
+ title:text('title').notNull(), note:text('note').notNull().default(''), result:text('result').notNull().default(''),
  elapsed:integer('elapsed').notNull().default(0), started:integer('started'),
  startedAt:integer('started_at'), endedAt:integer('ended_at'),
  status:text('status').notNull().default('done'),version:integer('version').notNull().default(0),

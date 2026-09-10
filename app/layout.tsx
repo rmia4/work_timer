@@ -3,6 +3,7 @@ import "./globals.css";
 import "./workspace.css";
 import "./login.css";
 import "./calendar.css";
+import "./result.css";
 
 export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",
