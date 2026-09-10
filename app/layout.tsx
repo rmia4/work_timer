@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./workspace.css";
+import "./login.css";
 
 export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",
   description: "일일 업무 일지와 작업 시간 측정",
+  robots: { index: false, follow: false },
   other: {
     "codex-preview": "development",
   },

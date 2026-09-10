@@ -1,16 +1,18 @@
-import {getChatGPTUser} from '../../chatgpt-auth';
+import {getCodeUser} from '../../code-auth';
+import {env} from 'cloudflare:workers';
+import {sameOrigin} from '../../../lib/access-code';
 import {database} from '../../../db/raw';
 const reply=(x:unknown,status=200)=>Response.json(x,{status,headers:{'Cache-Control':'no-store'}});
 const dayValid=(s:unknown)=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 export async function GET(req:Request){
- const user=await getChatGPTUser();if(!user)return reply({error:'로그인이 필요합니다.'},401);
+ const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
  const day=new URL(req.url).searchParams.get('day');if(!dayValid(day))return reply({error:'날짜를 확인해 주세요.'},400);
  try{const result=await database().prepare("SELECT * FROM tasks WHERE owner=? AND (day=? OR status!='done') ORDER BY created DESC").bind(user.userId,day).all();return reply({tasks:result.results,now:Date.now()});}
  catch(e){console.error(e);return reply({error:'기록을 불러오지 못했습니다. 다시 시도해 주세요.'},503);}
 }
 export async function POST(req:Request){
- const user=await getChatGPTUser();if(!user)return reply({error:'로그인이 필요합니다.'},401);
- if(req.headers.get('sec-fetch-site')==='cross-site')return reply({error:'허용되지 않은 요청입니다.'},403);
+ const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
+ if(!sameOrigin(req,env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
  let b:any;try{b=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
  if(!b||typeof b!=='object')return reply({error:'요청을 확인해 주세요.'},400);
  try{

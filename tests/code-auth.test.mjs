@@ -1,0 +1,43 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {pbkdf2Sync,randomBytes} from 'node:crypto';
+import ts from 'typescript';
+const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+async function moduleFrom(path,imports=''){
+ const source=imports+'\n'+read(path).replace(/^import .*;\s*$/gm,'');
+ const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+ return import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+}
+test('code auth: wrong code, secure session, old records, expiry, logout, rate limit and CSRF',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec(read('drizzle/0000_wide_starjammers.sql'));db.exec(read('drizzle/0001_fearless_stepford_cuckoos.sql'));
+ db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
+ const adapter={prepare(sql){return {bind(...args){return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
+ const salt=randomBytes(16),code='test-only-code';
+ const env={APP_ORIGIN:'https://diary.test',ACCESS_CODE_HASH:'100000:'+salt.toString('hex')+':'+pbkdf2Sync(code,salt,100000,32,'sha256').toString('hex')};
+ const helpers=await moduleFrom('lib/access-code.ts');
+ globalThis.authFixture={...helpers,env,database:()=>adapter};
+ const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
+ const user=await moduleFrom('app/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
+ globalThis.authFixture.getCodeUser=user.getCodeUser;
+ const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database}=globalThis.authFixture;');
+ const request=(value,origin=env.APP_ORIGIN)=>new Request(env.APP_ORIGIN+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify({code:value})});
+ assert.equal((await tasks.GET(new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10'))).status,401);
+ assert.equal((await auth.POST(request(code,'https://evil.test'))).status,403);
+ assert.equal((await auth.POST(request('incorrect'))).status,401);
+ const ok=await auth.POST(request(code));assert.equal(ok.status,200);
+ const cookie=ok.headers.get('set-cookie');assert.match(cookie,/Secure; HttpOnly; SameSite=Strict/);
+ const req=new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10',{headers:{cookie}});
+ assert.deepEqual(await user.getCodeUser(req),{userId:'legacy-owner'});
+ const records=await tasks.GET(req);assert.equal(records.status,200);assert.equal((await records.json()).tasks[0].id,'old');
+ assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:'https://evil.test'},body:'{}'}))).status,403);
+ assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:cookie.replace(/=./,'=z')}})),null);
+ db.prepare('UPDATE code_sessions SET expires=0').run();assert.equal(await user.getCodeUser(req),null);
+ const again=await auth.POST(request(code));const c2=again.headers.get('set-cookie');
+ const logout=await auth.DELETE(new Request(env.APP_ORIGIN+'/api/auth',{method:'DELETE',headers:{origin:env.APP_ORIGIN,cookie:c2}}));assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);
+ assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:c2}})),null);
+ db.prepare('UPDATE code_limits SET attempts=10').run();assert.equal((await auth.POST(request(code))).status,429);
+ assert.equal(db.prepare('SELECT owner FROM tasks').get().owner,'legacy-owner');
+ db.close();delete globalThis.authFixture;
+});
