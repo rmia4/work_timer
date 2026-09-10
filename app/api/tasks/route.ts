@@ -1,0 +1,42 @@
+import {getChatGPTUser} from '../../chatgpt-auth';
+import {database} from '../../../db/raw';
+const reply=(x:unknown,status=200)=>Response.json(x,{status,headers:{'Cache-Control':'no-store'}});
+const dayValid=(s:unknown)=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+export async function GET(req:Request){
+ const user=await getChatGPTUser();if(!user)return reply({error:'로그인이 필요합니다.'},401);
+ const day=new URL(req.url).searchParams.get('day');if(!dayValid(day))return reply({error:'날짜를 확인해 주세요.'},400);
+ try{const result=await database().prepare("SELECT * FROM tasks WHERE owner=? AND (day=? OR status!='done') ORDER BY created DESC").bind(user.userId,day).all();return reply({tasks:result.results,now:Date.now()});}
+ catch(e){console.error(e);return reply({error:'기록을 불러오지 못했습니다. 다시 시도해 주세요.'},503);}
+}
+export async function POST(req:Request){
+ const user=await getChatGPTUser();if(!user)return reply({error:'로그인이 필요합니다.'},401);
+ if(req.headers.get('sec-fetch-site')==='cross-site')return reply({error:'허용되지 않은 요청입니다.'},403);
+ let b:any;try{b=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
+ if(!b||typeof b!=='object')return reply({error:'요청을 확인해 주세요.'},400);
+ try{
+ const db=database(),now=Date.now(),owner=user.userId;
+ if(b.action==='create'){
+ if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||!dayValid(b.day)||typeof b.note!=='string'||b.note.length>20000||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'제목, 날짜, 시간을 확인해 주세요.'},400);
+ await db.prepare('INSERT INTO tasks (id,owner,day,title,note,elapsed,started,status,created) VALUES (?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),owner,b.day,b.title.trim(),b.note,b.run?0:b.elapsed,b.run?now:null,b.run?'running':'done',now).run();
+ }else{
+ if(typeof b.id!=='string'||!Number.isInteger(b.version))return reply({error:'기록을 다시 불러와 주세요.'},400);
+ const t:any=await db.prepare('SELECT * FROM tasks WHERE id=? AND owner=?').bind(b.id,owner).first();
+ if(!t)return reply({error:'기록이 없습니다.'},404);
+ if(t.version!==b.version)return reply({error:'다른 기기에서 변경되었습니다. 다시 시도해 주세요.'},409);
+ let q;
+ if(b.action==='delete'){if(t.status!=='done')return reply({error:'측정을 종료한 뒤 삭제해 주세요.'},400);q=db.prepare('DELETE FROM tasks WHERE id=? AND owner=? AND version=?').bind(t.id,owner,t.version);}
+ else if(b.action==='edit'){
+ if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||typeof b.note!=='string'||b.note.length>20000||!dayValid(b.day)||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'입력 내용을 확인해 주세요.'},400);
+ if(t.status!=='done')return reply({error:'측정을 종료한 뒤 수정해 주세요.'},400);
+ q=db.prepare('UPDATE tasks SET title=?,note=?,day=?,elapsed=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(b.title.trim(),b.note,b.day,b.elapsed,t.id,owner,t.version);
+ }else{
+ const transitions:Record<string,string>={pause:'paused',resume:'running',finish:'done'};
+ if(!transitions[b.action]||(b.action==='pause'&&t.status!=='running')||(b.action==='resume'&&t.status!=='paused')||(b.action==='finish'&&t.status==='done'))return reply({error:'타이머 상태를 다시 확인해 주세요.'},409);
+ const elapsed=t.elapsed+(t.started===null?0:Math.max(0,now-t.started));
+ q=db.prepare('UPDATE tasks SET elapsed=?,started=?,status=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(elapsed,b.action==='resume'?now:null,transitions[b.action],t.id,owner,t.version);
+ }
+ const result=await q.run();if(!result.meta.changes)return reply({error:'다른 기기에서 변경되었습니다. 다시 시도해 주세요.'},409);
+ }
+ return reply({ok:true});
+ }catch(e){console.error(e);if(String(e).includes('UNIQUE'))return reply({error:'진행 중인 작업을 먼저 종료해 주세요.'},409);return reply({error:'저장하지 못했습니다. 입력 내용을 유지한 채 다시 시도해 주세요.'},503);}
+}

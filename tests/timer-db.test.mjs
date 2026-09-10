@@ -1,0 +1,24 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+const migration=readFileSync(new URL('../drizzle/0000_wide_starjammers.sql',import.meta.url),'utf8');
+test('one active timer, stale writes, ownership and elapsed across pause/resume',()=>{
+const db=new DatabaseSync(':memory:');db.exec(migration);
+const insert=db.prepare('INSERT INTO tasks (id,owner,day,title,elapsed,started,status,created) VALUES (?,?,?,?,?,?,?,?)');
+insert.run('a','owner','2026-09-10','업무',0,1000,'running',1000);
+assert.throws(()=>insert.run('b','owner','2026-09-10','중복',0,1000,'running',1000),/UNIQUE/);
+insert.run('other','another','2026-09-10','다른 사용자',0,1000,'running',1000);
+const update=db.prepare('UPDATE tasks SET elapsed=?,started=?,status=?,version=version+1 WHERE id=? AND owner=? AND version=?');
+assert.equal(update.run(3000,null,'paused','a','owner',0).changes,1);
+assert.equal(update.run(9000,null,'done','a','owner',0).changes,0);
+assert.equal(update.run(0,null,'done','a','another',1).changes,0);
+assert.throws(()=>insert.run('b','owner','2026-09-10','중복',0,1000,'running',1000),/UNIQUE/);
+assert.equal(update.run(3000,10000,'running','a','owner',1).changes,1);
+const current=db.prepare('SELECT * FROM tasks WHERE id=?').get('a');
+const total=current.elapsed+Math.max(0,14000-current.started);
+update.run(total,null,'done','a','owner',2);
+assert.equal(db.prepare('SELECT elapsed FROM tasks WHERE id=?').get('a').elapsed,7000);
+insert.run('b','owner','2026-09-10','다음 작업',0,15000,'running',15000);
+db.close();
+});
