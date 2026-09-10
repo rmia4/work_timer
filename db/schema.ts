@@ -4,6 +4,7 @@ export const tasks=sqliteTable('tasks',{
  id:text('id').primaryKey(), owner:text('owner').notNull(), day:text('day').notNull(),
  title:text('title').notNull(), note:text('note').notNull().default(''),
  elapsed:integer('elapsed').notNull().default(0), started:integer('started'),
+ startedAt:integer('started_at'), endedAt:integer('ended_at'),
  status:text('status').notNull().default('done'),version:integer('version').notNull().default(0),
  created:integer('created').notNull()
 },t=>[index('tasks_owner_day').on(t.owner,t.day),uniqueIndex('tasks_one_active').on(t.owner).where(sql`${t.status} != 'done'`)]);

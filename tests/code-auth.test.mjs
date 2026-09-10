@@ -12,16 +12,19 @@ async function moduleFrom(path,imports=''){
 }
 test('code auth: wrong code, secure session, old records, expiry, logout, rate limit and CSRF',async()=>{
  const db=new DatabaseSync(':memory:');db.exec(read('drizzle/0000_wide_starjammers.sql'));db.exec(read('drizzle/0001_fearless_stepford_cuckoos.sql'));
+ db.exec(read('drizzle/0002_glossy_sheva_callister.sql'));
  db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
  const adapter={prepare(sql){return {bind(...args){return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
  const salt=randomBytes(16),code='test-only-code';
  const env={APP_ORIGIN:'https://diary.test',ACCESS_CODE_HASH:'100000:'+salt.toString('hex')+':'+pbkdf2Sync(code,salt,100000,32,'sha256').toString('hex')};
  const helpers=await moduleFrom('lib/access-code.ts');
- globalThis.authFixture={...helpers,env,database:()=>adapter};
+ const dates=await moduleFrom('lib/work-dates.ts');
+ globalThis.authFixture={...helpers,...dates,env,database:()=>adapter};
  const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
  const user=await moduleFrom('app/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
- const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database}=globalThis.authFixture;');
+ const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
+ const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
  const request=(value,origin=env.APP_ORIGIN)=>new Request(env.APP_ORIGIN+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify({code:value})});
  assert.equal((await tasks.GET(new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10'))).status,401);
  assert.equal((await auth.POST(request(code,'https://evil.test'))).status,403);
@@ -33,6 +36,33 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  const records=await tasks.GET(req);assert.equal(records.status,200);assert.equal((await records.json()).tasks[0].id,'old');
  assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:'https://evil.test'},body:'{}'}))).status,403);
  assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:cookie.replace(/=./,'=z')}})),null);
+ const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
+ const base=Date.now(),originalNow=Date.now;let current=base;
+ Date.now=()=>current;
+ try{
+ assert.equal((await post({action:'create',title:'timer',note:'',day:'2026-09-10',elapsed:0,run:true})).status,200);
+ let timer=db.prepare("SELECT * FROM tasks WHERE title='timer'").get();const id=timer.id;
+ assert.equal(timer.started_at,base);assert.equal(timer.ended_at,null);
+ current=base+3000;assert.equal((await post({action:'pause',id,version:0})).status,200);
+ current=base+10000;assert.equal((await post({action:'resume',id,version:1})).status,200);
+ timer=db.prepare('SELECT * FROM tasks WHERE id=?').get(id);assert.equal(timer.started_at,base);
+ current=base+14000;
+ const calReq=new Request(env.APP_ORIGIN+'/api/calendar?month=2026-09',{headers:{cookie}});
+ assert.equal((await calendar.GET(new Request(calReq.url))).status,401);
+ let cal=await (await calendar.GET(calReq)).json();assert.equal(cal.days[0].count,2);assert.equal(cal.days[0].total,7000);assert.equal(cal.days[0].running,1);
+ assert.equal((await post({action:'finish',id,version:2})).status,200);
+ timer=db.prepare('SELECT * FROM tasks WHERE id=?').get(id);assert.equal(timer.started_at,base);assert.equal(timer.ended_at,base+14000);assert.equal(timer.elapsed,7000);
+ current=base+20000;cal=await (await calendar.GET(calReq)).json();assert.equal(cal.days[0].total,7000);assert.equal(cal.days[0].running,0);
+ const manual={action:'create',title:'manual',note:'',day:'2026-08-31',elapsed:60000,run:false,started_at:base,ended_at:base+60000};
+ assert.equal((await post({...manual,ended_at:base-1})).status,400);
+ assert.equal((await post(manual)).status,200);
+ cal=await (await calendar.GET(calReq)).json();assert.equal(cal.days.length,1);assert.equal(cal.days[0].count,2);
+ assert.equal((await calendar.GET(new Request(env.APP_ORIGIN+'/api/calendar?month=2026-13',{headers:{cookie}}))).status,400);
+ const empty=await (await calendar.GET(new Request(env.APP_ORIGIN+'/api/calendar?month=2026-07',{headers:{cookie}}))).json();assert.equal(empty.days.length,0);
+ assert.equal(db.prepare("SELECT started_at FROM tasks WHERE id='old'").get().started_at,null);
+ assert.equal(dates.parseTimeInput('2026-09-10T09:00:00'),Date.parse('2026-09-10T00:00:00Z'));
+ assert.equal(dates.timeInput(Date.parse('2026-09-10T00:00:00Z')),'2026-09-10T09:00:00');
+ }finally{Date.now=originalNow;}
  db.prepare('UPDATE code_sessions SET expires=0').run();assert.equal(await user.getCodeUser(req),null);
  const again=await auth.POST(request(code));const c2=again.headers.get('set-cookie');
  const logout=await auth.DELETE(new Request(env.APP_ORIGIN+'/api/auth',{method:'DELETE',headers:{origin:env.APP_ORIGIN,cookie:c2}}));assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./workspace.css";
 import "./login.css";
+import "./calendar.css";
 
 export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",
