@@ -12,7 +12,7 @@ async function moduleFrom(path,imports=''){
 }
 test('code auth: wrong code, secure session, old records, expiry, logout, rate limit and CSRF',async()=>{
  const db=new DatabaseSync(':memory:');db.exec(read('drizzle/0000_wide_starjammers.sql'));db.exec(read('drizzle/0001_fearless_stepford_cuckoos.sql'));
- db.exec(read('drizzle/0002_glossy_sheva_callister.sql'));db.exec(read('drizzle/0003_wild_night_nurse.sql'));
+ db.exec(read('drizzle/0002_glossy_sheva_callister.sql'));db.exec(read('drizzle/0003_wild_night_nurse.sql'));db.exec(read('drizzle/0004_absurd_proemial_gods.sql'));
  db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
  const adapter={prepare(sql){return {bind(...args){return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
  const salt=randomBytes(16),code='test-only-code';
@@ -40,9 +40,9 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  const base=Date.now(),originalNow=Date.now;let current=base;
  Date.now=()=>current;
  try{
- assert.equal((await post({action:'create',title:'timer',note:'진행 내용',result:'',day:'2026-09-10',elapsed:0,run:true})).status,200);
+ assert.equal((await post({action:'create',title:'timer',note:'진행 내용',result:'',target:3600000,day:'2026-09-10',elapsed:0,run:true})).status,200);
  let timer=db.prepare("SELECT * FROM tasks WHERE title='timer'").get();const id=timer.id;
- assert.equal(timer.started_at,base);assert.equal(timer.ended_at,null);
+ assert.equal(timer.started_at,base);assert.equal(timer.ended_at,null);assert.equal(timer.target,3600000);
  current=base+3000;assert.equal((await post({action:'pause',id,version:0})).status,200);
  current=base+10000;assert.equal((await post({action:'resume',id,version:1})).status,200);
  timer=db.prepare('SELECT * FROM tasks WHERE id=?').get(id);assert.equal(timer.started_at,base);
@@ -53,13 +53,13 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  assert.equal((await post({action:'finish',id,version:2,result:'배포 확인 완료'})).status,200);
  timer=db.prepare('SELECT * FROM tasks WHERE id=?').get(id);assert.equal(timer.started_at,base);assert.equal(timer.ended_at,base+14000);assert.equal(timer.elapsed,7000);assert.equal(timer.result,'배포 확인 완료');
  current=base+20000;cal=await (await calendar.GET(calReq)).json();assert.equal(cal.days[0].total,7000);assert.equal(cal.days[0].running,0);
- const manual={action:'create',title:'manual',note:'업무 메모',result:'문서 작성 완료',day:'2026-08-31',elapsed:60000,run:false,started_at:base,ended_at:base+60000};
+ const manual={action:'create',title:'manual',note:'업무 메모',result:'문서 작성 완료',target:1800000,day:'2026-08-31',elapsed:60000,run:false,started_at:base,ended_at:base+60000};
  assert.equal((await post({...manual,ended_at:base-1})).status,400);
- assert.equal((await post(manual)).status,200);assert.equal(db.prepare("SELECT result FROM tasks WHERE title='manual'").get().result,'문서 작성 완료');
+ assert.equal((await post(manual)).status,200);assert.deepEqual({...db.prepare("SELECT result,target FROM tasks WHERE title='manual'").get()},{result:'문서 작성 완료',target:1800000});
  cal=await (await calendar.GET(calReq)).json();assert.equal(cal.days.length,1);assert.equal(cal.days[0].count,2);
  assert.equal((await calendar.GET(new Request(env.APP_ORIGIN+'/api/calendar?month=2026-13',{headers:{cookie}}))).status,400);
  const empty=await (await calendar.GET(new Request(env.APP_ORIGIN+'/api/calendar?month=2026-07',{headers:{cookie}}))).json();assert.equal(empty.days.length,0);
- assert.equal(db.prepare("SELECT started_at FROM tasks WHERE id='old'").get().started_at,null);
+ assert.deepEqual({...db.prepare("SELECT started_at,target FROM tasks WHERE id='old'").get()},{started_at:null,target:0});
  assert.equal(dates.parseTimeInput('2026-09-10T09:00:00'),Date.parse('2026-09-10T00:00:00Z'));
  assert.equal(dates.timeInput(Date.parse('2026-09-10T00:00:00Z')),'2026-09-10T09:00:00');
  }finally{Date.now=originalNow;}

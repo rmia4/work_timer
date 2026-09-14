@@ -1,0 +1,1 @@
+ALTER TABLE `tasks` ADD `target` integer DEFAULT 0 NOT NULL;

@@ -19,10 +19,10 @@ export async function POST(req:Request){
  try{
  const db=database(),now=Date.now(),owner=user.userId;
  if(b.action==='create'){
- if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||!dayValid(b.day)||typeof b.note!=='string'||b.note.length>20000||typeof b.result!=='string'||b.result.length>20000||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'제목, 날짜, 시간을 확인해 주세요.'},400);
+ if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||!dayValid(b.day)||typeof b.note!=='string'||b.note.length>20000||typeof b.result!=='string'||b.result.length>20000||!Number.isSafeInteger(b.target)||b.target<0||b.target>31536000000||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'제목, 날짜, 시간을 확인해 주세요.'},400);
  const first=b.run?now:(b.started_at??null),last=b.run?null:(b.ended_at??null);
  if(!validTimes(first,last))return reply({error:'종료 시각은 시작 시각 이후여야 합니다.'},400);
- await db.prepare('INSERT INTO tasks (id,owner,day,title,note,result,elapsed,started,status,created,started_at,ended_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),owner,b.day,b.title.trim(),b.note,b.result,b.run?0:b.elapsed,b.run?now:null,b.run?'running':'done',now,first,last).run();
+ await db.prepare('INSERT INTO tasks (id,owner,day,title,note,result,target,elapsed,started,status,created,started_at,ended_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),owner,b.day,b.title.trim(),b.note,b.result,b.target,b.run?0:b.elapsed,b.run?now:null,b.run?'running':'done',now,first,last).run();
  }else{
  if(typeof b.id!=='string'||!Number.isInteger(b.version))return reply({error:'기록을 다시 불러와 주세요.'},400);
  const t:any=await db.prepare('SELECT * FROM tasks WHERE id=? AND owner=?').bind(b.id,owner).first();
@@ -31,11 +31,11 @@ export async function POST(req:Request){
  let q;
  if(b.action==='delete'){if(t.status!=='done')return reply({error:'측정을 종료한 뒤 삭제해 주세요.'},400);q=db.prepare('DELETE FROM tasks WHERE id=? AND owner=? AND version=?').bind(t.id,owner,t.version);}
  else if(b.action==='edit'){
- if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||typeof b.note!=='string'||b.note.length>20000||typeof b.result!=='string'||b.result.length>20000||!dayValid(b.day)||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'입력 내용을 확인해 주세요.'},400);
+ if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||typeof b.note!=='string'||b.note.length>20000||typeof b.result!=='string'||b.result.length>20000||!dayValid(b.day)||!Number.isSafeInteger(b.target)||b.target<0||b.target>31536000000||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'입력 내용을 확인해 주세요.'},400);
  if(t.status!=='done')return reply({error:'측정을 종료한 뒤 수정해 주세요.'},400);
  const first=b.started_at===undefined?t.started_at:b.started_at,last=b.ended_at===undefined?t.ended_at:b.ended_at;
  if(!validTimes(first,last))return reply({error:'종료 시각은 시작 시각 이후여야 합니다.'},400);
- q=db.prepare('UPDATE tasks SET title=?,note=?,result=?,day=?,elapsed=?,started_at=?,ended_at=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(b.title.trim(),b.note,b.result,b.day,b.elapsed,first,last,t.id,owner,t.version);
+ q=db.prepare('UPDATE tasks SET title=?,note=?,result=?,day=?,target=?,elapsed=?,started_at=?,ended_at=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(b.title.trim(),b.note,b.result,b.day,b.target,b.elapsed,first,last,t.id,owner,t.version);
  }else{
  const transitions:Record<string,string>={pause:'paused',resume:'running',finish:'done'};
  if(!transitions[b.action]||(b.action==='pause'&&t.status!=='running')||(b.action==='resume'&&t.status!=='paused')||(b.action==='finish'&&t.status==='done'))return reply({error:'타이머 상태를 다시 확인해 주세요.'},409);
