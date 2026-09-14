@@ -18,3 +18,15 @@ test('memo board stays global and uses separate title and growing body fields',(
  assert.match(styles,/\.memo-body\{font-size:16px/);
  assert.match(styles,/grid-template-columns:360px minmax\(0,1fr\) 320px/);
 });
+
+test('workspace removes intro copy and keeps only the Korean brand name',()=>{
+ const workspace=read('app/workspace.tsx');
+ const styles=read('app/memo-board.css');
+ assert.doesNotMatch(workspace,/DAILY WORKSPACE/);
+ assert.doesNotMatch(workspace,/하루의 일을 기록하세요\./);
+ assert.match(workspace,/<div className="brand"><strong>업무 기록<\/strong><\/div>/);
+ assert.doesNotMatch(workspace,/<div className="brand"><Clock3/);
+ assert.doesNotMatch(workspace,/<span>WORK TIMER<\/span>/);
+ assert.match(workspace,/className="heading heading-controls"/);
+ assert.match(styles,/\.heading\.heading-controls\{justify-content:flex-end\}/);
+});

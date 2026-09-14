@@ -1,5 +1,6 @@
 main{max-width:1540px}
 .heading,.columns{max-width:1180px}
+.heading.heading-controls{justify-content:flex-end}
 .content-grid{grid-template-columns:360px minmax(0,1fr) 320px;gap:24px}
 .memo-board{min-width:0;align-self:start}
 .memo-board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
