@@ -56,6 +56,15 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  const manual={action:'create',title:'manual',note:'업무 메모',result:'문서 작성 완료',target:1800000,day:'2026-08-31',elapsed:60000,run:false,started_at:base,ended_at:base+60000};
  assert.equal((await post({...manual,ended_at:base-1})).status,400);
  assert.equal((await post(manual)).status,200);assert.deepEqual({...db.prepare("SELECT result,target FROM tasks WHERE title='manual'").get()},{result:'문서 작성 완료',target:1800000});
+ const manualTimer=db.prepare("SELECT * FROM tasks WHERE title='manual'").get();
+ current=base+21000;
+ const reopen={...manual,action:'edit',id:manualTimer.id,version:manualTimer.version,elapsed:90000,run:true};
+ assert.equal((await post(reopen)).status,200);
+ let reopened=db.prepare('SELECT * FROM tasks WHERE id=?').get(manualTimer.id);
+ assert.deepEqual({status:reopened.status,elapsed:reopened.elapsed,started:reopened.started,started_at:reopened.started_at,ended_at:reopened.ended_at},{status:'running',elapsed:90000,started:current,started_at:base,ended_at:null});
+ assert.equal((await post(reopen)).status,409);
+ current=base+26000;assert.equal((await post({action:'finish',id:manualTimer.id,version:1,result:'추가 작업 완료'})).status,200);
+ reopened=db.prepare('SELECT * FROM tasks WHERE id=?').get(manualTimer.id);assert.equal(reopened.elapsed,95000);assert.equal(reopened.ended_at,current);
  cal=await (await calendar.GET(calReq)).json();assert.equal(cal.days.length,1);assert.equal(cal.days[0].count,2);
  assert.equal((await calendar.GET(new Request(env.APP_ORIGIN+'/api/calendar?month=2026-13',{headers:{cookie}}))).status,400);
  const empty=await (await calendar.GET(new Request(env.APP_ORIGIN+'/api/calendar?month=2026-07',{headers:{cookie}}))).json();assert.equal(empty.days.length,0);

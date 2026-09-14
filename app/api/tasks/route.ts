@@ -33,9 +33,10 @@ export async function POST(req:Request){
  else if(b.action==='edit'){
  if(typeof b.title!=='string'||!b.title.trim()||b.title.length>200||typeof b.note!=='string'||b.note.length>20000||typeof b.result!=='string'||b.result.length>20000||!dayValid(b.day)||!Number.isSafeInteger(b.target)||b.target<0||b.target>31536000000||!Number.isSafeInteger(b.elapsed)||b.elapsed<0||b.elapsed>31536000000)return reply({error:'입력 내용을 확인해 주세요.'},400);
  if(t.status!=='done')return reply({error:'측정을 종료한 뒤 수정해 주세요.'},400);
- const first=b.started_at===undefined?t.started_at:b.started_at,last=b.ended_at===undefined?t.ended_at:b.ended_at;
+ const run=b.run===true;
+ const first=b.started_at===undefined?t.started_at:b.started_at,last=run?null:(b.ended_at===undefined?t.ended_at:b.ended_at);
  if(!validTimes(first,last))return reply({error:'종료 시각은 시작 시각 이후여야 합니다.'},400);
- q=db.prepare('UPDATE tasks SET title=?,note=?,result=?,day=?,target=?,elapsed=?,started_at=?,ended_at=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(b.title.trim(),b.note,b.result,b.day,b.target,b.elapsed,first,last,t.id,owner,t.version);
+ q=db.prepare('UPDATE tasks SET title=?,note=?,result=?,day=?,target=?,elapsed=?,started=?,status=?,started_at=?,ended_at=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(b.title.trim(),b.note,b.result,b.day,b.target,b.elapsed,run?now:null,run?'running':'done',first??(run?now:null),last,t.id,owner,t.version);
  }else{
  const transitions:Record<string,string>={pause:'paused',resume:'running',finish:'done'};
  if(!transitions[b.action]||(b.action==='pause'&&t.status!=='running')||(b.action==='resume'&&t.status!=='paused')||(b.action==='finish'&&t.status==='done'))return reply({error:'타이머 상태를 다시 확인해 주세요.'},409);
