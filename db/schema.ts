@@ -14,3 +14,8 @@ export const codeSessions=sqliteTable('code_sessions',{
 export const codeLimits=sqliteTable('code_limits',{
  id:text('id').primaryKey(),window:integer('window').notNull(),attempts:integer('attempts').notNull()
 });
+export const memos=sqliteTable('memos',{
+ id:text('id').primaryKey(),owner:text('owner').notNull(),title:text('title').notNull().default(''),
+ body:text('body').notNull().default(''),position:integer('position').notNull(),version:integer('version').notNull().default(0),
+ created:integer('created').notNull(),updated:integer('updated').notNull()
+},t=>[index('memos_owner_position').on(t.owner,t.position)]);

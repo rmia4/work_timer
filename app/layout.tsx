@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./workspace.css";
+import "./memo-board.css";
 import "./login.css";
 import "./calendar.css";
 import "./result.css";

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 import {pbkdf2Sync,randomBytes} from 'node:crypto';
 import ts from 'typescript';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -13,6 +13,8 @@ async function moduleFrom(path,imports=''){
 test('code auth: wrong code, secure session, old records, expiry, logout, rate limit and CSRF',async()=>{
  const db=new DatabaseSync(':memory:');db.exec(read('drizzle/0000_wide_starjammers.sql'));db.exec(read('drizzle/0001_fearless_stepford_cuckoos.sql'));
  db.exec(read('drizzle/0002_glossy_sheva_callister.sql'));db.exec(read('drizzle/0003_wild_night_nurse.sql'));db.exec(read('drizzle/0004_absurd_proemial_gods.sql'));
+ const memoMigration=readdirSync(new URL('../drizzle',import.meta.url)).find(name=>name.startsWith('0005_')&&name.endsWith('.sql'));
+ assert.ok(memoMigration,'memo migration is missing');db.exec(read('drizzle/'+memoMigration));
  db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
  const adapter={prepare(sql){return {bind(...args){return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
  const salt=randomBytes(16),code='test-only-code';
@@ -25,6 +27,8 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  globalThis.authFixture.getCodeUser=user.getCodeUser;
  const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
  const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
+ let memos=null;try{memos=await moduleFrom('app/api/memos/route.ts','const {getCodeUser,env,sameOrigin,database}=globalThis.authFixture;');}catch{}
+ assert.ok(memos?.GET&&memos?.POST,'memo API is missing');
  const request=(value,origin=env.APP_ORIGIN)=>new Request(env.APP_ORIGIN+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify({code:value})});
  assert.equal((await tasks.GET(new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10'))).status,401);
  assert.equal((await auth.POST(request(code,'https://evil.test'))).status,403);
@@ -32,11 +36,14 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  const ok=await auth.POST(request(code));assert.equal(ok.status,200);
  const cookie=ok.headers.get('set-cookie');assert.match(cookie,/Secure; HttpOnly; SameSite=Strict/);
  const req=new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10',{headers:{cookie}});
+ assert.equal((await memos.GET(new Request(env.APP_ORIGIN+'/api/memos'))).status,401);
  assert.deepEqual(await user.getCodeUser(req),{userId:'legacy-owner'});
  const records=await tasks.GET(req);assert.equal(records.status,200);assert.equal((await records.json()).tasks[0].id,'old');
  assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:'https://evil.test'},body:'{}'}))).status,403);
  assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:cookie.replace(/=./,'=z')}})),null);
  const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
+ const memoReq=new Request(env.APP_ORIGIN+'/api/memos',{headers:{cookie}});
+ const postMemo=body=>memos.POST(new Request(memoReq.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  const base=Date.now(),originalNow=Date.now;let current=base;
  Date.now=()=>current;
  try{
@@ -71,6 +78,19 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  assert.deepEqual({...db.prepare("SELECT started_at,target FROM tasks WHERE id='old'").get()},{started_at:null,target:0});
  assert.equal(dates.parseTimeInput('2026-09-10T09:00:00'),Date.parse('2026-09-10T00:00:00Z'));
  assert.equal(dates.timeInput(Date.parse('2026-09-10T00:00:00Z')),'2026-09-10T09:00:00');
+ let response=await postMemo({action:'create'});assert.equal(response.status,200);
+ let created=(await response.json()).memo;assert.equal(created.title,'');assert.equal(created.body,'');assert.equal(created.version,0);
+ response=await postMemo({action:'update',id:created.id,version:0,title:'항상 보이는 메모',body:'날짜와 무관한 내용'});
+ assert.equal(response.status,200);let updated=(await response.json()).memo;assert.equal(updated.version,1);
+ response=await postMemo({action:'update',id:created.id,version:0,title:'오래된 수정',body:''});
+ assert.equal(response.status,409);assert.equal((await response.json()).currentVersion,1);
+ assert.equal((await postMemo({action:'update',id:created.id,version:1,title:'x'.repeat(201),body:''})).status,400);
+ response=await memos.GET(new Request(env.APP_ORIGIN+'/api/memos?day=1999-01-01',{headers:{cookie}}));
+ assert.equal(response.status,200);assert.equal((await response.json()).memos[0].title,'항상 보이는 메모');
+ db.prepare("INSERT INTO memos (id,owner,title,body,position,created,updated) VALUES ('other-memo','another','숨김','','2',0,0)").run();
+ response=await memos.GET(memoReq);assert.equal((await response.json()).memos.length,1);
+ assert.equal((await postMemo({action:'delete',id:created.id,version:1})).status,200);
+ response=await memos.GET(memoReq);assert.equal((await response.json()).memos.length,0);
  }finally{Date.now=originalNow;}
  db.prepare('UPDATE code_sessions SET expires=0').run();assert.equal(await user.getCodeUser(req),null);
  const again=await auth.POST(request(code));const c2=again.headers.get('set-cookie');
