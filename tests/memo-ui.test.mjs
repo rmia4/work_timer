@@ -16,7 +16,7 @@ test('memo board stays global and uses separate title and growing body fields',(
  assert.match(component,/setTimeout\(\(\)=>void save\(\),700\)/);
  assert.match(styles,/\.memo-title\{font-size:18px/);
  assert.match(styles,/\.memo-body\{font-size:16px/);
- assert.match(styles,/main\{max-width:none;margin-left:max\(0px,calc\(\(100vw - 1540px\)\/2\)\);margin-right:0\}/);
+ assert.match(styles,/main\{max-width:calc\(\(100vw \+ 1540px\)\/2\);margin-left:auto;margin-right:auto\}/);
  assert.match(styles,/grid-template-columns:360px minmax\(0,clamp\(500px,calc\(80vw - 620\.8px\),611\.2px\)\) minmax\(400px,1fr\)/);
  assert.match(styles,/@media\(max-width:1360px\)/);
 });

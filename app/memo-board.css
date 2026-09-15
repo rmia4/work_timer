@@ -1,4 +1,4 @@
-main{max-width:none;margin-left:max(0px,calc((100vw - 1540px)/2));margin-right:0}
+main{max-width:calc((100vw + 1540px)/2);margin-left:auto;margin-right:auto}
 .heading,.columns{max-width:1180px}
 .heading.heading-controls{justify-content:flex-end}
 .content-grid{grid-template-columns:360px minmax(0,clamp(500px,calc(80vw - 620.8px),611.2px)) minmax(400px,1fr);gap:24px}
