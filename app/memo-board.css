@@ -1,7 +1,7 @@
-main{max-width:1540px}
+main{max-width:none;margin-left:max(0px,calc((100vw - 1540px)/2));margin-right:0}
 .heading,.columns{max-width:1180px}
 .heading.heading-controls{justify-content:flex-end}
-.content-grid{grid-template-columns:360px minmax(0,1fr) 320px;gap:24px}
+.content-grid{grid-template-columns:360px minmax(0,clamp(500px,calc(80vw - 620.8px),611.2px)) minmax(400px,1fr);gap:24px}
 .memo-board{min-width:0;align-self:start}
 .memo-board-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
 .memo-board-head .section-title{margin:0}
@@ -19,5 +19,5 @@ main{max-width:1540px}
 .memo-load-error button{margin:10px auto 0}
 .memo-error{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;color:#a02e2e;font-size:12px}
 .memo-error button{padding:5px 8px;font-size:11px}
-@media(max-width:1250px){main{max-width:1180px}.content-grid{grid-template-columns:360px minmax(0,1fr)}.memo-board{grid-column:1/-1}}
+@media(max-width:1360px){main{max-width:1180px;margin:auto}.content-grid{grid-template-columns:360px minmax(0,1fr)}.memo-board{grid-column:1/-1}}
 @media(max-width:800px){.content-grid{grid-template-columns:1fr}.memo-board{grid-column:auto}.memo-board-head{margin-top:6px}}
