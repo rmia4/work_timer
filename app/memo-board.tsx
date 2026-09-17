@@ -61,8 +61,8 @@ export default function MemoBoard({day}:{day?:string}={}){
  const load=async()=>{setLoading(true);setError('');try{const response=await fetch(day?endpoint+'?day='+encodeURIComponent(day):endpoint);const data=await response.json() as {memos?:Memo[];error?:string};if(!response.ok)throw new Error(data.error);setMemos(data.memos||[]);}catch(reason){setError((reason as Error).message);}finally{setLoading(false);}};
  useEffect(()=>{setMemos([]);void load();},[day]);
  const create=async()=>{setError('');try{const data=await request({action:'create'});if(data.memo){setMemos(current=>[...current,data.memo!]);setFocusId(data.memo.id);}}catch(reason){setError((reason as Error).message);}};
- return <aside className={day?'memo-board daily-memo-board':'memo-board'} aria-label={day?'날짜별 메모장':'메모장'}>
-  <div className="memo-board-head"><div className="section-title"><StickyNote size={20}/><h2>{day?'날짜별 메모':'메모장'}</h2></div></div>
+ return <aside className={day?'memo-board daily-memo-board':'memo-board'} aria-label={day?'일일 메모장':'메모장'}>
+  <div className="memo-board-head"><div className="section-title"><StickyNote size={20}/><h2>{day?'일일 메모':'메모장'}</h2></div></div>
   {error&&<div className="memo-load-error" role="alert"><span>{error}</span><button type="button" onClick={()=>void load()}>다시 불러오기</button></div>}
   {loading?<p className="memo-placeholder">메모를 불러오는 중입니다.</p>:memos.length===0?<div className="memo-placeholder"><p>{day?'선택한 날짜에 메모를 남겨보세요.':'항상 표시할 메모를 남겨보세요.'}</p><button type="button" onClick={()=>void create()}><Plus size={16}/>첫 메모 만들기</button></div>:memos.map(memo=><MemoCard key={memo.id} memo={memo} focus={focusId===memo.id} request={request} onDeleted={id=>setMemos(current=>current.filter(item=>item.id!==id))}/>)}
   {!loading&&memos.length>0&&<button type="button" className="memo-add" onClick={()=>void create()}><Plus size={16}/>새 메모</button>}
