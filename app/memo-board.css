@@ -92,12 +92,12 @@ main {
   background: transparent;
 }
 .memo-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   padding-right: 92px;
 }
 .memo-body {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.65;
   resize: none;
   overflow: hidden;

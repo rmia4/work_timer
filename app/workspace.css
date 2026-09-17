@@ -192,6 +192,9 @@ textarea {
   color: white;
   border-color: #858c95;
 }
+.layout_placeholder{
+  position: 
+}
 .summary {
   position: relative;
   background: #fff;
@@ -206,7 +209,7 @@ textarea {
 .summary-date {
   font-size: 36px;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: -1px;
   margin: 0 0 14px;
   font-variant-numeric: tabular-nums;
