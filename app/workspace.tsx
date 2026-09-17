@@ -421,8 +421,8 @@ export default function Workspace() {
                 </span>
               </div>
             </section>
-          </div>
           <section className="layout-placeholder" aria-hidden="true" />
+          </div>
         </div>
         <div className="content-grid">
           <div className="left-panels">
