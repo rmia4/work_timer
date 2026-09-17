@@ -6,14 +6,14 @@ import {Plus,StickyNote,Trash2} from 'lucide-react';
 type Memo={id:string;title:string;body:string;position:number;version:number;created:number;updated:number};
 type SaveState='saved'|'saving'|'error';
 
-async function memoRequest(body:unknown){
- const response=await fetch('/api/memos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+async function memoRequest(endpoint:string,body:unknown){
+ const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
  const data=await response.json() as {memo?:Memo;error?:string;currentVersion?:number};
  if(!response.ok)throw Object.assign(new Error(data.error||'메모를 저장하지 못했습니다.'),{status:response.status,currentVersion:data.currentVersion});
  return data;
 }
 
-function MemoCard({memo,focus,onDeleted}:{memo:Memo;focus:boolean;onDeleted:(id:string)=>void}){
+function MemoCard({memo,focus,onDeleted,request}:{memo:Memo;focus:boolean;onDeleted:(id:string)=>void;request:(body:Record<string,unknown>)=>Promise<{memo?:Memo}>}){
  const [title,setTitle]=useState(memo.title),[body,setBody]=useState(memo.body),[state,setState]=useState<SaveState>('saved'),[error,setError]=useState('');
  const titleRef=useRef(title),bodyRef=useRef(body),versionRef=useRef(memo.version),persistedRef=useRef({title:memo.title,body:memo.body}),timerRef=useRef<ReturnType<typeof setTimeout>|null>(null),savingRef=useRef(false),queuedRef=useRef(false),mountedRef=useRef(true),areaRef=useRef<HTMLTextAreaElement>(null);
  titleRef.current=title;bodyRef.current=body;
@@ -24,7 +24,7 @@ function MemoCard({memo,focus,onDeleted}:{memo:Memo;focus:boolean;onDeleted:(id:
   if(snapshot.title===persistedRef.current.title&&snapshot.body===persistedRef.current.body)return;
   savingRef.current=true;queuedRef.current=false;if(mountedRef.current){setState('saving');setError('');}
   try{
-   const data=await memoRequest({action:'update',id:memo.id,version:versionRef.current,...snapshot});
+   const data=await request({action:'update',id:memo.id,version:versionRef.current,...snapshot});
    if(data.memo){versionRef.current=data.memo.version;persistedRef.current=snapshot;}
    if(mountedRef.current)setState('saved');
   }catch(reason){
@@ -44,7 +44,7 @@ function MemoCard({memo,focus,onDeleted}:{memo:Memo;focus:boolean;onDeleted:(id:
  const remove=async()=>{
   if((title.trim()||body.trim())&&!window.confirm('이 메모를 삭제하시겠습니까?'))return;
   if(timerRef.current)clearTimeout(timerRef.current);
-  try{await memoRequest({action:'delete',id:memo.id,version:versionRef.current});onDeleted(memo.id);}catch(reason){setState('error');setError((reason as Error).message);}
+  try{await request({action:'delete',id:memo.id,version:versionRef.current});onDeleted(memo.id);}catch(reason){setState('error');setError((reason as Error).message);}
  };
 
  return <article className="memo-card">
@@ -55,14 +55,16 @@ function MemoCard({memo,focus,onDeleted}:{memo:Memo;focus:boolean;onDeleted:(id:
  </article>;
 }
 
-export default function MemoBoard(){
+export default function MemoBoard({day}:{day?:string}={}){
  const [memos,setMemos]=useState<Memo[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[focusId,setFocusId]=useState<string|null>(null);
- const load=async()=>{setLoading(true);setError('');try{const response=await fetch('/api/memos');const data=await response.json() as {memos?:Memo[];error?:string};if(!response.ok)throw new Error(data.error);setMemos(data.memos||[]);}catch(reason){setError((reason as Error).message);}finally{setLoading(false);}};
- useEffect(()=>{void load();},[]);
- const create=async()=>{setError('');try{const data=await memoRequest({action:'create'});if(data.memo){setMemos(current=>[...current,data.memo!]);setFocusId(data.memo.id);}}catch(reason){setError((reason as Error).message);}};
- return <aside className="memo-board" aria-label="메모장">
-  <div className="memo-board-head"><div className="section-title"><StickyNote size={20}/><h2>메모장</h2></div><button type="button" className="memo-add" onClick={()=>void create()}><Plus size={16}/>새 메모</button></div>
+ const endpoint=day?'/api/daily-memos':'/api/memos',request=(body:Record<string,unknown>)=>memoRequest(endpoint,day?{...body,day}:body);
+ const load=async()=>{setLoading(true);setError('');try{const response=await fetch(day?endpoint+'?day='+encodeURIComponent(day):endpoint);const data=await response.json() as {memos?:Memo[];error?:string};if(!response.ok)throw new Error(data.error);setMemos(data.memos||[]);}catch(reason){setError((reason as Error).message);}finally{setLoading(false);}};
+ useEffect(()=>{setMemos([]);void load();},[day]);
+ const create=async()=>{setError('');try{const data=await request({action:'create'});if(data.memo){setMemos(current=>[...current,data.memo!]);setFocusId(data.memo.id);}}catch(reason){setError((reason as Error).message);}};
+ return <aside className={day?'memo-board daily-memo-board':'memo-board'} aria-label={day?'날짜별 메모장':'메모장'}>
+  <div className="memo-board-head"><div className="section-title"><StickyNote size={20}/><h2>{day?'날짜별 메모':'메모장'}</h2></div></div>
   {error&&<div className="memo-load-error" role="alert"><span>{error}</span><button type="button" onClick={()=>void load()}>다시 불러오기</button></div>}
-  {loading?<p className="memo-placeholder">메모를 불러오는 중입니다.</p>:memos.length===0?<div className="memo-placeholder"><p>항상 표시할 메모를 남겨보세요.</p><button type="button" onClick={()=>void create()}><Plus size={16}/>첫 메모 만들기</button></div>:memos.map(memo=><MemoCard key={memo.id} memo={memo} focus={focusId===memo.id} onDeleted={id=>setMemos(current=>current.filter(item=>item.id!==id))}/>)}
+  {loading?<p className="memo-placeholder">메모를 불러오는 중입니다.</p>:memos.length===0?<div className="memo-placeholder"><p>{day?'선택한 날짜에 메모를 남겨보세요.':'항상 표시할 메모를 남겨보세요.'}</p><button type="button" onClick={()=>void create()}><Plus size={16}/>첫 메모 만들기</button></div>:memos.map(memo=><MemoCard key={memo.id} memo={memo} focus={focusId===memo.id} request={request} onDeleted={id=>setMemos(current=>current.filter(item=>item.id!==id))}/>)}
+  {!loading&&memos.length>0&&<button type="button" className="memo-add" onClick={()=>void create()}><Plus size={16}/>새 메모</button>}
  </aside>;
 }

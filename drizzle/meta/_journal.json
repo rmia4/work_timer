@@ -43,6 +43,13 @@
       "when": 1789391777865,
       "tag": "0005_chilly_post",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789535716365,
+      "tag": "0006_icy_gamma_corps",
+      "breakpoints": true
     }
   ]
 }

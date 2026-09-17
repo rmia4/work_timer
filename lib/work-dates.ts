@@ -3,5 +3,6 @@ export function validTimes(start:unknown,end:unknown){return [start,end].every(t
 export function localDay(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
 export function clockDuration(ms:number){const s=Math.max(0,Math.floor(ms/1000));return [Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(n=>String(n).padStart(2,'0')).join(':');}
 export function timestampLabel(t:number|null|undefined){return t==null?'미기록':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(t));}
+export function timeLabel(t:number|null|undefined){return t==null?'미기록':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(t));}
 export function timeInput(t:number|null|undefined){return t==null?'':new Date(t+9*3600000).toISOString().slice(0,19);}
 export function parseTimeInput(t:string){return t?Date.parse(t+'+09:00'):null;}

@@ -19,3 +19,8 @@ export const memos=sqliteTable('memos',{
  body:text('body').notNull().default(''),position:integer('position').notNull(),version:integer('version').notNull().default(0),
  created:integer('created').notNull(),updated:integer('updated').notNull()
 },t=>[index('memos_owner_position').on(t.owner,t.position)]);
+export const dailyMemos=sqliteTable('daily_memos',{
+ id:text('id').primaryKey(),owner:text('owner').notNull(),day:text('day').notNull(),title:text('title').notNull().default(''),
+ body:text('body').notNull().default(''),position:integer('position').notNull(),version:integer('version').notNull().default(0),
+ created:integer('created').notNull(),updated:integer('updated').notNull()
+},t=>[index('daily_memos_owner_day_position').on(t.owner,t.day,t.position)]);
