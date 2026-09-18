@@ -13,8 +13,8 @@ export default function Login({
     <main className="login-wrap">
       <section className="entry login-card">
         <LockKeyhole size={28} />
-        <h1>업무 기록</h1>
-        <p>접속 코드를 입력해 주세요.</p>
+        <h1>로그인</h1>
+        <p>업무 기록 접속 코드를 입력해 주세요.</p>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -28,7 +28,7 @@ export default function Login({
                 body: JSON.stringify({ code }),
               });
               const data = (await r.json()) as { error?: string };
-              if (!r.ok) throw Error(data.error || "접속하지 못했습니다.");
+              if (!r.ok) throw Error(data.error || "로그인하지 못했습니다.");
               setCode("");
               await onSuccess();
             } catch (e) {
@@ -44,8 +44,10 @@ export default function Login({
             접속 코드
             <input
               id="access-code"
+              name="access-code"
               type="password"
               autoComplete="current-password"
+              autoFocus
               required
               maxLength={128}
               value={code}
@@ -53,7 +55,7 @@ export default function Login({
             />
           </label>
           <button className="primary" disabled={busy} type="submit">
-            {busy ? "확인 중…" : "들어가기"}
+            {busy ? "로그인 중…" : "로그인"}
           </button>
           {error && (
             <p role="alert" className="notice error">

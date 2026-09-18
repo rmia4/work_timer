@@ -17,14 +17,18 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  assert.ok(memoMigration,'memo migration is missing');db.exec(read('drizzle/'+memoMigration));
  const dailyMemoMigration=readdirSync(new URL('../drizzle',import.meta.url)).find(name=>name.startsWith('0006_')&&name.endsWith('.sql'));
  assert.ok(dailyMemoMigration,'daily memo migration is missing');db.exec(read('drizzle/'+dailyMemoMigration));
- db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
+ db.exec("CREATE TABLE users (id TEXT PRIMARY KEY, access_code_hash TEXT, status TEXT NOT NULL, created INTEGER NOT NULL)");
  const adapter={prepare(sql){return {bind(...args){return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
  const salt=randomBytes(16),code='test-only-code';
- const env={APP_ORIGIN:'https://diary.test',ACCESS_CODE_HASH:'100000:'+salt.toString('hex')+':'+pbkdf2Sync(code,salt,100000,32,'sha256').toString('hex')};
+ const storedHash='100000:'+salt.toString('hex')+':'+pbkdf2Sync(code,salt,100000,32,'sha256').toString('hex');
+ db.prepare("INSERT INTO users (id,access_code_hash,status,created) VALUES ('legacy-owner',?,'active',0)").run(storedHash);
+ db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
+ const env={APP_ORIGIN:'https://diary.test'};
+ process.env.APP_ORIGIN=env.APP_ORIGIN;
  const helpers=await moduleFrom('lib/access-code.ts');
  const dates=await moduleFrom('lib/work-dates.ts');
  globalThis.authFixture={...helpers,...dates,env,database:()=>adapter};
- const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
+ const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
  const user=await moduleFrom('app/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
  const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
@@ -33,7 +37,7 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  assert.ok(memos?.GET&&memos?.POST,'memo API is missing');
  let dailyMemos=null;try{dailyMemos=await moduleFrom('app/api/daily-memos/route.ts','const {getCodeUser,env,sameOrigin,database,validDay}=globalThis.authFixture;');}catch{}
  assert.ok(dailyMemos?.GET&&dailyMemos?.POST,'daily memo API is missing');
- const request=(value,origin=env.APP_ORIGIN)=>new Request(env.APP_ORIGIN+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json'},body:JSON.stringify({code:value})});
+ const request=(value,origin=env.APP_ORIGIN,ip='203.0.113.10')=>new Request(env.APP_ORIGIN+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json','x-forwarded-for':ip},body:JSON.stringify({code:value})});
  assert.equal((await tasks.GET(new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10'))).status,401);
  assert.equal((await auth.POST(request(code,'https://evil.test'))).status,403);
  assert.equal((await auth.POST(request('incorrect'))).status,401);
@@ -110,7 +114,18 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  const again=await auth.POST(request(code));const c2=again.headers.get('set-cookie');
  const logout=await auth.DELETE(new Request(env.APP_ORIGIN+'/api/auth',{method:'DELETE',headers:{origin:env.APP_ORIGIN,cookie:c2}}));assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);
  assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:c2}})),null);
- db.prepare('UPDATE code_limits SET attempts=10').run();assert.equal((await auth.POST(request(code))).status,429);
+ const attackIp='198.51.100.22';
+ const rateStart=Date.now();Date.now=()=>rateStart;
+ try{
+  for(let attempt=1;attempt<5;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp))).status,401);
+  let blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'900');
+  assert.equal((await auth.POST(request(code,env.APP_ORIGIN,attackIp))).status,429);
+  const storedLimit=db.prepare('SELECT id,attempts FROM code_limits WHERE attempts=5').get();assert.equal(storedLimit.attempts,5);assert.match(storedLimit.id,/^ip:[a-f0-9]{64}$/);assert.ok(!storedLimit.id.includes(attackIp));
+  assert.equal((await auth.POST(request(code,env.APP_ORIGIN,'198.51.100.23'))).status,200);
+  Date.now=()=>rateStart+900001;
+  for(let attempt=6;attempt<10;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp))).status,401);
+  blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'4500');
+ }finally{Date.now=originalNow;}
  assert.equal(db.prepare('SELECT owner FROM tasks').get().owner,'legacy-owner');
- db.close();delete globalThis.authFixture;
+ db.close();delete globalThis.authFixture;delete process.env.APP_ORIGIN;
 });

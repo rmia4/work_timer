@@ -16,7 +16,7 @@
 2. Store the direct URL as `DATABASE_URL` and the pooler URL as `DATABASE_URL_POOLED` in local environment variables. Do not commit either value.
 3. Apply the empty Neon schema with `pnpm db:neon:apply`.
 4. Export D1 as JSON with `tasks`, `memos`, and `daily_memos` arrays, then import it with `pnpm db:neon:import -- path/to/d1-export.json`.
-5. Set `DATABASE_URL_POOLED`, `ACCESS_CODE_HASH`, and `APP_ORIGIN` in Vercel.
+5. Store the access-code hash in `users.access_code_hash` and set `DATABASE_URL_POOLED` and `APP_ORIGIN` in Vercel.
 6. Connect Vercel to GitHub `main`.
 
 ## Safety

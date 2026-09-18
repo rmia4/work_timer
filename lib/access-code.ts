@@ -12,6 +12,10 @@ export async function verifyCode(code: string, stored: string) {
  const target=Uint8Array.from(expected.match(/../g)!,x=>parseInt(x,16));
  let diff=0;for(let i=0;i<bytes.length;i++)diff|=bytes[i]^target[i];return diff===0;
 }
+export function clientAddress(req:Request){
+ const forwarded=req.headers.get('x-vercel-forwarded-for')||req.headers.get('x-forwarded-for')||req.headers.get('x-real-ip');
+ return forwarded?.split(',')[0]?.trim().slice(0,128)||'unavailable';
+}
 export function sessionToken(req:Request){
  const token=(req.headers.get('cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
  return token&&/^[a-f0-9]{64}$/.test(token)?token:null;
