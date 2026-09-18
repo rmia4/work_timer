@@ -3,11 +3,27 @@ import { bigint, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/
 
 const epoch = (name: string) => bigint(name, { mode: "number" });
 
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    email: text("email"),
+    displayName: text("display_name").notNull().default(""),
+    role: text("role").notNull().default("user"),
+    status: text("status").notNull().default("active"),
+    created: epoch("created").notNull(),
+    updated: epoch("updated").notNull(),
+  },
+  (table) => [uniqueIndex("users_email_unique").on(table.email)],
+);
+
 export const tasks = pgTable(
   "tasks",
   {
     id: text("id").primaryKey(),
-    owner: text("owner").notNull(),
+    owner: text("owner")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     day: text("day").notNull(),
     title: text("title").notNull(),
     note: text("note").notNull().default(""),
@@ -33,7 +49,9 @@ export const codeSessions = pgTable(
   "code_sessions",
   {
     tokenHash: text("token_hash").primaryKey(),
-    owner: text("owner").notNull(),
+    owner: text("owner")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     expires: epoch("expires").notNull(),
   },
   (table) => [index("code_sessions_expiry").on(table.expires)],
@@ -49,7 +67,9 @@ export const memos = pgTable(
   "memos",
   {
     id: text("id").primaryKey(),
-    owner: text("owner").notNull(),
+    owner: text("owner")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull().default(""),
     body: text("body").notNull().default(""),
     position: epoch("position").notNull(),
@@ -64,7 +84,9 @@ export const dailyMemos = pgTable(
   "daily_memos",
   {
     id: text("id").primaryKey(),
-    owner: text("owner").notNull(),
+    owner: text("owner")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     day: text("day").notNull(),
     title: text("title").notNull().default(""),
     body: text("body").notNull().default(""),

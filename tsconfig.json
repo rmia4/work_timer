@@ -27,10 +27,7 @@
         "./*"
       ]
     },
-    "types": [
-      "node",
-      "@cloudflare/workers-types"
-    ]
+    "types": ["node"]
   },
   "include": [
     "next-env.d.ts",

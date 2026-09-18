@@ -1,6 +1,19 @@
+CREATE TABLE "users" (
+  "id" text PRIMARY KEY NOT NULL,
+  "email" text,
+  "display_name" text NOT NULL DEFAULT '',
+  "role" text NOT NULL DEFAULT 'user',
+  "status" text NOT NULL DEFAULT 'active',
+  "created" bigint NOT NULL,
+  "updated" bigint NOT NULL
+);
+CREATE UNIQUE INDEX "users_email_unique" ON "users" ("email");
+INSERT INTO "users" ("id", "display_name", "role", "status", "created", "updated")
+VALUES ('personal-workspace', '개인 작업공간', 'owner', 'active', 0, 0);
+
 CREATE TABLE "tasks" (
   "id" text PRIMARY KEY NOT NULL,
-  "owner" text NOT NULL,
+  "owner" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "day" text NOT NULL,
   "title" text NOT NULL,
   "note" text NOT NULL DEFAULT '',
@@ -24,14 +37,14 @@ CREATE TABLE "code_limits" (
 );
 CREATE TABLE "code_sessions" (
   "token_hash" text PRIMARY KEY NOT NULL,
-  "owner" text NOT NULL,
+  "owner" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "expires" bigint NOT NULL
 );
 CREATE INDEX "code_sessions_expiry" ON "code_sessions" ("expires");
 
 CREATE TABLE "memos" (
   "id" text PRIMARY KEY NOT NULL,
-  "owner" text NOT NULL,
+  "owner" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "title" text NOT NULL DEFAULT '',
   "body" text NOT NULL DEFAULT '',
   "position" bigint NOT NULL,
@@ -43,7 +56,7 @@ CREATE INDEX "memos_owner_position" ON "memos" ("owner", "position");
 
 CREATE TABLE "daily_memos" (
   "id" text PRIMARY KEY NOT NULL,
-  "owner" text NOT NULL,
+  "owner" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "day" text NOT NULL,
   "title" text NOT NULL DEFAULT '',
   "body" text NOT NULL DEFAULT '',

@@ -1,5 +1,4 @@
 import {getCodeUser} from '../../code-auth';
-import {env} from 'cloudflare:workers';
 import {sameOrigin} from '../../../lib/access-code';
 import {validDay} from '../../../lib/work-dates';
 import {database} from '../../../db/raw';
@@ -18,7 +17,7 @@ export async function GET(req:Request){
 
 export async function POST(req:Request){
  const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
- if(!sameOrigin(req,env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
+ if(!sameOrigin(req,process.env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
  let body:any;try{body=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
  if(!body||typeof body!=='object'||!validDay(body.day))return reply({error:'날짜를 확인해 주세요.'},400);
  try{
