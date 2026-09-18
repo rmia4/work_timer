@@ -9,8 +9,8 @@ const numericColumns = new Set([
 ]);
 
 function connectionString() {
-  const url = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL_POOLED is not configured");
+  const url = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || process.env.CONNECTION_STRING;
+  if (!url) throw new Error("Set DATABASE_URL_POOLED, DATABASE_URL, or CONNECTION_STRING");
   return url;
 }
 
