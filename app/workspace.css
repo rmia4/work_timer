@@ -134,7 +134,7 @@ textarea {
 }
 .columns {
   display: grid;
-  grid-template-columns: 1.65fr 1fr;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 3fr) minmax(0, 3fr);
   gap: 22px;
   margin-bottom: 32px;
 }
