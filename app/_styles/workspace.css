@@ -76,7 +76,7 @@ textarea:focus-visible {
 main {
   max-width: 1180px;
   margin: auto;
-  padding: 44px 24px;
+  padding: 25px 24px 44px;
 }
 .heading {
   display: flex;
@@ -191,10 +191,6 @@ textarea {
   background: transparent;
   color: white;
   border-color: #858c95;
-}
-/* columns의 3번째 자리 그거  */
-.layout_placeholder{
-  position: 
 }
 .summary {
   position: relative;

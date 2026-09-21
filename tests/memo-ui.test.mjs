@@ -8,6 +8,8 @@ test('memo boards support global and date-specific notes with the same editor',(
  const component=read('app/_components/memo-board.tsx');
  const workspace=read('app/_components/workspace.tsx');
  const styles=read('app/_styles/memo-board.css');
+ const activityClock=read('app/_components/daily-activity-clock.tsx');
+ const activityStyles=read('app/_styles/daily-activity-clock.css');
  assert.match(workspace,/<MemoBoard\/>/);
  assert.match(workspace,/<MemoBoard key=\{day\} day=\{day\}\/>/);
  assert.match(component,/day\?:string/);
@@ -22,8 +24,9 @@ test('memo boards support global and date-specific notes with the same editor',(
  assert.match(styles,/main\{max-width:calc\(\(100vw \+ 1540px\)\/2\);margin-left:auto;margin-right:auto\}/);
  assert.match(styles,/grid-template-columns:360px minmax\(0,clamp\(500px,calc\(80vw - 620\.8px\),611\.2px\)\) minmax\(400px,1fr\)/);
  assert.match(styles,/@media\(max-width:1360px\)/);
- assert.match(workspace,/className="layout-placeholder" aria-hidden="true"/);
- assert.match(styles,/\.layout-placeholder\{min-height:100%;background:#fff/);
+ assert.match(workspace,/<DailyActivityClock tasks=\{daily\} day=\{day\} now=\{now \+ offset\} \/>/);
+ assert.match(activityClock,/className="day-timeline-panel"/);
+ assert.match(activityStyles,/\.day-timeline-panel/);
 });
 
 test('workspace removes intro copy and keeps only the Korean brand name',()=>{

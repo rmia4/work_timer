@@ -2,6 +2,7 @@
 import Login from "./login";
 import WorkCalendar, { invalidateCalendarCache } from "./work-calendar";
 import MemoBoard from "./memo-board";
+import DailyActivityClock from "./daily-activity-clock";
 import {
   Popover,
   PopoverTrigger,
@@ -312,41 +313,6 @@ useEffect(() => {
         </button>
       </header>
       <main>
-        <div className="heading heading-controls">
-          <div className="date-controls">
-            <Popover
-              open={calendarOpen}
-              onOpenChange={(open) => {
-                if (open) {
-                  setCalendarSelection(day);
-                } else {
-                  setCalendarSelection(day);
-                }
-                setCalendarOpen(open);
-              }}
-            >
-              <PopoverTrigger asChild>
-                <button type="button" aria-label="캘린더 열기 또는 닫기">
-                  <CalendarDays size={18} />
-                  <span>캘린더</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="calendar-popup">
-                <WorkCalendar
-                  day={calendarSelection}
-                  onSelect={(value) => {
-                    if (value === calendarSelection) {
-                      chooseDay(value);
-                      setCalendarOpen(false);
-                    } else setCalendarSelection(value);
-                  }}
-                  refresh={calendarRefresh}
-                  now={now + offset}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
         {error && (
           <div className="notice error" role="alert">
             {error}{" "}
@@ -453,7 +419,7 @@ useEffect(() => {
                 </span>
               </div>
             </section>
-          <section className="layout-placeholder" aria-hidden="true" />
+            <DailyActivityClock tasks={daily} day={day} now={now + offset} />
           </div>
         </div>
         <div className="content-grid">
@@ -623,6 +589,39 @@ useEffect(() => {
           <section className="records">
             <div className="section-title">
               <h2>업무 일지</h2>
+              <div className="date-controls">
+            <Popover
+              open={calendarOpen}
+              onOpenChange={(open) => {
+                if (open) {
+                  setCalendarSelection(day);
+                } else {
+                  setCalendarSelection(day);
+                }
+                setCalendarOpen(open);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button type="button" aria-label="캘린더 열기 또는 닫기">
+                  <CalendarDays size={18} />
+                  <span>캘린더</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="calendar-popup">
+                <WorkCalendar
+                  day={calendarSelection}
+                  onSelect={(value) => {
+                    if (value === calendarSelection) {
+                      chooseDay(value);
+                      setCalendarOpen(false);
+                    } else setCalendarSelection(value);
+                  }}
+                  refresh={calendarRefresh}
+                  now={now + offset}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
               <span>{day}</span>
             </div>
             {loading ? (

@@ -1,0 +1,143 @@
+.day-timeline-panel {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 100%;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e0e6ee;
+  border-radius: 18px;
+  place-items: center;
+}
+.day-clock-heading {
+  position: absolute;
+  z-index: 1;
+  top: 15px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #18243c;
+  font-size: 14px;
+}
+.day-clock-heading strong {
+  color: #7a8799;
+  font-size: 12px;
+  font-weight: 600;
+}
+.day-clock-wrap {
+  position: relative;
+  width: min(100%, 320px);
+  margin: auto;
+  aspect-ratio: 1;
+}
+.day-clock {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.day-clock-track,
+.day-clock-segment {
+  fill: none;
+  stroke-width: 12;
+}
+.day-clock-track {
+  stroke: #e8edf4;
+}
+.day-clock-guide-track {
+  fill: none;
+  stroke: #e1e6ed;
+  stroke-width: 1;
+}
+.day-clock-guide circle:not(.day-clock-guide-track) {
+  fill: #9aa4b2;
+}
+.day-clock-hand line {
+  stroke: #657184;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.day-clock-hand circle {
+  fill: #657184;
+  stroke: #fff;
+  stroke-width: 2;
+}
+.day-clock-segment {
+  transform: rotate(-90deg);
+  transform-origin: 120px 120px;
+  stroke-linecap: round;
+  cursor: default;
+  pointer-events: stroke;
+  transition: stroke-width 120ms ease, filter 120ms ease;
+}
+.day-clock-segment:hover,
+.day-clock-segment:focus-visible {
+  stroke-width: 16;
+  filter: saturate(1.08);
+  outline: none;
+}
+.day-clock-marks {
+  fill: #8a96a8;
+  font-size: 9px;
+  font-weight: 600;
+  dominant-baseline: middle;
+  text-anchor: middle;
+}
+.day-clock-center {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  color: #18243c;
+  white-space: nowrap;
+}
+.day-clock-date{
+  font-size: 19px;
+}
+.day-clock-center strong {
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+}
+.day-clock-center span {
+  color: #7a8799;
+  font-size: 12px;
+}
+.day-clock-tooltip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  min-width: 130px;
+  max-width: 200px;
+  padding: 9px 11px;
+  border: 1px solid rgba(24, 36, 60, 0.1);
+  border-radius: 10px;
+  background: rgba(29, 39, 57, 0.94);
+  box-shadow: 0 8px 22px rgba(24, 36, 60, 0.18);
+  color: #fff;
+  flex-direction: column;
+  line-height: 1.35;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+.day-clock-tooltip strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.day-clock-tooltip span,
+.day-clock-tooltip small {
+  color: #dce3ef;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 800px) {
+  .day-timeline-panel {
+    padding: 14px;
+  }
+}
