@@ -1,4 +1,4 @@
-import {getCodeUser} from '../../code-auth';
+import {getCodeUser} from '../../_auth/code-auth';
 import {sameOrigin} from '../../../lib/access-code';
 import {database} from '../../../db/raw';
 import {validTimes} from '../../../lib/work-dates';

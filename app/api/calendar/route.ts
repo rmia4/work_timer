@@ -1,4 +1,4 @@
-import {getCodeUser} from '../../code-auth';
+import {getCodeUser} from '../../_auth/code-auth';
 import {database} from '../../../db/raw';
 const reply=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(req:Request){

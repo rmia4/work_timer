@@ -21,7 +21,7 @@ import {
   timeLabel,
   timeInput,
   parseTimeInput,
-} from "../lib/work-dates";
+} from "../../lib/work-dates";
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Play,

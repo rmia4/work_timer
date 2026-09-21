@@ -5,9 +5,9 @@ import {readFileSync} from 'node:fs';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
 test('memo boards support global and date-specific notes with the same editor',()=>{
- const component=read('app/memo-board.tsx');
- const workspace=read('app/workspace.tsx');
- const styles=read('app/memo-board.css');
+ const component=read('app/_components/memo-board.tsx');
+ const workspace=read('app/_components/workspace.tsx');
+ const styles=read('app/_styles/memo-board.css');
  assert.match(workspace,/<MemoBoard\/>/);
  assert.match(workspace,/<MemoBoard key=\{day\} day=\{day\}\/>/);
  assert.match(component,/day\?:string/);
@@ -27,8 +27,8 @@ test('memo boards support global and date-specific notes with the same editor',(
 });
 
 test('workspace removes intro copy and keeps only the Korean brand name',()=>{
- const workspace=read('app/workspace.tsx');
- const styles=read('app/memo-board.css');
+ const workspace=read('app/_components/workspace.tsx');
+ const styles=read('app/_styles/memo-board.css');
  assert.doesNotMatch(workspace,/DAILY WORKSPACE/);
  assert.doesNotMatch(workspace,/하루의 일을 기록하세요\./);
  assert.match(workspace,/<div className="brand"><strong>업무 기록<\/strong><\/div>/);
@@ -39,8 +39,8 @@ test('workspace removes intro copy and keeps only the Korean brand name',()=>{
 });
 
 test('summary shows the selected date and owns the today action',()=>{
- const workspace=read('app/workspace.tsx');
- const styles=read('app/workspace.css');
+ const workspace=read('app/_components/workspace.tsx');
+ const styles=read('app/_styles/workspace.css');
  assert.doesNotMatch(workspace,/선택한 날짜의 기록/);
  assert.doesNotMatch(workspace,/<label htmlFor="day">기록 날짜<\/label>/);
  assert.doesNotMatch(workspace,/<input id="day"/);
@@ -51,8 +51,8 @@ test('summary shows the selected date and owns the today action',()=>{
 });
 
 test('timer target and record clock text use the requested size and time-only format',()=>{
- const workspace=read('app/workspace.tsx');
- const styles=read('app/memo-board.css');
+ const workspace=read('app/_components/workspace.tsx');
+ const styles=read('app/_styles/memo-board.css');
  assert.match(workspace,/<dd>\{timeLabel\(t\.started_at\)\}<\/dd>/);
  assert.match(workspace,/timeLabel\(t\.ended_at\)/);
  assert.match(styles,/\.target-time\{font-size:21px\}/);
@@ -60,28 +60,28 @@ test('timer target and record clock text use the requested size and time-only fo
 });
 
 test('memo title starts at the top of each card',()=>{
- const styles=read('app/memo-board.css');
+ const styles=read('app/_styles/memo-board.css');
  assert.match(styles,/\.memo-card-actions\{[^}]*position:absolute/);
  assert.match(styles,/\.memo-title\{[^}]*padding-right:/);
 });
 
 test('new memo button is placed at the bottom right of the memo area',()=>{
- const component=read('app/memo-board.tsx');
- const styles=read('app/memo-board.css');
+ const component=read('app/_components/memo-board.tsx');
+ const styles=read('app/_styles/memo-board.css');
  assert.ok(component.indexOf('className="memo-add"')>component.indexOf('memos.map'));
  assert.match(styles,/\.memo-add\{[^}]*width:fit-content[^}]*margin-left:auto/);
 });
 
 test('record target time and work tabs use neutral gray styling',()=>{
- const workspaceStyles=read('app/memo-board.css');
- const resultStyles=read('app/result.css');
+ const workspaceStyles=read('app/_styles/memo-board.css');
+ const resultStyles=read('app/_styles/result.css');
  assert.match(workspaceStyles,/\.record-times span:first-child:not\(:last-child\) strong\{color:#7a8799\}/);
  assert.match(resultStyles,/\[data-state=active\]\{background:#5f6670;border-color:#555c65;color:#fff/);
 });
 
 test('calendar previews a date and commits it on a second click or popup close',()=>{
- const workspace=read('app/workspace.tsx');
- const calendar=read('app/work-calendar.tsx');
+ const workspace=read('app/_components/workspace.tsx');
+ const calendar=read('app/_components/work-calendar.tsx');
  assert.match(workspace,/calendarSelection,setCalendarSelection/);
  assert.match(workspace,/if\(value===calendarSelection\)\{chooseDay\(value\);setCalendarOpen\(false\);\}/);
  assert.match(workspace,/if\(!open&&calendarSelection!==day\)chooseDay\(calendarSelection\)/);

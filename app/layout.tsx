@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import "./globals.css";
-import "./workspace.css";
-import "./memo-board.css";
-import "./login.css";
-import "./calendar.css";
-import "./result.css";
+import "./_styles/globals.css";
+import "./_styles/workspace.css";
+import "./_styles/memo-board.css";
+import "./_styles/login.css";
+import "./_styles/calendar.css";
+import "./_styles/result.css";
 
 export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",

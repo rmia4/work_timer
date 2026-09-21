@@ -10,7 +10,7 @@ import {
 import type { DayButton } from "react-day-picker";
 import { ko } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
-import { localDay, clockDuration } from "../lib/work-dates";
+import { localDay, clockDuration } from "../../lib/work-dates";
 type Summary = { day: string; count: number; total: number; running: number };
 type CachedMonth = { days: Record<string, Summary>; now: number };
 const monthCache = new Map<string, CachedMonth>();

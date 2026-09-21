@@ -29,7 +29,7 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  const dates=await moduleFrom('lib/work-dates.ts');
  globalThis.authFixture={...helpers,...dates,env,database:()=>adapter};
  const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
- const user=await moduleFrom('app/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
+ const user=await moduleFrom('app/_auth/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
  const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
  const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
