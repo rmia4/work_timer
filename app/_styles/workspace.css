@@ -50,7 +50,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 max(24px, calc((100vw - 1180px) / 2));
+  padding: 0 24px;
 }
 .brand {
   display: flex;
@@ -164,7 +164,7 @@ textarea {
   overflow-wrap: anywhere;
 }
 .clock {
-  font-size: clamp(42px, 5.4vw, 70px);
+  font-size: clamp(36px, 5.4vw, 55px);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
   letter-spacing: 2px;
@@ -207,6 +207,9 @@ textarea {
   justify-content: center;
   text-align: left;
 }
+.summary h2{
+  font-size: 16px;
+}
 .summary-date {
   font-size: 36px;
   line-height: 1.2;
@@ -217,24 +220,24 @@ textarea {
 }
 .summary-yesterday {
   position: absolute;
-  top: 20px;
+  top: 15px;
   right: 132px;
 }
 .summary-today {
   position: absolute;
-  top: 20px;
+  top: 15px;
   right: 67px;
 }
 .summary-nextday {
   position: absolute;
-  top: 20px;
+  top: 15px;
   right: 20px;
 }
 .total {
   font-size: 40px;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  margin: 18px 0;
+  margin-bottom: 18px;
 }
 .summary-bottom {
   display: flex;
@@ -438,13 +441,16 @@ footer {
 }
 @media (max-width: 800px) {
   .columns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .timer-panel {
+    grid-column: 1 / -1;
   }
   .content-grid {
     grid-template-columns: 1fr;
   }
   .heading {
-    align-items: start;
+    align-items: right;
     flex-direction: column;
   }
   .summary {
@@ -453,8 +459,25 @@ footer {
   .summary-date {
     padding-right: 68px;
   }
+  .summary-yesterday{
+    position:absolute;
+    top : 7px;
+    right: 10px;
+  }
+  .summary-today{
+    position:absolute;
+    top : 54px;
+    right: 10px;
+  }
+  .summary-nextday{
+    position:absolute;
+    top:100px;
+    right:10px;
+
+  }
   .total {
     margin: 8px 0;
+    font-size: 30px;
   }
   .top {
     height: 65px;
@@ -472,8 +495,8 @@ footer {
   .record {
     padding: 18px;
   }
-  .clock {
-    font-size: clamp(36px, 10vw, 60px);
+  .clock{
+    font-size: clamp(36px,10vw,55px);
   }
   h1 {
     font-size: 26px;

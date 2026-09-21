@@ -3,20 +3,18 @@ main {
   margin-left: auto;
   margin-right: auto;
 }
-.heading,
-.columns {
+.heading {
   max-width: 1180px;
 }
 .heading.heading-controls {
   justify-content: flex-end;
 }
 .top-panels {
-  display: grid;
-  grid-template-columns: minmax(0, 1180px) minmax(0, 1fr);
-  gap: 24px;
   margin-bottom: 32px;
 }
 .top-panels .columns {
+  width: 100%;
+  max-width: none;
   margin-bottom: 0;
 }
 .layout-placeholder {
@@ -154,9 +152,6 @@ main {
   .top-panels .columns {
     margin-bottom: 32px;
   } */
-  .layout-placeholder {
-    display: none;
-  }
   .content-grid {
     grid-template-columns: 360px minmax(0, 1fr);
   }

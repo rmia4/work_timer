@@ -147,6 +147,18 @@ export default function Workspace() {
       if (seq === request.current) setLoading(false);
     }
   }, [day]);
+// ctrl s 기능 방지
+useEffect(() => {
+  const preventSave = (event: KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.code === "KeyS") {
+      event.preventDefault();
+    }
+  };
+
+  window.addEventListener("keydown", preventSave, true);
+  return () => window.removeEventListener("keydown", preventSave, true);
+}, []);
+
   useEffect(() => {
     void load();
     const id = setInterval(load, 10000);
