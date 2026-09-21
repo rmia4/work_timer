@@ -70,6 +70,12 @@ const shiftDay = (value: string, offset: number) => {
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 };
+const weekdayFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  weekday: "short",
+});
+const weekday = (value: string) =>
+  weekdayFormatter.format(new Date(`${value}T00:00:00+09:00`));
 
 const duration = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -306,6 +312,7 @@ useEffect(() => {
     <div className="shell">
       <header className="top">
         <div className="brand">
+          <img src="/favicon.svg" alt="" width="24" height="24" />
           <strong>업무 기록</strong>
         </div>
         <button onClick={logout} disabled={busy}>
@@ -410,7 +417,7 @@ useEffect(() => {
                 &gt;
               </button>
 
-              <p className="summary-date">{day}</p>
+              <p className="summary-date">{day} ({weekday(day)})</p>
               <h2>완료한 작업 시간</h2>
               <strong className="total">{duration(total)}</strong>
               <div className="summary-bottom">
@@ -424,11 +431,11 @@ useEffect(() => {
         </div>
         <div className="content-grid">
           <div className="left-panels">
+          <div className="section-title-left">
+            <NotebookPen size={20} />
+            <h2>{edit ? "기록 수정" : "새 작업"}</h2>
+          </div>
             <section className="entry">
-              <div className="section-title">
-                <NotebookPen size={20} />
-                <h2>{edit ? "기록 수정" : "새 작업"}</h2>
-              </div>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

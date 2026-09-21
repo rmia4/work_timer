@@ -1,7 +1,7 @@
 .left-panels {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 15px;
   min-width: 0;
 }
 .left-panels > .entry {

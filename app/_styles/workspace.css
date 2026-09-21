@@ -57,6 +57,10 @@ textarea:focus-visible {
   align-items: center;
   gap: 10px;
 }
+.brand img {
+  width: 24px;
+  height: 24px;
+}
 .brand svg {
   color: #2859df;
 }
@@ -273,9 +277,15 @@ textarea {
   align-items: center;
   margin-bottom: 22px;
 }
+.section-title-left {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin: 10px 0px 12px;
+}
 .section-title > span {
   margin-left: auto;
-  font-size: 14px;
+  font-size: 18px;
   color: #6b7890;
 }
 form label {

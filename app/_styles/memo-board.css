@@ -37,7 +37,7 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 14px;
+  margin: 10px 0 26px;
 }
 .memo-board-head .section-title {
   margin: 0;
