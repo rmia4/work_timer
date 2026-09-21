@@ -515,7 +515,7 @@ useEffect(() => {
                     직접 기록할 때 입력하세요. 측정 시작 시에는 0부터
                     시작합니다.
                   </p>
-                  <label>
+                  {/* <label>
                     시작 시각 (한국 시간)
                     <input
                       type="datetime-local"
@@ -536,7 +536,7 @@ useEffect(() => {
                   <p className="hint">
                     일시정지 시간은 소요 시간에서 직접 제외하세요. 측정 시작
                     시에는 현재 시각을 자동 기록합니다.
-                  </p>
+                  </p> */}
                 </details>
                 <div className="form-actions">
                   {edit ? (
