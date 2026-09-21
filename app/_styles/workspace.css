@@ -134,7 +134,7 @@ textarea {
 }
 .columns {
   display: grid;
-  grid-template-columns: minmax(0, 6fr) minmax(0, 3fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 3fr);
   gap: 22px;
   margin-bottom: 32px;
 }
@@ -192,6 +192,7 @@ textarea {
   color: white;
   border-color: #858c95;
 }
+/* columns의 3번째 자리 그거  */
 .layout_placeholder{
   position: 
 }
@@ -214,7 +215,17 @@ textarea {
   margin: 0 0 14px;
   font-variant-numeric: tabular-nums;
 }
+.summary-yesterday {
+  position: absolute;
+  top: 20px;
+  right: 132px;
+}
 .summary-today {
+  position: absolute;
+  top: 20px;
+  right: 67px;
+}
+.summary-nextday {
   position: absolute;
   top: 20px;
   right: 20px;

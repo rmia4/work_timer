@@ -148,12 +148,12 @@ main {
     max-width: 1180px;
     margin: auto;
   }
-  .top-panels {
+  /* .top-panels {
     display: block;
   }
   .top-panels .columns {
     margin-bottom: 32px;
-  }
+  } */
   .layout-placeholder {
     display: none;
   }

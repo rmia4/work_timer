@@ -56,13 +56,20 @@ type Task = {
   started_at: number | null;
   ended_at: number | null;
 };
-const today = () =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+const today = (offset = 0) =>{
+  return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(Date.now() + offset * 86400000));
+}
+const shiftDay = (value: string, offset: number) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+};
+
 const duration = (ms: number) => {
   const s = Math.floor(ms / 1000);
   return [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60]
@@ -406,11 +413,25 @@ export default function Workspace() {
             </section>
             <section className="summary">
               <button
+                className="summary-yesterday"
+                onClick={() => chooseDay(shiftDay(day, -1))}
+              >
+                &lt;
+              </button>
+              <button
                 className="summary-today"
                 onClick={() => chooseDay(today())}
               >
                 오늘
               </button>
+
+              <button
+                className="summary-nextday"
+                onClick={() => chooseDay(shiftDay(day, 1))}
+              >
+                &gt;
+              </button>
+
               <p className="summary-date">{day}</p>
               <h2>완료한 작업 시간</h2>
               <strong className="total">{duration(total)}</strong>
@@ -458,7 +479,7 @@ export default function Workspace() {
                         maxLength={20000}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder="세부 작업 내용 적기"
+                        placeholder="작업 세부사항, 목표 적기"
                         rows={5}
                       />
                     </label>
@@ -470,7 +491,7 @@ export default function Workspace() {
                         maxLength={20000}
                         value={result}
                         onChange={(e) => setResult(e.target.value)}
-                        placeholder="완료 결과, 산출물, 확인 사항을 남겨두세요."
+                        placeholder="결과, 산출물, 추후 확인 사항 적기"
                         rows={5}
                       />
                     </label>
