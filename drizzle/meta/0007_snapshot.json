@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5a525cf7-67d2-4b30-a3f5-2eecf5d2b0e1",
-  "prevId": "85470474-a963-4f5a-b923-dd8230ff7448",
+  "id": "c8ebf347-32b1-4a39-9de8-27aa4bfe5d73",
+  "prevId": "5a525cf7-67d2-4b30-a3f5-2eecf5d2b0e1",
   "tables": {
     "code_limits": {
       "name": "code_limits",
@@ -192,6 +192,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "''"
+        },
+        "collapsed": {
+          "name": "collapsed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "position": {
           "name": "position",

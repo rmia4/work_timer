@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, StickyNote, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, StickyNote, Trash2 } from "lucide-react";
 
 type Memo = {
   id: string;
   title: string;
   body: string;
+  collapsed: boolean;
   position: number;
   version: number;
   created: number;
@@ -36,22 +37,26 @@ async function memoRequest(endpoint: string, body: unknown) {
 function MemoCard({
   memo,
   focus,
+  collapsible,
   onDeleted,
   request,
 }: {
   memo: Memo;
   focus: boolean;
+  collapsible: boolean;
   onDeleted: (id: string) => void;
   request: (body: Record<string, unknown>) => Promise<{ memo?: Memo }>;
 }) {
   const [title, setTitle] = useState(memo.title),
     [body, setBody] = useState(memo.body),
+    [collapsed, setCollapsed] = useState(memo.collapsed),
     [state, setState] = useState<SaveState>("saved"),
     [error, setError] = useState("");
   const titleRef = useRef(title),
     bodyRef = useRef(body),
+    collapsedRef = useRef(collapsed),
     versionRef = useRef(memo.version),
-    persistedRef = useRef({ title: memo.title, body: memo.body }),
+    persistedRef = useRef({ title: memo.title, body: memo.body, collapsed: memo.collapsed }),
     timerRef = useRef<ReturnType<typeof setTimeout> | null>(null),
     savingRef = useRef(false),
     queuedRef = useRef(false),
@@ -59,16 +64,22 @@ function MemoCard({
     areaRef = useRef<HTMLTextAreaElement>(null);
   titleRef.current = title;
   bodyRef.current = body;
+  collapsedRef.current = collapsed;
 
   const save = async () => {
     if (savingRef.current) {
       queuedRef.current = true;
       return;
     }
-    const snapshot = { title: titleRef.current, body: bodyRef.current };
+    const snapshot = {
+      title: titleRef.current,
+      body: bodyRef.current,
+      collapsed: collapsedRef.current,
+    };
     if (
       snapshot.title === persistedRef.current.title &&
-      snapshot.body === persistedRef.current.body
+      snapshot.body === persistedRef.current.body &&
+      snapshot.collapsed === persistedRef.current.collapsed
     )
       return;
     savingRef.current = true;
@@ -102,7 +113,8 @@ function MemoCard({
       if (
         queuedRef.current &&
         (titleRef.current !== snapshot.title ||
-          bodyRef.current !== snapshot.body)
+          bodyRef.current !== snapshot.body ||
+          collapsedRef.current !== snapshot.collapsed)
       )
         void save();
     }
@@ -125,7 +137,15 @@ function MemoCard({
       area.style.height = "auto";
       area.style.height = `${area.scrollHeight}px`;
     }
-  }, [body]);
+  }, [body, collapsed]);
+
+  const toggleCollapsed = () => {
+    const next = !collapsedRef.current;
+    collapsedRef.current = next;
+    setCollapsed(next);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    void save();
+  };
 
   const remove = async () => {
     if (
@@ -148,7 +168,7 @@ function MemoCard({
   };
 
   return (
-    <article className="memo-card">
+    <article className={`memo-card${collapsible ? " is-collapsible" : ""}${collapsed ? " is-collapsed" : ""}`}>
       <div className="memo-card-actions">
         <span>
           {state === "saving"
@@ -157,6 +177,18 @@ function MemoCard({
               ? "저장 실패"
               : "저장됨"}
         </span>
+        {collapsible && (
+          <button
+            type="button"
+            aria-label={collapsed ? "메모 펼치기" : "메모 접기"}
+            title={collapsed ? "메모 펼치기" : "메모 접기"}
+            aria-expanded={!collapsed}
+            aria-controls={`memo-body-${memo.id}`}
+            onClick={toggleCollapsed}
+          >
+            {collapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+          </button>
+        )}
         <button
           type="button"
           aria-label="메모 삭제"
@@ -179,20 +211,23 @@ function MemoCard({
         }}
         onBlur={() => void save()}
       />
-      <textarea
-        ref={areaRef}
-        className="memo-body"
-        aria-label="메모 내용"
-        placeholder="메모를 입력하세요."
-        maxLength={20000}
-        rows={2}
-        value={body}
-        onChange={(event) => {
-          setBody(event.target.value);
-          schedule();
-        }}
-        onBlur={() => void save()}
-      />
+      {!collapsed && (
+        <textarea
+          id={`memo-body-${memo.id}`}
+          ref={areaRef}
+          className="memo-body"
+          aria-label="메모 내용"
+          placeholder="메모를 입력하세요."
+          maxLength={20000}
+          rows={2}
+          value={body}
+          onChange={(event) => {
+            setBody(event.target.value);
+            schedule();
+          }}
+          onBlur={() => void save()}
+        />
+      )}
       {error && (
         <div className="memo-error" role="alert">
           <span>{error}</span>
@@ -225,7 +260,7 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
         error?: string;
       };
       if (!response.ok) throw new Error(data.error);
-      setMemos(data.memos || []);
+      setMemos((data.memos || []).map((memo) => ({ ...memo, collapsed: memo.collapsed ?? false })));
     } catch (reason) {
       setError((reason as Error).message);
     } finally {
@@ -241,7 +276,8 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
     try {
       const data = await request({ action: "create" });
       if (data.memo) {
-        setMemos((current) => [...current, data.memo!]);
+        const memo = { ...data.memo, collapsed: data.memo.collapsed ?? false };
+        setMemos((current) => [...current, memo]);
         setFocusId(data.memo.id);
       }
     } catch (reason) {
@@ -286,6 +322,7 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
             key={memo.id}
             memo={memo}
             focus={focusId === memo.id}
+            collapsible={!day}
             request={request}
             onDeleted={(id) =>
               setMemos((current) => current.filter((item) => item.id !== id))

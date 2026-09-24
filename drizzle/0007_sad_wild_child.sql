@@ -1,0 +1,1 @@
+ALTER TABLE `memos` ADD `collapsed` integer DEFAULT false NOT NULL;

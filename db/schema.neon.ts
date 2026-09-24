@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 const epoch = (name: string) => bigint(name, { mode: "number" });
 
@@ -73,6 +73,7 @@ export const memos = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull().default(""),
     body: text("body").notNull().default(""),
+    collapsed: boolean("collapsed").notNull().default(false),
     position: epoch("position").notNull(),
     version: integer("version").notNull().default(0),
     created: epoch("created").notNull(),

@@ -11,7 +11,7 @@ const sql = neon(process.env.DATABASE_URL);
 const ownerId = "personal-workspace";
 const tables = {
   tasks: ["id", "owner", "day", "title", "note", "result", "target", "elapsed", "started", "started_at", "ended_at", "status", "version", "created"],
-  memos: ["id", "owner", "title", "body", "position", "version", "created", "updated"],
+  memos: ["id", "owner", "title", "body", "collapsed", "position", "version", "created", "updated"],
   daily_memos: ["id", "owner", "day", "title", "body", "position", "version", "created", "updated"],
 };
 
@@ -40,7 +40,9 @@ for (const [table, allowedColumns] of Object.entries(tables)) {
     rows.some((row) => Object.hasOwn(row, column)),
   );
   const values = rows.flatMap((row) =>
-    columns.map((column) => (column === "owner" ? ownerId : row[column])),
+    columns.map((column) =>
+      column === "owner" ? ownerId : column === "collapsed" ? Boolean(row[column]) : row[column],
+    ),
   );
   const tuples = rows.map((_, rowIndex) => {
     const placeholders = columns.map(

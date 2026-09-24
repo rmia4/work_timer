@@ -75,6 +75,15 @@ test('memo title starts at the top of each card',()=>{
  assert.match(styles,/\.memo-title\{[^}]*padding-right:/);
 });
 
+test('global memos can persistently collapse while daily memos stay expanded',()=>{
+ const component=read('app/_components/memo-board.tsx');
+ assert.match(component,/collapsed: boolean/);
+ assert.match(component,/aria-expanded=\{!collapsed\}/);
+ assert.match(component,/collapsible=\{!day\}/);
+ assert.match(component,/snapshot = \{[\s\S]*collapsed: collapsedRef\.current/);
+ assert.match(component,/\{!collapsed && \(/);
+});
+
 test('new memo button is placed at the bottom right of the memo area',()=>{
  const component=read('app/_components/memo-board.tsx');
  const styles=read('app/_styles/memo-board.css');
