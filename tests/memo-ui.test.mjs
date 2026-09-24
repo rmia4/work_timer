@@ -62,6 +62,13 @@ test('timer target and record clock text use the requested size and time-only fo
  assert.match(styles,/\.task-times\{font-size:15px\}/);
 });
 
+test('activity clock tooltip shows the timer-recorded duration',()=>{
+ const activityClock=read('app/_components/daily-activity-clock.tsx');
+ assert.match(activityClock,/task\.elapsed \+ \(task\.started === null \? 0 : Math\.max\(0, now - task\.started\)\)/);
+ assert.match(activityClock,/durationLabel\(recordedDuration\(tooltip\.segment, now\)\)/);
+ assert.doesNotMatch(activityClock,/durationLabel\(tooltip\.segment\.end - tooltip\.segment\.start\)/);
+});
+
 test('memo title starts at the top of each card',()=>{
  const styles=read('app/_styles/memo-board.css');
  assert.match(styles,/\.memo-card-actions\{[^}]*position:absolute/);

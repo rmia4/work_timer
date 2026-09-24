@@ -6,6 +6,8 @@ type ActivityTask = {
   id: string;
   title: string;
   status: string;
+  elapsed: number;
+  started: number | null;
   started_at: number | null;
   ended_at: number | null;
 };
@@ -85,6 +87,10 @@ function durationLabel(milliseconds: number) {
   const remainder = minutes % 60;
   if (!hours) return `${remainder}분`;
   return remainder ? `${hours}시간 ${remainder}분` : `${hours}시간`;
+}
+
+function recordedDuration(task: ActivityTask, now: number) {
+  return task.elapsed + (task.started === null ? 0 : Math.max(0, now - task.started));
 }
 
 export default function DailyActivityClock({
@@ -204,7 +210,7 @@ export default function DailyActivityClock({
                 ? "진행 중"
                 : timeFormatter.format(tooltip.segment.end)}
             </span>
-            <small>{durationLabel(tooltip.segment.end - tooltip.segment.start)}</small>
+            <small>{durationLabel(recordedDuration(tooltip.segment, now))}</small>
           </div>
         )}
       </div>
