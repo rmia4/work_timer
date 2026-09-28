@@ -283,10 +283,18 @@ textarea {
   align-items: center;
   margin: 10px 0px 12px;
 }
+.section-title button,
+.section-title .date-controls {
+  margin-left: auto;
+}
 .section-title > span {
   margin-left: auto;
   font-size: 18px;
   color: #6b7890;
+}
+.section-title button + span,
+.section-title .date-controls + span {
+  margin-left: 0;
 }
 form label {
   display: block;
