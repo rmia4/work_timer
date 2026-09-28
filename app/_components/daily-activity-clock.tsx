@@ -136,7 +136,10 @@ export default function DailyActivityClock({
   return (
     <section className="day-timeline-panel" aria-label={`${day} 하루 활동 시계`}>
       <div className="day-clock-heading">
-        <span className="day-clock-date">{month}.{date}</span>
+        <div className="day-clock-heading-left">
+          <span className="day-clock-date">{month}.{date}</span>
+          <strong>하루 요약</strong>
+        </div>
         <button>통계</button>
         {/* 통계는 추후 기능 추가 */}
       </div>

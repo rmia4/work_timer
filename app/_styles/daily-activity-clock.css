@@ -21,10 +21,22 @@
   color: #18243c;
   font-size: 14px;
 }
+.day-clock-heading-left {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
 .day-clock-heading strong {
   color: #7a8799;
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 600;
+}
+.day-clock-heading-left strong {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: -2px;
+  white-space: nowrap;
 }
 .day-clock-wrap {
   position: relative;
