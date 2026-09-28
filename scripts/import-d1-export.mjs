@@ -2,12 +2,13 @@ import { readFile } from "node:fs/promises";
 import { neon } from "@neondatabase/serverless";
 
 const input = process.argv.slice(2).find((argument) => argument !== "--");
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+const connectionString = process.env.DATABASE_URL || process.env.DATABASE_URL_POOLED || process.env.CONNECTION_STRING;
+if (!connectionString) throw new Error("DATABASE_URL, DATABASE_URL_POOLED, or CONNECTION_STRING is required");
 if (!input) throw new Error("Usage: pnpm db:neon:import -- path/to/d1-export.json");
 
 const raw = JSON.parse(await readFile(input, "utf8"));
 const data = Array.isArray(raw) ? raw[0]?.results ?? {} : raw;
-const sql = neon(process.env.DATABASE_URL);
+const sql = neon(connectionString);
 const ownerId = "personal-workspace";
 const tables = {
   tasks: ["id", "owner", "day", "title", "note", "result", "target", "elapsed", "started", "started_at", "ended_at", "status", "version", "created"],

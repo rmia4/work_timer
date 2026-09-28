@@ -12,8 +12,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "db:neon:generate": "drizzle-kit generate --config drizzle.neon.config.ts",
-    "db:neon:apply": "node scripts/apply-neon-schema.mjs",
-    "db:neon:import": "node scripts/import-d1-export.mjs"
+    "db:neon:apply": "node --env-file-if-exists=.env.local scripts/apply-neon-schema.mjs",
+    "db:neon:import": "node --env-file-if-exists=.env.local scripts/import-d1-export.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

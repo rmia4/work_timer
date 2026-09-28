@@ -8,6 +8,8 @@ export default function Login({
   onSuccess: () => Promise<void>;
 }) {
   const [code, setCode] = useState(""),
+    [confirmation, setConfirmation] = useState(""),
+    [mode, setMode] = useState<"login" | "signup">("login"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -39,8 +41,12 @@ export default function Login({
             {/* 우측 상단: 로그인 박스 */}
             <section className="entry login-card">
               <LockKeyhole size={26} />
-              <h1>로그인</h1>
-              <p>개인 코드를 입력해 주세요.</p>
+              <h1>{mode === "login" ? "로그인" : "회원가입"}</h1>
+              <p>
+                {mode === "login"
+                  ? "개인 코드를 입력해 주세요."
+                  : "사용할 개인 코드를 5자 이상 입력해 주세요."}
+              </p>
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -48,15 +54,24 @@ export default function Login({
                   setBusy(true);
                   setError("");
                   try {
-                    const r = await fetch("/api/auth", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ code }),
-                    });
+                    const r = await fetch(
+                      mode === "login" ? "/api/auth" : "/api/auth/signup",
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ code, confirmation }),
+                      },
+                    );
                     const data = (await r.json()) as { error?: string };
                     if (!r.ok)
-                      throw Error(data.error || "로그인하지 못했습니다.");
+                      throw Error(
+                        data.error ||
+                          (mode === "login"
+                            ? "로그인하지 못했습니다."
+                            : "가입하지 못했습니다."),
+                      );
                     setCode("");
+                    setConfirmation("");
                     await onSuccess();
                   } catch (e) {
                     setError(
@@ -73,19 +88,54 @@ export default function Login({
                     id="access-code"
                     name="access-code"
                     type="password"
-                    autoComplete="current-password"
                     autoFocus
                     required
+                    minLength={mode === "signup" ? 5 : undefined}
                     maxLength={128}
+                    autoComplete={
+                      mode === "login" ? "current-password" : "new-password"
+                    }
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                   />
                 </label>
+                {mode === "signup" && (
+                  <label htmlFor="access-code-confirmation">
+                    개인 코드 확인
+                    <input
+                      id="access-code-confirmation"
+                      name="access-code-confirmation"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      minLength={5}
+                      maxLength={128}
+                      value={confirmation}
+                      onChange={(e) => setConfirmation(e.target.value)}
+                    />
+                  </label>
+                )}
                 <button className="primary" disabled={busy} type="submit">
-                  {busy ? "로그인 중…" : "로그인"}
+                  {busy
+                    ? mode === "login"
+                      ? "로그인 중…"
+                      : "가입 중…"
+                    : mode === "login"
+                      ? "로그인"
+                      : "가입하기"}
                 </button>
-                <button type="button" className="signup-button">
-                  회원가입
+                <button
+                  type="button"
+                  className="signup-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setMode(mode === "login" ? "signup" : "login");
+                    setCode("");
+                    setConfirmation("");
+                    setError("");
+                  }}
+                >
+                  {mode === "login" ? "회원가입" : "로그인으로 돌아가기"}
                 </button>
                 {error && (
                   <p role="alert" className="notice error">

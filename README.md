@@ -24,8 +24,9 @@
 
 ## 인증
 
-- 하나의 접속 코드로 로그인
+- 사용자별 개인 코드로 회원가입 및 로그인
 - 접속 코드 해시는 `users.access_code_hash`에 PBKDF2 형식으로 저장
+- 같은 IP에서는 24시간에 한 계정만 가입 가능
 - 세션은 `code_sessions` 테이블과 `__Host-work_session` 쿠키로 관리
 - 로그인 성공 후 7일간 유지되는 HttpOnly·Secure·SameSite 세션 사용
 - 연속 5회 로그인 실패 시 15분 차단하며, 이후 반복 실패 시 차단 시간 증가
@@ -47,6 +48,7 @@ Node.js 22.13 이상과 `package.json`에 선언된 pnpm 버전을 사용합니�
    ```env
    DATABASE_URL_POOLED="Neon pooler connection string"
    APP_ORIGIN="http://localhost:3000"
+   ACCESS_CODE_SECRET="32자 이상의 임의 문자열"
    ```
 
    DB 연결 변수는 `DATABASE_URL_POOLED`, `DATABASE_URL`, `CONNECTION_STRING` 순서로 사용합니다. 비밀값이 포함된 `.env.local`은 Git에 커밋하지 않습니다.
@@ -87,9 +89,10 @@ node --test tests/code-auth.test.mjs
 ```env
 DATABASE_URL_POOLED="Neon pooler connection string"
 APP_ORIGIN="https://your-domain.example"
+ACCESS_CODE_SECRET="32자 이상의 임의 문자열"
 ```
 
-`APP_ORIGIN`은 실제 HTTPS Origin과 정확히 일치해야 하며 마지막에 `/`를 붙이지 않습니다. `ACCESS_CODE_HASH` 환경변수는 사용하지 않습니다. Vercel 배포는 저장소 관리자가 직접 수행합니다.
+`APP_ORIGIN`은 실제 HTTPS Origin과 정확히 일치해야 하며 마지막에 `/`를 붙이지 않습니다. `ACCESS_CODE_SECRET`은 배포 후에도 같은 값을 유지해야 합니다. Vercel 배포는 저장소 관리자가 직접 수행합니다.
 
 ## 동작 범위
 

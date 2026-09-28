@@ -4,7 +4,7 @@ type Row = Record<string, unknown>;
 type Statement = NeonQueryFunction<false, false>;
 
 const numericColumns = new Set([
-  "attempts", "created", "elapsed", "ended_at", "expires", "position", "running",
+  "attempts", "created", "elapsed", "ended_at", "expires", "position", "registered_at", "running",
   "started", "started_at", "target", "total", "updated", "version", "window",
 ]);
 

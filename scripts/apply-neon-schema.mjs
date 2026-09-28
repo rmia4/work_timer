@@ -1,9 +1,10 @@
 import { readFile, readdir } from "node:fs/promises";
 import { neon } from "@neondatabase/serverless";
 
-if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+const connectionString = process.env.DATABASE_URL || process.env.DATABASE_URL_POOLED || process.env.CONNECTION_STRING;
+if (!connectionString) throw new Error("DATABASE_URL, DATABASE_URL_POOLED, or CONNECTION_STRING is required");
 
-const sql = neon(process.env.DATABASE_URL);
+const sql = neon(connectionString);
 await sql.query(`CREATE TABLE IF NOT EXISTS "_work_timer_migrations" (
   "name" text PRIMARY KEY NOT NULL,
   "applied_at" bigint NOT NULL

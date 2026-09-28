@@ -19,18 +19,21 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  assert.ok(dailyMemoMigration,'daily memo migration is missing');db.exec(read('drizzle/'+dailyMemoMigration));
  const collapsedMemoMigration=readdirSync(new URL('../drizzle',import.meta.url)).find(name=>name.startsWith('0007_')&&name.endsWith('.sql'));
  assert.ok(collapsedMemoMigration,'collapsed memo migration is missing');db.exec(read('drizzle/'+collapsedMemoMigration));
- db.exec("CREATE TABLE users (id TEXT PRIMARY KEY, access_code_hash TEXT, status TEXT NOT NULL, created INTEGER NOT NULL)");
+ db.exec("CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, access_code_hash TEXT, access_code_lookup TEXT UNIQUE, display_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL)");
+ db.exec("CREATE TABLE signup_limits (id TEXT PRIMARY KEY, registered_at INTEGER NOT NULL)");
  const adapter={prepare(sql){return {bind(...args){args=args.map(value=>typeof value==='boolean'?Number(value):value);return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
  const salt=randomBytes(16),code='test-only-code';
  const storedHash='100000:'+salt.toString('hex')+':'+pbkdf2Sync(code,salt,100000,32,'sha256').toString('hex');
- db.prepare("INSERT INTO users (id,access_code_hash,status,created) VALUES ('legacy-owner',?,'active',0)").run(storedHash);
+ db.prepare("INSERT INTO users (id,access_code_hash,status,created,updated) VALUES ('legacy-owner',?,'active',0,0)").run(storedHash);
  db.prepare("INSERT INTO tasks (id,owner,day,title,created) VALUES ('old','legacy-owner','2026-09-10','Existing record',0)").run();
  const env={APP_ORIGIN:'https://diary.test'};
  process.env.APP_ORIGIN=env.APP_ORIGIN;
+ process.env.ACCESS_CODE_SECRET='test-only-access-code-secret-32-characters';
  const helpers=await moduleFrom('lib/access-code.ts');
  const dates=await moduleFrom('lib/work-dates.ts');
  globalThis.authFixture={...helpers,...dates,env,database:()=>adapter};
- const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
+ const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,codeLookup,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS}=globalThis.authFixture;');
+ const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,codeLookup,createCodeHash,hashToken,sessionCookie,sameOrigin,SESSION_SECONDS,verifyCode,MIN_CODE_LENGTH}=globalThis.authFixture;');
  const user=await moduleFrom('app/_auth/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
  const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
@@ -45,12 +48,31 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
  assert.equal((await auth.POST(request('incorrect'))).status,401);
  const ok=await auth.POST(request(code));assert.equal(ok.status,200);
  const cookie=ok.headers.get('set-cookie');assert.match(cookie,/Secure; HttpOnly; SameSite=Strict/);
+ assert.match(db.prepare("SELECT access_code_lookup FROM users WHERE id='legacy-owner'").get().access_code_lookup,/^[a-f0-9]{64}$/);
  const req=new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10',{headers:{cookie}});
  assert.equal((await memos.GET(new Request(env.APP_ORIGIN+'/api/memos'))).status,401);
  assert.deepEqual(await user.getCodeUser(req),{userId:'legacy-owner'});
  const records=await tasks.GET(req);assert.equal(records.status,200);assert.equal((await records.json()).tasks[0].id,'old');
  assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:'https://evil.test'},body:'{}'}))).status,403);
  assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:cookie.replace(/=./,'=z')}})),null);
+ const signupRequest=(newCode,confirmation=newCode,ip='192.0.2.10')=>new Request(env.APP_ORIGIN+'/api/auth/signup',{method:'POST',headers:{origin:env.APP_ORIGIN,'Content-Type':'application/json','x-forwarded-for':ip},body:JSON.stringify({code:newCode,confirmation})});
+ assert.equal((await signup.POST(signupRequest('four'))).status,400);
+ assert.equal((await signup.POST(signupRequest('new-code','different'))).status,400);
+ const signupStart=Date.now(),originalSignupNow=Date.now;Date.now=()=>signupStart;
+ try{
+  const joined=await signup.POST(signupRequest('new-code'));assert.equal(joined.status,201);assert.match(joined.headers.get('set-cookie'),/Secure; HttpOnly; SameSite=Strict/);
+  const joinedUser=db.prepare("SELECT id FROM users WHERE access_code_lookup IS NOT NULL AND id<>'legacy-owner' ORDER BY created LIMIT 1").get();assert.ok(joinedUser?.id);
+  assert.equal((await signup.POST(signupRequest('another-code'))).status,429);
+  assert.equal((await signup.POST(signupRequest('new-code','new-code','192.0.2.11'))).status,409);
+  const signupAttackIp='192.0.2.20';
+  for(let attempt=1;attempt<5;attempt++)assert.equal((await signup.POST(signupRequest('new-code','new-code',signupAttackIp))).status,409);
+  const signupBlocked=await signup.POST(signupRequest('new-code','new-code',signupAttackIp));assert.equal(signupBlocked.status,429);assert.equal(signupBlocked.headers.get('retry-after'),'900');
+  assert.equal((await auth.POST(request('new-code',env.APP_ORIGIN,signupAttackIp))).status,429);
+  const newLogin=await auth.POST(request('new-code',env.APP_ORIGIN,'192.0.2.12'));assert.equal(newLogin.status,200);
+  assert.deepEqual(await user.getCodeUser(new Request(req.url,{headers:{cookie:newLogin.headers.get('set-cookie')}})),{userId:joinedUser.id});
+  Date.now=()=>signupStart+24*60*60_000;
+  assert.equal((await signup.POST(signupRequest('next-day-code'))).status,201);
+ }finally{Date.now=originalSignupNow;}
  const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
  const memoReq=new Request(env.APP_ORIGIN+'/api/memos',{headers:{cookie}});
  const postMemo=body=>memos.POST(new Request(memoReq.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
@@ -130,5 +152,5 @@ test('code auth: wrong code, secure session, old records, expiry, logout, rate l
   blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'4500');
  }finally{Date.now=originalNow;}
  assert.equal(db.prepare('SELECT owner FROM tasks').get().owner,'legacy-owner');
- db.close();delete globalThis.authFixture;delete process.env.APP_ORIGIN;
+ db.close();delete globalThis.authFixture;delete process.env.APP_ORIGIN;delete process.env.ACCESS_CODE_SECRET;
 });

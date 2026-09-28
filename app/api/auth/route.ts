@@ -1,5 +1,5 @@
 import {database} from '../../../db/raw';
-import {clientAddress,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS} from '../../../lib/access-code';
+import {clientAddress,codeLookup,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS} from '../../../lib/access-code';
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const FAILURES_PER_BLOCK=5;
 const BASE_BLOCK_MS=15*60_000;
@@ -13,10 +13,17 @@ export async function POST(req:Request){
  const db=database(),now=Date.now(),limitId='ip:'+await hashToken(clientAddress(req));
  const limit=await db.prepare('SELECT "window",attempts FROM code_limits WHERE id=?').bind(limitId).first<{window:number;attempts:number}>();
  if(limit&&limit.window>now)return json({error:'로그인 시도가 차단되었습니다. 잠시 후 다시 시도해 주세요.'},429,{'Retry-After':String(Math.ceil((limit.window-now)/1000))});
- const users=await db.prepare("SELECT id,access_code_hash FROM users WHERE status='active' AND access_code_hash IS NOT NULL ORDER BY created,id LIMIT 2").all<{id:string;access_code_hash:string}>();
- if(users.results.length!==1)return json({error:'접속 설정을 확인해 주세요.'},503);
- const user=users.results[0];
- if(!await verifyCode(body.code,user.access_code_hash)){
+ const lookup=await codeLookup(body.code,process.env.ACCESS_CODE_SECRET);
+ let user=await db.prepare("SELECT id,access_code_hash FROM users WHERE status='active' AND access_code_lookup=? LIMIT 1").bind(lookup).first<{id:string;access_code_hash:string}>(),verified=false;
+ if(!user){
+  const legacy=await db.prepare("SELECT id,access_code_hash FROM users WHERE status='active' AND access_code_lookup IS NULL AND access_code_hash IS NOT NULL ORDER BY created,id LIMIT 2").all<{id:string;access_code_hash:string}>();
+  if(legacy.results.length===1&&await verifyCode(body.code,legacy.results[0].access_code_hash)){
+   user=legacy.results[0];
+   verified=true;
+   await db.prepare('UPDATE users SET access_code_lookup=?,updated=? WHERE id=? AND access_code_lookup IS NULL').bind(lookup,now,user.id).run();
+  }
+ }
+ if(!user||!verified&&!await verifyCode(body.code,user.access_code_hash)){
   const failure=await db.prepare('INSERT INTO code_limits (id,"window",attempts) VALUES (?,0,1) ON CONFLICT(id) DO UPDATE SET attempts=code_limits.attempts+1 RETURNING attempts').bind(limitId).first<{attempts:number}>();
   const attempts=Number(failure?.attempts||1);
   if(attempts%FAILURES_PER_BLOCK!==0)return json({error:'접속 코드가 일치하지 않습니다.'},401);

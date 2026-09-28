@@ -9,13 +9,17 @@ export const users = pgTable(
     id: text("id").primaryKey(),
     email: text("email"),
     accessCodeHash: text("access_code_hash"),
+    accessCodeLookup: text("access_code_lookup"),
     displayName: text("display_name").notNull().default(""),
     role: text("role").notNull().default("user"),
     status: text("status").notNull().default("active"),
     created: epoch("created").notNull(),
     updated: epoch("updated").notNull(),
   },
-  (table) => [uniqueIndex("users_email_unique").on(table.email)],
+  (table) => [
+    uniqueIndex("users_email_unique").on(table.email),
+    uniqueIndex("users_access_code_lookup_unique").on(table.accessCodeLookup),
+  ],
 );
 
 export const tasks = pgTable(
@@ -62,6 +66,11 @@ export const codeLimits = pgTable("code_limits", {
   id: text("id").primaryKey(),
   window: epoch("window").notNull(),
   attempts: integer("attempts").notNull(),
+});
+
+export const signupLimits = pgTable("signup_limits", {
+  id: text("id").primaryKey(),
+  registeredAt: epoch("registered_at").notNull(),
 });
 
 export const memos = pgTable(
