@@ -27,6 +27,12 @@ export async function POST(req:Request){
    await db.prepare('INSERT INTO daily_memos (id,owner,day,title,body,position,version,created,updated) VALUES (?,?,?,?,?,?,?,?,?)').bind(memo.id,owner,day,memo.title,memo.body,memo.position,memo.version,memo.created,memo.updated).run();
    return reply({memo});
   }
+  if(body.action==='reorder'){
+   if(typeof body.id!=='string'||typeof body.swapId!=='string'||body.id===body.swapId)return reply({error:'요청을 확인해 주세요.'},400);
+   const result=await db.prepare('WITH pair AS MATERIALIZED (SELECT id,position FROM daily_memos WHERE owner=? AND day=? AND id IN (?,?)) UPDATE daily_memos AS target SET position=CASE WHEN target.id=? THEN (SELECT position FROM pair WHERE id=?) WHEN target.id=? THEN (SELECT position FROM pair WHERE id=?) ELSE target.position END WHERE target.owner=? AND target.day=? AND target.id IN (?,?) AND (SELECT COUNT(*) FROM pair)=2 RETURNING id').bind(owner,day,body.id,body.swapId,body.id,body.swapId,body.swapId,body.id,owner,day,body.id,body.swapId).all<{id:string}>();
+   if(result.results.length!==2)return reply({error:'메모가 없습니다.'},404);
+   return reply({ok:true});
+  }
   if(typeof body.id!=='string'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
   const current:any=await db.prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE id=? AND owner=? AND day=?').bind(body.id,owner,day).first();
   if(!current)return reply({error:'메모가 없습니다.'},404);
