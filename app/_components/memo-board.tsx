@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, StickyNote, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Plus, StickyNote, Trash2 } from "lucide-react";
 
 type Memo = {
   id: string;
@@ -38,13 +38,19 @@ function MemoCard({
   memo,
   focus,
   collapsible,
+  canMoveUp,
+  canMoveDown,
   onDeleted,
+  onMove,
   request,
 }: {
   memo: Memo;
   focus: boolean;
   collapsible: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onDeleted: (id: string) => void;
+  onMove: (direction: "up" | "down") => void;
   request: (body: Record<string, unknown>) => Promise<{ memo?: Memo }>;
 }) {
   const [title, setTitle] = useState(memo.title),
@@ -177,6 +183,24 @@ function MemoCard({
               ? "저장 실패"
               : "저장됨"}
         </span>
+        <button
+          type="button"
+          aria-label="위로 이동"
+          title="위로 이동"
+          disabled={!canMoveUp}
+          onClick={() => onMove("up")}
+        >
+          <ArrowUp size={15} />
+        </button>
+        <button
+          type="button"
+          aria-label="아래로 이동"
+          title="아래로 이동"
+          disabled={!canMoveDown}
+          onClick={() => onMove("down")}
+        >
+          <ArrowDown size={15} />
+        </button>
         {collapsible && (
           <button
             type="button"
@@ -244,7 +268,10 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
   const [memos, setMemos] = useState<Memo[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [focusId, setFocusId] = useState<string | null>(null);
+    [focusId, setFocusId] = useState<string | null>(null),
+    [moving, setMoving] = useState(false);
+  const moveLock = useRef(false),
+    dayRef = useRef(day);
   const endpoint = day ? "/api/daily-memos" : "/api/memos",
     request = (body: Record<string, unknown>) =>
       memoRequest(endpoint, day ? { ...body, day } : body);
@@ -268,6 +295,7 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
     }
   };
   useEffect(() => {
+    dayRef.current = day;
     setMemos([]);
     void load();
   }, [day]);
@@ -282,6 +310,34 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
       }
     } catch (reason) {
       setError((reason as Error).message);
+    }
+  };
+  const move = async (id: string, direction: "up" | "down") => {
+    if (moveLock.current) return;
+    const index = memos.findIndex((memo) => memo.id === id);
+    if (index < 0) return;
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= memos.length) return;
+    const memo = memos[index];
+    const swap = memos[swapIndex];
+    const requestDay = day;
+    const next = [...memos];
+    next[index] = swap;
+    next[swapIndex] = memo;
+    moveLock.current = true;
+    setMoving(true);
+    setError("");
+    setMemos(next);
+    try {
+      await request({ action: "reorder", id: memo.id, swapId: swap.id });
+    } catch (reason) {
+      if (dayRef.current === requestDay) {
+        await load();
+        setError((reason as Error).message);
+      }
+    } finally {
+      moveLock.current = false;
+      setMoving(false);
     }
   };
   return (
@@ -317,16 +373,19 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
           </button>
         </div>
       ) : (
-        memos.map((memo) => (
+        memos.map((memo, index) => (
           <MemoCard
             key={memo.id}
             memo={memo}
             focus={focusId === memo.id}
             collapsible={!day}
+            canMoveUp={!moving && index > 0}
+            canMoveDown={!moving && index < memos.length - 1}
             request={request}
             onDeleted={(id) =>
               setMemos((current) => current.filter((item) => item.id !== id))
             }
+            onMove={(direction) => void move(memo.id, direction)}
           />
         ))
       )}

@@ -50,7 +50,9 @@ main {
   padding: 8px 11px;
 }
 .memo-card {
-  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
   padding: 10px 16px 16px;
   border: 1px solid #dce2eb;
   border-radius: 12px;
@@ -62,9 +64,8 @@ main {
   padding-bottom: 10px;
 }
 .memo-card-actions {
-  position: absolute;
-  top: 8px;
-  right: 12px;
+  grid-column: 2;
+  grid-row: 1;
   min-height: 28px;
   display: flex;
   align-items: center;
@@ -79,6 +80,10 @@ main {
   background: transparent;
   color: #77849a;
 }
+.memo-card-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 .memo-title,
 .memo-body {
   border: 0;
@@ -87,14 +92,14 @@ main {
   background: transparent;
 }
 .memo-title {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
   font-size: 16px;
   font-weight: 600;
-  padding-right: 92px;
-}
-.memo-card.is-collapsible .memo-title {
-  padding-right: 124px;
 }
 .memo-body {
+  grid-column: 1 / -1;
   font-size: 14px;
   line-height: 1.65;
   resize: none;
@@ -129,6 +134,7 @@ main {
   margin: 10px auto 0;
 }
 .memo-error {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
