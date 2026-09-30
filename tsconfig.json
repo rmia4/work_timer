@@ -38,8 +38,6 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules",
-    "examples",
-    "neon.ts"
+    "node_modules"
   ]
 }

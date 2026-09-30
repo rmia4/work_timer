@@ -181,46 +181,6 @@ useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  useEffect(() => {
-    const ctx = (document as any).modelContext;
-    if (!ctx?.registerTool) return;
-    const controller = new AbortController();
-    try {
-      Promise.resolve(
-        ctx.registerTool(
-          {
-            name: "read_work_records",
-            description: "Read saved work records for a Korean calendar date.",
-            inputSchema: {
-              type: "object",
-              properties: {
-                day: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-              },
-              required: ["day"],
-              additionalProperties: false,
-            },
-            annotations: { readOnlyHint: true, untrustedContentHint: true },
-            execute: async (input: any) => {
-              if (!input || !/^\d{4}-\d{2}-\d{2}$/.test(input.day))
-                throw Error("Invalid date");
-              const r = await fetch("/api/tasks?day=" + input.day);
-              const data = (await r.json()) as {
-                tasks: Task[];
-                now: number;
-                error: string;
-              };
-              if (!r.ok) throw Error(data.error);
-              return data;
-            },
-          },
-          { signal: controller.signal },
-        ),
-      ).catch(console.error);
-    } catch (e) {
-      console.error(e);
-    }
-    return () => controller.abort();
-  }, []);
   async function act(body: object) {
     if (lock.current) return false;
     lock.current = true;

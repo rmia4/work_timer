@@ -77,7 +77,7 @@ pnpm db:neon:apply
 
 ```powershell
 pnpm build
-node --test tests/code-auth.test.mjs
+pnpm test
 ```
 
 프로덕션 빌드는 TypeScript 검사와 페이지 생성을 함께 수행합니다.

@@ -11,9 +11,6 @@ export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",
   description: "일일 업무 일지와 작업 시간 측정",
   robots: { index: false, follow: false },
-  other: {
-    "codex-preview": "development",
-  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

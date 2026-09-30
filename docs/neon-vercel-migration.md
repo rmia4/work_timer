@@ -8,7 +8,6 @@
 - `scripts/apply-neon-schema.mjs`: applies the initial schema using `DATABASE_URL`.
 - `scripts/import-d1-export.mjs`: imports a JSON export grouped by table name.
 - `drizzle.neon.config.ts`: Drizzle configuration that reads only `DATABASE_URL`.
-- `neon.ts`: Neon configuration entry point.
 
 ## Required before running the migration
 
