@@ -36,7 +36,7 @@ export async function POST(req:Request){
   if(typeof body.id!=='string'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
   const current:any=await db.prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE id=? AND owner=? AND day=?').bind(body.id,owner,day).first();
   if(!current)return reply({error:'메모가 없습니다.'},404);
-  if(current.version!==body.version)return reply({error:'다른 기기에서 변경되었습니다.',currentVersion:current.version},409);
+  if(current.version!==body.version)return reply({error:'다른 기기에서 변경되었습니다.',currentVersion:current.version,memo:current},409);
   if(body.action==='update'){
    if(!validText(body.title,200)||!validText(body.body,20000))return reply({error:'메모 내용을 확인해 주세요.'},400);
    const result=await db.prepare('UPDATE daily_memos SET title=?,body=?,version=version+1,updated=? WHERE id=? AND owner=? AND day=? AND version=?').bind(body.title,body.body,now,body.id,owner,day,body.version).run();

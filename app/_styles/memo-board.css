@@ -147,6 +147,11 @@ main {
   padding: 5px 8px;
   font-size: 11px;
 }
+.memo-error-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
 @media (max-width: 1360px) {
   main {
     max-width: 1180px;

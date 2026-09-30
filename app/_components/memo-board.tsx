@@ -29,7 +29,11 @@ async function memoRequest(endpoint: string, body: unknown) {
   if (!response.ok)
     throw Object.assign(
       new Error(data.error || "메모를 저장하지 못했습니다."),
-      { status: response.status, currentVersion: data.currentVersion },
+      {
+        status: response.status,
+        currentVersion: data.currentVersion,
+        memo: response.status === 409 ? data.memo : undefined,
+      },
     );
   return data;
 }
@@ -57,8 +61,10 @@ function MemoCard({
     [body, setBody] = useState(memo.body),
     [collapsed, setCollapsed] = useState(memo.collapsed),
     [state, setState] = useState<SaveState>("saved"),
-    [error, setError] = useState("");
-  const titleRef = useRef(title),
+    [error, setError] = useState(""),
+    [conflict, setConflict] = useState<Memo | null>(null);
+  const conflictRef = useRef<Memo | null>(null),
+    titleRef = useRef(title),
     bodyRef = useRef(body),
     collapsedRef = useRef(collapsed),
     versionRef = useRef(memo.version),
@@ -72,7 +78,49 @@ function MemoCard({
   bodyRef.current = body;
   collapsedRef.current = collapsed;
 
+  // 다른 기기의 변경을 덮어쓰지 않도록 충돌 해결 전에는 자동 저장을 멈춘다.
+  const handleFailure = (reason: unknown) => {
+    const failure = reason as Error & { memo?: Memo };
+    if (failure.memo) {
+      conflictRef.current = failure.memo;
+      setConflict(failure.memo);
+    }
+    if (mountedRef.current) {
+      setState("error");
+      setError(failure.message);
+    }
+  };
+  const loadServerVersion = () => {
+    const server = conflictRef.current;
+    if (!server) return;
+    const collapsedValue = server.collapsed ?? false;
+    titleRef.current = server.title;
+    bodyRef.current = server.body;
+    collapsedRef.current = collapsedValue;
+    versionRef.current = server.version;
+    persistedRef.current = { title: server.title, body: server.body, collapsed: collapsedValue };
+    conflictRef.current = null;
+    setConflict(null);
+    setTitle(server.title);
+    setBody(server.body);
+    setCollapsed(collapsedValue);
+    setState("saved");
+    setError("");
+  };
+  const keepMine = () => {
+    const server = conflictRef.current;
+    if (!server) return;
+    versionRef.current = server.version;
+    persistedRef.current = { title: server.title, body: server.body, collapsed: server.collapsed ?? false };
+    conflictRef.current = null;
+    setConflict(null);
+    setState("saved");
+    setError("");
+    void save();
+  };
+
   const save = async () => {
+    if (conflictRef.current) return;
     if (savingRef.current) {
       queuedRef.current = true;
       return;
@@ -107,17 +155,12 @@ function MemoCard({
       }
       if (mountedRef.current) setState("saved");
     } catch (reason) {
-      const failure = reason as Error & { currentVersion?: number };
-      if (typeof failure.currentVersion === "number")
-        versionRef.current = failure.currentVersion;
-      if (mountedRef.current) {
-        setState("error");
-        setError(failure.message);
-      }
+      handleFailure(reason);
     } finally {
       savingRef.current = false;
       if (
         queuedRef.current &&
+        !conflictRef.current &&
         (titleRef.current !== snapshot.title ||
           bodyRef.current !== snapshot.body ||
           collapsedRef.current !== snapshot.collapsed)
@@ -168,8 +211,7 @@ function MemoCard({
       });
       onDeleted(memo.id);
     } catch (reason) {
-      setState("error");
-      setError((reason as Error).message);
+      handleFailure(reason);
     }
   };
 
@@ -255,9 +297,20 @@ function MemoCard({
       {error && (
         <div className="memo-error" role="alert">
           <span>{error}</span>
-          <button type="button" onClick={() => void save()}>
-            다시 저장
-          </button>
+          {conflict ? (
+            <div className="memo-error-actions">
+              <button type="button" onClick={loadServerVersion}>
+                최신 내용 불러오기
+              </button>
+              <button type="button" onClick={keepMine}>
+                내 내용으로 덮어쓰기
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => void save()}>
+              다시 저장
+            </button>
+          )}
         </div>
       )}
     </article>

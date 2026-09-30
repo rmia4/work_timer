@@ -46,5 +46,5 @@ export async function POST(req:Request){
  const result=await q.run();if(!result.meta.changes)return reply({error:'다른 기기에서 변경되었습니다. 다시 시도해 주세요.'},409);
  }
  return reply({ok:true});
- }catch(e){console.error(e);if(String(e).includes('UNIQUE'))return reply({error:'진행 중인 작업을 먼저 종료해 주세요.'},409);return reply({error:'저장하지 못했습니다. 입력 내용을 유지한 채 다시 시도해 주세요.'},503);}
+ }catch(e){console.error(e);if((e as {code?:string})?.code==='23505')return reply({error:'진행 중인 작업을 먼저 종료해 주세요.'},409);return reply({error:'저장하지 못했습니다. 입력 내용을 유지한 채 다시 시도해 주세요.'},503);}
 }

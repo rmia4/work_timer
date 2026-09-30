@@ -4,7 +4,7 @@ type Row = Record<string, unknown>;
 type Statement = NeonQueryFunction<false, false>;
 
 const numericColumns = new Set([
-  "attempts", "created", "elapsed", "ended_at", "expires", "position", "registered_at", "running",
+  "attempts", "count", "created", "elapsed", "ended_at", "expires", "position", "registered_at", "running",
   "started", "started_at", "target", "total", "updated", "version", "window",
 ]);
 
@@ -43,6 +43,10 @@ class PreparedStatement {
     return new PreparedStatement(this.sql, this.text, values);
   }
 
+  toQuery() {
+    return this.sql.query(postgresSql(this.text), this.values);
+  }
+
   private async query(text = this.text) {
     const rows = await this.sql.query(postgresSql(text), this.values);
     return (rows as unknown as Row[]).map((row) => normalize(row));
@@ -71,6 +75,8 @@ export function database() {
   const sql = neon(connectionString());
   return {
     prepare: (text: string) => new PreparedStatement(sql, text),
-    batch: async (statements: PreparedStatement[]) => Promise.all(statements.map((statement) => statement.run())),
+    batch: async (statements: PreparedStatement[]) => {
+      await sql.transaction(statements.map((statement) => statement.toQuery()));
+    },
   };
 }

@@ -34,7 +34,7 @@ export async function POST(req:Request){
   if(typeof body.id!=='string'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
   const current:any=await db.prepare('SELECT id,title,body,collapsed,position,version,created,updated FROM memos WHERE id=? AND owner=?').bind(body.id,owner).first();
   if(!current)return reply({error:'메모가 없습니다.'},404);
-  if(current.version!==body.version)return reply({error:'다른 기기에서 변경되었습니다.',currentVersion:current.version},409);
+  if(current.version!==body.version)return reply({error:'다른 기기에서 변경되었습니다.',currentVersion:current.version,memo:{...current,collapsed:Boolean(current.collapsed)}},409);
   if(body.action==='update'){
    if(!validText(body.title,200)||!validText(body.body,20000))return reply({error:'메모 내용을 확인해 주세요.'},400);
    if(body.collapsed!==undefined&&typeof body.collapsed!=='boolean')return reply({error:'메모 상태를 확인해 주세요.'},400);
