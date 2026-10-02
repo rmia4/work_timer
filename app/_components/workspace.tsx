@@ -223,6 +223,37 @@ useEffect(() => {
   const total = daily
     .filter((t) => t.status === "done")
     .reduce((s, t) => s + t.elapsed, 0);
+  // 탭 제목에 타이머 상태와 기록 시간을 분 단위로 표시한다. 매초 렌더와 분리해 30초마다만 갱신한다.
+  const activeStatus = active?.status,
+    activeElapsed = active?.elapsed ?? 0,
+    activeStarted = active?.started ?? null;
+  const offsetRef = useRef(offset);
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
+  useEffect(() => {
+    const base = "업무 기록 · Work Timer";
+    if (auth || !activeStatus) {
+      document.title = base;
+      return;
+    }
+    const update = () => {
+      const ms =
+        activeElapsed +
+        (activeStarted === null
+          ? 0
+          : Math.max(0, Date.now() + offsetRef.current - activeStarted));
+      const icon = activeStatus === "running" ? "▶" : "❚❚";
+      document.title = `${icon} ${duration(ms).slice(0, 5)} · 업무 기록`;
+    };
+    update();
+    if (activeStarted === null) return () => void (document.title = base);
+    const id = setInterval(update, 30000);
+    return () => {
+      clearInterval(id);
+      document.title = base;
+    };
+  }, [auth, activeStatus, activeElapsed, activeStarted]);
   async function save(run: boolean) {
     const ok = await act({
       action: edit ? "edit" : "create",
