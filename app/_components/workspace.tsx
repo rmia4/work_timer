@@ -489,7 +489,7 @@ useEffect(() => {
                   입력하지 않으면 목표 시간이 표시되지 않습니다.
                 </p>
                 <details className="manual-times">
-                  <summary>시작·종료 시각 직접 입력 (선택)</summary>
+                  <summary>소요 시간 직접 입력 (선택)</summary>
                   <label>
                     소요 시간 (분)
                     <input
