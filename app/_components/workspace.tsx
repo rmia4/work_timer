@@ -57,6 +57,7 @@ type Task = {
   version: number;
   started_at: number | null;
   ended_at: number | null;
+  sessions?: { start_at: number; end_at: number | null }[];
 };
 const today = (offset = 0) =>{
   return new Intl.DateTimeFormat("en-CA", {

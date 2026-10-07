@@ -85,7 +85,8 @@
   transition: stroke-width 120ms ease, filter 120ms ease;
 }
 .day-clock-segment:hover,
-.day-clock-segment:focus-visible {
+.day-clock-segment:focus-visible,
+.day-clock-segment.is-related {
   stroke-width: 16;
   filter: saturate(1.08);
   outline: none;

@@ -1,5 +1,5 @@
 import {database} from '../../../db/raw';
-import {clientAddress,codeLookup,hashToken,verifyCode,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS} from '../../../lib/access-code';
+import {clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH} from '../../../lib/auth';
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const FAILURES_PER_BLOCK=5;
 const BASE_BLOCK_MS=15*60_000;
@@ -8,25 +8,17 @@ export async function POST(req:Request){
  try{
  if(Number(req.headers.get('content-length')||0)>2048)return json({error:'입력값이 너무 깁니다.'},400);
  const input=await req.text();if(input.length>2048)return json({error:'입력값이 너무 깁니다.'},400);
- let body;try{body=JSON.parse(input);}catch{return json({error:'코드를 입력해 주세요.'},400);}
- if(typeof body?.code!=='string'||!body.code||body.code.length>128)return json({error:'코드를 입력해 주세요.'},400);
+ let body;try{body=JSON.parse(input);}catch{return json({error:'아이디와 비밀번호를 입력해 주세요.'},400);}
+ if(typeof body?.username!=='string'||!body.username||typeof body?.password!=='string'||!body.password||body.username.length>128||body.password.length>MAX_PASSWORD_LENGTH)return json({error:'아이디와 비밀번호를 입력해 주세요.'},400);
  const db=database(),now=Date.now(),limitId='ip:'+await hashToken(clientAddress(req));
  const limit=await db.prepare('SELECT "window",attempts FROM code_limits WHERE id=?').bind(limitId).first<{window:number;attempts:number}>();
  if(limit&&limit.window>now)return json({error:'로그인 시도가 차단되었습니다. 잠시 후 다시 시도해 주세요.'},429,{'Retry-After':String(Math.ceil((limit.window-now)/1000))});
- const lookup=await codeLookup(body.code,process.env.ACCESS_CODE_SECRET);
- let user=await db.prepare("SELECT id,access_code_hash FROM users WHERE status='active' AND access_code_lookup=? LIMIT 1").bind(lookup).first<{id:string;access_code_hash:string}>(),verified=false;
- if(!user){
-  const legacy=await db.prepare("SELECT id,access_code_hash FROM users WHERE status='active' AND access_code_lookup IS NULL AND access_code_hash IS NOT NULL ORDER BY created,id LIMIT 2").all<{id:string;access_code_hash:string}>();
-  if(legacy.results.length===1&&await verifyCode(body.code,legacy.results[0].access_code_hash)){
-   user=legacy.results[0];
-   verified=true;
-   await db.prepare('UPDATE users SET access_code_lookup=?,updated=? WHERE id=? AND access_code_lookup IS NULL').bind(lookup,now,user.id).run();
-  }
- }
- if(!user||!verified&&!await verifyCode(body.code,user.access_code_hash)){
+ const username=normalizeUsername(body.username);
+ const user=username?await db.prepare("SELECT id,password_hash FROM users WHERE status='active' AND username=? LIMIT 1").bind(username).first<{id:string;password_hash:string|null}>():null;
+ if(!await verifyPassword(body.password,user?.password_hash||UNKNOWN_USER_HASH)||!user){
   const failure=await db.prepare('INSERT INTO code_limits (id,"window",attempts) VALUES (?,0,1) ON CONFLICT(id) DO UPDATE SET attempts=code_limits.attempts+1 RETURNING attempts').bind(limitId).first<{attempts:number}>();
   const attempts=Number(failure?.attempts||1);
-  if(attempts%FAILURES_PER_BLOCK!==0)return json({error:'접속 코드가 일치하지 않습니다.'},401);
+  if(attempts%FAILURES_PER_BLOCK!==0)return json({error:'아이디 또는 비밀번호가 일치하지 않습니다.'},401);
   const blockLevel=attempts/FAILURES_PER_BLOCK-1;
   const blockedUntil=now+BASE_BLOCK_MS*5**blockLevel;
   await db.prepare('UPDATE code_limits SET "window"=CASE WHEN "window">? THEN "window" ELSE ? END WHERE id=?').bind(blockedUntil,blockedUntil,limitId).run();
@@ -40,7 +32,7 @@ export async function POST(req:Request){
  db.prepare('INSERT INTO code_sessions (token_hash,owner,expires) VALUES (?,?,?)').bind(await hashToken(token),owner,now+SESSION_SECONDS*1000)
  ]);
  return json({ok:true},200,{'Set-Cookie':sessionCookie(token)});
- }catch(e){console.error('Access code authentication failed',e);return json({error:'접속하지 못했습니다. 잠시 후 다시 시도해 주세요.'},503);}
+ }catch(e){console.error('Password authentication failed',e);return json({error:'접속하지 못했습니다. 잠시 후 다시 시도해 주세요.'},503);}
 }
 export async function DELETE(req:Request){
  if(!sameOrigin(req,process.env.APP_ORIGIN))return json({error:'허용되지 않은 요청입니다.'},403);

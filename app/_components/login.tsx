@@ -7,7 +7,8 @@ export default function Login({
 }: {
   onSuccess: () => Promise<void>;
 }) {
-  const [code, setCode] = useState(""),
+  const [username, setUsername] = useState(""),
+    [password, setPassword] = useState(""),
     [confirmation, setConfirmation] = useState(""),
     [mode, setMode] = useState<"login" | "signup">("login"),
     [busy, setBusy] = useState(false),
@@ -44,8 +45,8 @@ export default function Login({
               <h1>{mode === "login" ? "로그인" : "회원가입"}</h1>
               <p>
                 {mode === "login"
-                  ? "개인 코드를 입력해 주세요."
-                  : "사용할 개인 코드를 5자 이상 입력해 주세요."}
+                  ? "아이디와 비밀번호를 입력해 주세요."
+                  : "아이디는 영문 소문자·숫자·밑줄 4~20자, 비밀번호는 8자 이상 입력해 주세요."}
               </p>
               <form
                 onSubmit={async (e) => {
@@ -59,7 +60,7 @@ export default function Login({
                       {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ code, confirmation }),
+                        body: JSON.stringify({ username, password, confirmation }),
                       },
                     );
                     const data = (await r.json()) as { error?: string };
@@ -70,7 +71,7 @@ export default function Login({
                             ? "로그인하지 못했습니다."
                             : "가입하지 못했습니다."),
                       );
-                    setCode("");
+                    setPassword("");
                     setConfirmation("");
                     await onSuccess();
                   } catch (e) {
@@ -82,33 +83,50 @@ export default function Login({
                   }
                 }}
               >
-                <label htmlFor="access-code">
-                  개인 코드
+                <label htmlFor="username">
+                  아이디
                   <input
-                    id="access-code"
-                    name="access-code"
-                    type="password"
+                    id="username"
+                    name="username"
+                    type="text"
                     autoFocus
                     required
-                    minLength={mode === "signup" ? 5 : undefined}
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    minLength={mode === "signup" ? 4 : undefined}
+                    maxLength={20}
+                    pattern={mode === "signup" ? "[A-Za-z0-9_]{4,20}" : undefined}
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </label>
+                <label htmlFor="password">
+                  비밀번호
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    minLength={mode === "signup" ? 8 : undefined}
                     maxLength={128}
                     autoComplete={
                       mode === "login" ? "current-password" : "new-password"
                     }
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                 </label>
                 {mode === "signup" && (
-                  <label htmlFor="access-code-confirmation">
-                    개인 코드 확인
+                  <label htmlFor="password-confirmation">
+                    비밀번호 확인
                     <input
-                      id="access-code-confirmation"
-                      name="access-code-confirmation"
+                      id="password-confirmation"
+                      name="password-confirmation"
                       type="password"
                       autoComplete="new-password"
                       required
-                      minLength={5}
+                      minLength={8}
                       maxLength={128}
                       value={confirmation}
                       onChange={(e) => setConfirmation(e.target.value)}
@@ -130,7 +148,7 @@ export default function Login({
                   disabled={busy}
                   onClick={() => {
                     setMode(mode === "login" ? "signup" : "login");
-                    setCode("");
+                    setPassword("");
                     setConfirmation("");
                     setError("");
                   }}
