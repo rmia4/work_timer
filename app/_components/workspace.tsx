@@ -3,6 +3,7 @@ import Login from "./login";
 import WorkCalendar, { invalidateCalendarCache } from "./work-calendar";
 import MemoBoard from "./memo-board";
 import DailyActivityClock from "./daily-activity-clock";
+import SettingsDialog, { type DeleteKind } from "./settings-dialog";
 import {
   Popover,
   PopoverTrigger,
@@ -102,7 +103,9 @@ export default function Workspace() {
     [message, setMessage] = useState("");
   const [first, setFirst] = useState(""),
     [last, setLast] = useState(""),
-    [calendarRefresh, setCalendarRefresh] = useState(0);
+    [calendarRefresh, setCalendarRefresh] = useState(0),
+    [memoReset, setMemoReset] = useState(0),
+    [dailyMemoReset, setDailyMemoReset] = useState(0);
   const [calendarOpen, setCalendarOpen] = useState(false),
     [calendarSelection, setCalendarSelection] = useState(day),
     [finishTask, setFinishTask] = useState<Task | null>(null),
@@ -299,6 +302,16 @@ useEffect(() => {
       setError(e instanceof Error ? e.message : "로그아웃하지 못했습니다.");
     }
   }
+  function resetDeleted(kind: DeleteKind) {
+    if (kind === "memos") return setMemoReset((n) => n + 1);
+    if (kind === "daily-memos") return setDailyMemoReset((n) => n + 1);
+    setFinishTask(null);
+    setRemove(null);
+    setEdit(null);
+    invalidateCalendarCache();
+    setCalendarRefresh((n) => n + 1);
+    void load();
+  }
   return (
     <div className="shell">
       <header className="top">
@@ -306,9 +319,12 @@ useEffect(() => {
           <img src="/favicon.svg" alt="" width="24" height="24" />
           <strong>업무 기록</strong>
         </div>
-        <button onClick={logout} disabled={busy}>
-          로그아웃
-        </button>
+        <div className="top-actions">
+          <SettingsDialog disabled={busy} onDeleted={resetDeleted} />
+          <button onClick={logout} disabled={busy}>
+            로그아웃
+          </button>
+        </div>
       </header>
       <main>
         {error && (
@@ -582,7 +598,7 @@ useEffect(() => {
                 </p>
               </form>
             </section>
-            <MemoBoard key={day} day={day} />
+            <MemoBoard key={`${day}:${dailyMemoReset}`} day={day} />
           </div>
           <section className="records">
             <div className="section-title">
@@ -711,7 +727,7 @@ useEffect(() => {
               ))
             )}
           </section>
-          <MemoBoard />
+          <MemoBoard key={memoReset} />
         </div>
         <footer>한국 시간 기준 · 기록은 기기 간 자동 동기화됩니다.</footer>
       </main>
