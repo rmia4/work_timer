@@ -19,7 +19,9 @@ import {
   addDays,
   weekDays,
   weekdayIndex,
+  summaryPrompt,
   type DayStat,
+  type ExportScope,
 } from "../../lib/stats";
 
 type Section = "summary" | "week" | "month" | "export";
@@ -279,18 +281,37 @@ function MonthView({ day }: { day: string }) {
   );
 }
 
+const scopeOptions: { id: ExportScope; label: string }[] = [
+  { id: "time", label: "시간 기록만" },
+  { id: "all", label: "전체" },
+  { id: "detail", label: "세부내용만" },
+];
+
 function ExportView({ anchor }: { anchor: string }) {
   const [from, setFrom] = useState(() => monthRange(anchor).from),
     [to, setTo] = useState(() => monthRange(anchor).to),
+    [scope, setScope] = useState<ExportScope>("time"),
     [busy, setBusy] = useState(false),
+    [copied, setCopied] = useState(false),
     [error, setError] = useState("");
   const invalid = !from || !to || from > to || dayCount(from, to) > 366;
+  async function copyPrompt() {
+    if (invalid) return;
+    setError("");
+    try {
+      await navigator.clipboard.writeText(summaryPrompt(from, to, scope));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("프롬프트를 복사하지 못했습니다.");
+    }
+  }
   async function download() {
     if (busy || invalid) return;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch(`/api/export?from=${from}&to=${to}`);
+      const r = await fetch(`/api/export?from=${from}&to=${to}&scope=${scope}`);
       if (!r.ok) {
         const data = (await r.json().catch(() => ({}))) as { error?: string };
         throw Error(data.error || "데이터를 내보내지 못했습니다.");
@@ -323,8 +344,28 @@ function ExportView({ anchor }: { anchor: string }) {
         <button type="button" className="primary" disabled={busy || invalid} onClick={download}>
           {busy ? "내보내는 중…" : "CSV 다운로드"}
         </button>
+        <button type="button" disabled={invalid} onClick={copyPrompt}>
+          {copied ? "복사했습니다" : "AI 요약 프롬프트 복사"}
+        </button>
       </div>
-      {invalid && from && to && <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
+      <fieldset className="stats-scope">
+        <legend className="sr-only">내보내기 범위</legend>
+        {scopeOptions.map((option) => (
+          <label key={option.id}>
+            <input
+              type="radio"
+              name="export-scope"
+              value={option.id}
+              checked={scope === option.id}
+              onChange={() => setScope(option.id)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </fieldset>
+      <p className="stats-message">세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기와 AI 작업량이 늘어납니다.</p>
+      <p className="stats-message">CSV를 AI에 첨부할 때 같은 범위로 복사한 프롬프트를 함께 붙여넣으세요.</p>
+      {invalid && from && to &&<p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
       {error && <p className="stats-message stats-error" role="alert">{error}</p>}
     </>
   );

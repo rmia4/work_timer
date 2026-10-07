@@ -48,7 +48,28 @@ test('validRange checks order and length',()=>{
 });
 
 test('tasksCsv escapes cells and adds BOM',()=>{
- const csv=stats.tasksCsv([{day:'2026-10-07',title:'회의, "주간"',note:'첫줄\n둘째줄',result:'',target:1800000,elapsed:2700000,started_at:Date.parse('2026-10-07T09:05:00+09:00'),ended_at:null,status:'done'}]);
+ const csv=stats.tasksCsv([{day:'2026-10-07',title:'회의, "주간"',note:'첫줄\n둘째줄',result:'',target:1800000,elapsed:2700000,started_at:Date.parse('2026-10-07T09:05:00+09:00'),ended_at:null,status:'done'}],'all');
  assert.ok(csv.startsWith('﻿날짜,제목,'));
  assert.equal(csv.split('\r\n')[1],'2026-10-07,"회의, ""주간""","첫줄\n둘째줄",,30,45,09:05,,완료');
+});
+
+test('tasksCsv picks columns by export scope',()=>{
+ const rows=[{day:'2026-10-07',title:'회의',note:'내용',result:'결과',target:null,elapsed:600000,started_at:null,ended_at:null,status:'done'}];
+ const lines=scope=>stats.tasksCsv(rows,scope).slice(1).split('\r\n');
+ assert.deepEqual(lines('time').slice(0,2),['날짜,제목,목표(분),소요(분),시작 시각,종료 시각,상태','2026-10-07,회의,,10,,,완료']);
+ assert.deepEqual(lines('all').slice(0,2),['날짜,제목,업무 내용,결과,목표(분),소요(분),시작 시각,종료 시각,상태','2026-10-07,회의,내용,결과,,10,,,완료']);
+ assert.deepEqual(lines('detail').slice(0,2),['날짜,제목,업무 내용,결과','2026-10-07,회의,내용,결과']);
+ assert.ok(stats.validScope('detail'));
+ assert.ok(!stats.validScope('x'));
+ assert.ok(!stats.validScope(null));
+});
+
+test('summaryPrompt changes instructions by export scope',()=>{
+ const time=stats.summaryPrompt('2026-10-01','2026-10-31','time');
+ const all=stats.summaryPrompt('2026-10-01','2026-10-31','all');
+ const detail=stats.summaryPrompt('2026-10-01','2026-10-31','detail');
+ for(const p of [time,all,detail]){assert.ok(p.includes('2026-10-01부터 2026-10-31까지'));assert.ok(p.includes('[제목 묶기]'));}
+ assert.ok(time.includes('업무 내용 열이 없습니다')&&!time.includes('- 업무 내용:'));
+ assert.ok(all.includes('- 업무 내용:')&&all.includes('시간 분포'));
+ assert.ok(detail.includes('시간 기록 열이 없습니다')&&!detail.includes('시간 분포')&&!detail.includes('- 소요(분):'));
 });

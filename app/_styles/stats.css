@@ -239,6 +239,23 @@
 .stats-export input {
   width: auto;
 }
+.stats-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+.stats-scope label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.stats-scope input {
+  width: auto;
+}
 
 @media (max-width: 640px) {
   .stats-layout {
