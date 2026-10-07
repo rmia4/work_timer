@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type PointerEvent } from "react";
+import StatsDialog from "./stats-dialog";
 
 type ActivityTask = {
   id: string;
@@ -183,8 +184,7 @@ export default function DailyActivityClock({
           <span className="day-clock-date">{month}.{date}</span>
           <strong>하루 요약</strong>
         </div>
-        <button>통계</button>
-        {/* 통계는 추후 기능 추가 */}
+        <StatsDialog day={day} />
       </div>
       <div className="day-clock-wrap">
         <svg className="day-clock" viewBox="0 0 240 240" role="img">
