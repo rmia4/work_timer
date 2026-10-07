@@ -68,8 +68,14 @@ test('summaryPrompt changes instructions by export scope',()=>{
  const time=stats.summaryPrompt('2026-10-01','2026-10-31','time');
  const all=stats.summaryPrompt('2026-10-01','2026-10-31','all');
  const detail=stats.summaryPrompt('2026-10-01','2026-10-31','detail');
- for(const p of [time,all,detail]){assert.ok(p.includes('2026-10-01부터 2026-10-31까지'));assert.ok(p.includes('[제목 묶기]'));}
- assert.ok(time.includes('업무 내용 열이 없습니다')&&!time.includes('- 업무 내용:'));
- assert.ok(all.includes('- 업무 내용:')&&all.includes('시간 분포'));
- assert.ok(detail.includes('시간 기록 열이 없습니다')&&!detail.includes('시간 분포')&&!detail.includes('- 소요(분):'));
+ for(const p of [time,all,detail]){assert.ok(p.includes('2026-10-01부터 2026-10-31까지'));assert.ok(p.includes('[제목 묶기]')&&p.includes('## 한눈에 보기')&&p.includes('## 기록 팁')&&p.includes('[내부 검증 - 출력하지 않음]'));}
+ assert.ok(time.includes('업무 내용·결과 열이 없습니다')&&!time.includes('- 업무 내용:')&&time.includes('## 업무별 시간')&&!time.includes('## 주요 성과')&&!time.includes('## 이어서 할 일'));
+ assert.ok(all.includes('- 업무 내용:')&&all.includes('## 업무별 시간')&&all.includes('## 이번 기간의 주요 성과')&&all.includes('## 이어서 할 일'));
+ assert.ok(detail.includes('시간 기록 열이 없습니다')&&!detail.includes('- 소요(분):')&&detail.includes('## 주요 업무')&&!detail.includes('## 업무별 시간')&&detail.includes('## 이어서 할 일'));
+ assert.ok(time.includes('[작업 시간대 기준]')&&!time.includes('[성과·이어서 할 일 기준]'));
+ assert.ok(all.includes('[작업 시간대 기준]')&&all.includes('[성과·이어서 할 일 기준]'));
+ assert.ok(!detail.includes('[작업 시간대 기준]')&&detail.includes('[성과·이어서 할 일 기준]'));
+ assert.ok(all.includes('자정을 넘긴 작업 N회')&&!detail.includes('N시간 M분')&&time.includes('N시간 M분'));
+ assert.ok(!all.includes('월별'));
+ assert.ok(stats.summaryPrompt('2026-09-15','2026-10-07','all').includes('월별'));
 });
