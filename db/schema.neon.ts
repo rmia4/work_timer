@@ -8,8 +8,8 @@ export const users = pgTable(
   {
     id: text("id").primaryKey(),
     email: text("email"),
-    accessCodeHash: text("access_code_hash"),
-    accessCodeLookup: text("access_code_lookup"),
+    username: text("username"),
+    passwordHash: text("password_hash"),
     displayName: text("display_name").notNull().default(""),
     role: text("role").notNull().default("user"),
     status: text("status").notNull().default("active"),
@@ -18,7 +18,7 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_email_unique").on(table.email),
-    uniqueIndex("users_access_code_lookup_unique").on(table.accessCodeLookup),
+    uniqueIndex("users_username_unique").on(table.username),
   ],
 );
 
@@ -48,6 +48,22 @@ export const tasks = pgTable(
       .on(table.owner)
       .where(sql`${table.status} <> 'done'`),
   ],
+);
+
+export const taskSessions = pgTable(
+  "task_sessions",
+  {
+    id: text("id").primaryKey(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    owner: text("owner")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    startAt: epoch("start_at").notNull(),
+    endAt: epoch("end_at"),
+  },
+  (table) => [index("task_sessions_task").on(table.taskId)],
 );
 
 export const codeSessions = pgTable(

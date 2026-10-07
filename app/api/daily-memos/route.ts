@@ -1,5 +1,5 @@
 import {getCodeUser} from '../../_auth/code-auth';
-import {sameOrigin} from '../../../lib/access-code';
+import {sameOrigin} from '../../../lib/auth';
 import {validDay} from '../../../lib/work-dates';
 import {database} from '../../../db/raw';
 
@@ -7,7 +7,7 @@ const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Ca
 const validText=(value:unknown,max:number)=>typeof value==='string'&&value.length<=max;
 
 export async function GET(req:Request){
- const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
+ const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  const day=new URL(req.url).searchParams.get('day');if(!validDay(day))return reply({error:'날짜를 확인해 주세요.'},400);
  try{
   const result=await database().prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE owner=? AND day=? ORDER BY position,created').bind(user.userId,day).all();
@@ -16,7 +16,7 @@ export async function GET(req:Request){
 }
 
 export async function POST(req:Request){
- const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
+ const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  if(!sameOrigin(req,process.env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
  let body:any;try{body=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
  if(!body||typeof body!=='object'||!validDay(body.day))return reply({error:'날짜를 확인해 주세요.'},400);

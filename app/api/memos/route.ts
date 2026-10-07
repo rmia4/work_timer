@@ -1,12 +1,12 @@
 import {getCodeUser} from '../../_auth/code-auth';
-import {sameOrigin} from '../../../lib/access-code';
+import {sameOrigin} from '../../../lib/auth';
 import {database} from '../../../db/raw';
 
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
 const validText=(value:unknown,max:number)=>typeof value==='string'&&value.length<=max;
 
 export async function GET(req:Request){
- const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
+ const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  try{
   const result=await database().prepare('SELECT id,title,body,collapsed,position,version,created,updated FROM memos WHERE owner=? ORDER BY position,created').bind(user.userId).all();
   return reply({memos:result.results.map((memo:any)=>({...memo,collapsed:Boolean(memo.collapsed)}))});
@@ -14,7 +14,7 @@ export async function GET(req:Request){
 }
 
 export async function POST(req:Request){
- const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
+ const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  if(!sameOrigin(req,process.env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
  let body:any;try{body=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
  if(!body||typeof body!=='object')return reply({error:'요청을 확인해 주세요.'},400);

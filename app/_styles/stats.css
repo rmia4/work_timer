@@ -1,0 +1,279 @@
+.stats-dialog {
+  --heat-0: #ffffff;
+  --heat-1: #d4ddf8;
+  --heat-2: #8aa3ec;
+  --heat-3: #2859df;
+  --heat-4: #12296e;
+  --heat-cell: 12px;
+  --heat-gap: 3px;
+  width: min(980px, calc(100% - 2rem));
+  max-width: min(980px, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.stats-layout {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 20px;
+  min-height: 380px;
+  min-width: 0;
+}
+.stats-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 16px;
+  border-right: 1px solid #e0e6ee;
+}
+.stats-nav button {
+  justify-content: flex-start;
+  border-color: transparent;
+  background: transparent;
+  color: #5c6879;
+  white-space: nowrap;
+}
+.stats-nav button:hover {
+  background: #f1f4f9;
+}
+.stats-nav button.active {
+  background: #eef2fc;
+  border-color: #c9d5f6;
+  color: #2859df;
+  font-weight: 700;
+}
+.stats-body {
+  min-width: 0;
+  overflow-y: auto;
+}
+.stats-heading {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.stats-period {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.stats-period button {
+  padding: 6px;
+}
+.stats-period strong {
+  min-width: 170px;
+  text-align: center;
+  font-size: 16px;
+}
+.stats-message {
+  margin: 0 0 12px;
+  color: #5c6879;
+  font-size: 14px;
+}
+.stats-error {
+  color: #c62828;
+}
+
+/* 잔디 */
+.heatmap {
+  position: relative;
+  display: flex;
+  gap: 6px;
+}
+.heatmap-weekdays {
+  display: grid;
+  grid-template-rows: 16px repeat(7, var(--heat-cell));
+  gap: var(--heat-gap);
+  color: #7a8799;
+  font-size: 10px;
+  line-height: var(--heat-cell);
+}
+.heatmap-weekdays::before {
+  content: "";
+}
+/* 폭이 모자라면 스크롤 대신 오래된(왼쪽) 주를 잘라낸다. */
+.heatmap-clip {
+  display: flex;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
+}
+.heatmap-clip > div {
+  flex: none;
+}
+.heat-tip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 6px));
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+.heat-tip.below {
+  transform: translate(-50%, 6px);
+}
+.heatmap-months,
+.heatmap-grid {
+  display: grid;
+  grid-auto-columns: var(--heat-cell);
+  grid-auto-flow: column;
+  gap: var(--heat-gap);
+}
+.heatmap-months {
+  height: 16px;
+  margin-bottom: var(--heat-gap);
+  color: #7a8799;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.heatmap-grid {
+  grid-template-rows: repeat(7, var(--heat-cell));
+}
+.heat-cell {
+  display: inline-block;
+  width: var(--heat-cell);
+  height: var(--heat-cell);
+  border-radius: 2px;
+  background: var(--heat-0);
+  border: 1px solid #e5e7eb;
+}
+.heat-cell[data-level="1"] { background: var(--heat-1); border-color: transparent; }
+.heat-cell[data-level="2"] { background: var(--heat-2); border-color: transparent; }
+.heat-cell[data-level="3"] { background: var(--heat-3); border-color: transparent; }
+.heat-cell[data-level="4"] { background: var(--heat-4); border-color: transparent; }
+.heat-cell.heat-empty {
+  visibility: hidden;
+}
+.heatmap-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: #5c6879;
+  font-size: 12px;
+}
+.heatmap-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* 막대 그래프 */
+.stats-bars {
+  display: grid;
+  gap: 10px;
+  height: 240px;
+}
+.stats-bar {
+  display: grid;
+  grid-template-rows: 18px minmax(0, 1fr) auto;
+  gap: 4px;
+  min-width: 0;
+  text-align: center;
+}
+.stats-bar-value {
+  color: #29364a;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stats-bar-track {
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid #d5dce7;
+}
+.stats-bar-fill {
+  width: 100%;
+  max-width: 44px;
+  margin: 0 auto;
+  border-radius: 6px 6px 0 0;
+  background: #2859df;
+}
+.stats-bar-label {
+  display: grid;
+  color: #29364a;
+  font-size: 13px;
+  font-weight: 600;
+}
+.stats-bar-label small {
+  color: #7a8799;
+  font-size: 11px;
+  font-weight: 400;
+}
+.stats-bar-label small.stats-bar-count {
+  color: #2859df;
+  font-weight: 600;
+}
+.stats-total {
+  margin: 14px 0 0;
+  color: #5c6879;
+  font-size: 14px;
+}
+.stats-total strong {
+  color: #2859df;
+}
+
+/* 내보내기 */
+.stats-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.stats-export .dialog-label {
+  display: grid;
+  gap: 6px;
+}
+.stats-export input {
+  width: auto;
+}
+.stats-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+.stats-scope label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.stats-scope input {
+  width: auto;
+}
+
+@media (max-width: 640px) {
+  .stats-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+  }
+  .stats-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 0 8px;
+    border-right: 0;
+    border-bottom: 1px solid #e0e6ee;
+  }
+  .stats-bars {
+    gap: 4px;
+  }
+  .stats-bar-value {
+    font-size: 10px;
+  }
+}

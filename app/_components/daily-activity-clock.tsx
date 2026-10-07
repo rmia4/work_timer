@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type PointerEvent } from "react";
+import StatsDialog from "./stats-dialog";
 
 type ActivityTask = {
   id: string;
@@ -10,9 +11,14 @@ type ActivityTask = {
   started: number | null;
   started_at: number | null;
   ended_at: number | null;
+  sessions?: { start_at: number; end_at: number | null }[];
 };
 
 type Segment = ActivityTask & {
+  key: string;
+  color: string;
+  open: boolean;
+  spanCount: number;
   start: number;
   end: number;
   startRatio: number;
@@ -34,31 +40,69 @@ const LANE_GAP = 15;
 const GUIDE_RADIUS = RADIUS - LANE_GAP * 2;
 const LABEL_RADIUS = RADIUS - LANE_GAP * 3;
 const NEARBY_GAP_MS = 40 * 60 * 1000;
-const COLORS = ["#86a8e7", "#79c7b7", "#f2b880", "#b69ce3", "#eb9aae"];
+const GOLDEN_ANGLE = 137.508;
 const THREE_HOUR_MARKS = Array.from({ length: 8 }, (_, index) => {
   const hour = index * 3;
   const angle = (hour / 24) * Math.PI * 2 - Math.PI / 2;
   return { hour, angle };
 });
 
+const firstStart = (task: ActivityTask) => task.sessions?.[0]?.start_at ?? task.started_at ?? 0;
+
+function idHue(id: string) {
+  let hash = 2166136261;
+  for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return (hash >>> 0) % 360;
+}
+
+// 업무 id로 정한 무작위 색상(hue)을 쓰되, 먼저 시작한 업무의 색과 가까우면 황금각만큼 옮겨 겹치지 않게 한다.
+// 시작 순서대로 배정하므로 나중에 업무가 추가되어도 기존 업무의 색은 바뀌지 않는다.
+function taskColors(tasks: ActivityTask[]) {
+  const minGap = Math.min(30, 360 / Math.max(1, tasks.length) / 1.5);
+  const used: number[] = [];
+  const colors = new Map<string, string>();
+  for (const task of [...tasks].sort((a, b) => firstStart(a) - firstStart(b) || a.id.localeCompare(b.id))) {
+    let hue = idHue(task.id);
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      if (used.every((other) => Math.min(Math.abs(hue - other), 360 - Math.abs(hue - other)) >= minGap)) break;
+      hue = (hue + GOLDEN_ANGLE) % 360;
+    }
+    used.push(hue);
+    colors.set(task.id, `hsl(${Math.round(hue)} 62% 76%)`);
+  }
+  return colors;
+}
+
 function activitySegments(tasks: ActivityTask[], day: string, now: number) {
   const dayStart = Date.parse(`${day}T00:00:00+09:00`);
   const dayEnd = dayStart + DAY_MS;
+  const colors = taskColors(tasks);
 
   const segments = tasks.flatMap<Omit<Segment, "lane">>((task) => {
-    if (task.started_at === null) return [];
-    const end = task.ended_at ?? (task.status === "done" ? task.started_at : now);
-    const start = Math.max(dayStart, task.started_at);
-    const clippedEnd = Math.min(dayEnd, end);
-    if (clippedEnd <= start) return [];
+    // 구간 기록이 없는 기존 업무는 처음 시작부터 마지막 종료까지를 한 구간으로 본다.
+    const spans = task.sessions?.length
+      ? task.sessions.map((session) => ({ start: session.start_at, end: session.end_at }))
+      : task.started_at === null
+        ? []
+        : [{ start: task.started_at, end: task.ended_at ?? (task.status === "done" ? task.started_at : null) }];
 
-    return [{
-      ...task,
-      start,
-      end: clippedEnd,
-      startRatio: (start - dayStart) / DAY_MS,
-      durationRatio: (clippedEnd - start) / DAY_MS,
-    }];
+    return spans.flatMap((span, spanIndex) => {
+      const start = Math.max(dayStart, span.start);
+      const clippedEnd = Math.min(dayEnd, span.end ?? now);
+      if (clippedEnd <= start) return [];
+
+      return [{
+        ...task,
+        key: `${task.id}-${spanIndex}`,
+        color: colors.get(task.id) ?? "",
+        open: span.end === null,
+        spanCount: spans.length,
+        start,
+        end: clippedEnd,
+        startRatio: (start - dayStart) / DAY_MS,
+        durationRatio: (clippedEnd - start) / DAY_MS,
+      }];
+    });
   });
 
   return segments
@@ -140,24 +184,23 @@ export default function DailyActivityClock({
           <span className="day-clock-date">{month}.{date}</span>
           <strong>하루 요약</strong>
         </div>
-        <button>통계</button>
-        {/* 통계는 추후 기능 추가 */}
+        <StatsDialog day={day} />
       </div>
       <div className="day-clock-wrap">
         <svg className="day-clock" viewBox="0 0 240 240" role="img">
           <circle className="day-clock-track" cx="120" cy="120" r={RADIUS} />
-          {segments.map((segment, index) => {
+          {segments.map((segment) => {
             const radius = segmentRadius(segment.lane);
             const circumference = 2 * Math.PI * radius;
             return (
               <circle
-                key={segment.id}
-                className="day-clock-segment"
+                key={segment.key}
+                className={tooltip?.segment.id === segment.id ? "day-clock-segment is-related" : "day-clock-segment"}
                 cx="120"
                 cy="120"
                 r={radius}
                 pathLength={circumference}
-                stroke={COLORS[index % COLORS.length]}
+                stroke={segment.color}
                 strokeDasharray={`${segment.durationRatio * circumference} ${circumference}`}
                 strokeDashoffset={-segment.startRatio * circumference}
                 data-task-id={segment.id}
@@ -209,11 +252,15 @@ export default function DailyActivityClock({
           >
             <strong>{tooltip.segment.title}</strong>
             <span>
-              {timeFormatter.format(tooltip.segment.start)}–{tooltip.segment.ended_at === null && tooltip.segment.status !== "done"
+              {timeFormatter.format(tooltip.segment.start)}–{tooltip.segment.open
                 ? "진행 중"
                 : timeFormatter.format(tooltip.segment.end)}
             </span>
-            <small>{durationLabel(recordedDuration(tooltip.segment, now))}</small>
+            <small>
+              {tooltip.segment.spanCount > 1
+                ? `${durationLabel(tooltip.segment.end - tooltip.segment.start)} · 누적 ${durationLabel(recordedDuration(tooltip.segment, now))}`
+                : durationLabel(recordedDuration(tooltip.segment, now))}
+            </small>
           </div>
         )}
       </div>

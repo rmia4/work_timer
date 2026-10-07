@@ -9,15 +9,15 @@
 - 선택 날짜의 업무 구간을 원호로 보여주는 24시간 활동 시계
 - 전역 메모와 날짜별 메모의 자동 저장
 - 진행 중인 타이머 상태와 기록 시간을 브라우저 탭 제목에 표시
-- 개인 접속 코드 기반 회원가입·로그인과 여러 기기 간 기록 동기화
+- 아이디·비밀번호 기반 회원가입·로그인과 여러 기기 간 기록 동기화
 
 ## 기술적 특징
 
 - **서버 기준 시간 계산과 낙관적 동시성 제어:** 타이머는 누적 시간(`elapsed`)과 마지막 시작 시각(`started`)을 DB에 저장하고, 화면은 이 값으로 진행 시간을 계산합니다. 모든 수정은 `WHERE ... AND version=?` 조건으로 `version`을 비교해 갱신하며, 다른 기기에서 먼저 바뀐 기록은 409로 거절합니다. 사용자당 진행 중 작업 한 개 제한은 `status <> 'done'` 조건의 부분 고유 인덱스(`tasks_one_active`)로 DB가 보장합니다.
 - **DB 접근 계층 분리:** `db/raw.ts`가 `prepare().bind().all()/first()/run()`, `batch()` 형태의 인터페이스를 Neon 서버리스 드라이버 위에 구현합니다. `?` 자리표시자를 PostgreSQL의 `$n`으로 바꾸고, `batch()`는 하나의 트랜잭션으로 실행하며, `UPDATE`·`DELETE`에는 `RETURNING`을 붙여 변경 행 수를 확인합니다. API 라우트는 이 인터페이스만 사용합니다.
-- **Web Crypto 기반 인증:** 접속 코드는 PBKDF2-SHA256(100,000회, 16바이트 솔트)로 해시해 저장하고, 조회용 키는 `ACCESS_CODE_SECRET`을 이용한 HMAC-SHA256으로 따로 만듭니다. 해시 비교는 상수 시간 방식으로 수행하며, 세션 토큰은 SHA-256 해시만 DB에 저장합니다. 로그인 실패 횟수에 따라 차단 시간이 늘어나는 제한 로직을 직접 구현했습니다.
+- **Web Crypto 기반 인증:** 비밀번호는 PBKDF2-SHA256(100,000회, 16바이트 솔트)로 해시해 저장합니다. 해시 비교는 상수 시간 방식으로 수행하고, 없는 아이디도 같은 해시 계산을 거쳐 응답 시간으로 아이디 존재 여부를 알 수 없게 했으며, 세션 토큰은 SHA-256 해시만 DB에 저장합니다. 로그인 실패 횟수에 따라 차단 시간이 늘어나는 제한 로직을 직접 구현했습니다.
 - **24시간 활동 시계 직접 구현:** 외부 차트 라이브러리 없이 SVG 원호로 그립니다. 업무 구간을 한국 시간 기준 하루 범위로 잘라 비율로 변환하고, 앞 업무와 40분 이내로 가까운 업무는 안쪽 트랙으로 번갈아 배치해 겹침을 줄입니다.
-- **별도 프레임워크 없는 테스트:** `node:test`와 Node 내장 `node:sqlite` 메모리 DB로 단일 진행 작업 제약, 오래된 버전 쓰기 거절, 소유자 확인, 일시정지·재개 누적 시간을 검사합니다. 인증 테스트는 `typescript`로 소스 파일을 바로 변환해 불러온 뒤 잘못된 코드, 세션 만료, 로그아웃, 시도 제한, Origin 검사를 확인합니다. 테스트 DB는 PostgreSQL이 아닌 SQLite 마이그레이션(`drizzle/`)을 사용합니다.
+- **별도 프레임워크 없는 테스트:** `node:test`와 Node 내장 `node:sqlite` 메모리 DB로 단일 진행 작업 제약, 오래된 버전 쓰기 거절, 소유자 확인, 일시정지·재개 누적 시간을 검사합니다. 인증 테스트는 `typescript`로 소스 파일을 바로 변환해 불러온 뒤 잘못된 비밀번호, 세션 만료, 로그아웃, 시도 제한, Origin 검사를 확인합니다. 테스트 DB는 PostgreSQL이 아닌 SQLite 마이그레이션(`drizzle/`)을 사용합니다.
 
 ## 주요 기능
 
@@ -42,8 +42,8 @@
 
 ## 인증
 
-- 사용자별 개인 코드로 회원가입 및 로그인
-- 접속 코드 해시는 `users.access_code_hash`에 PBKDF2 형식으로 저장
+- 아이디(영문 소문자·숫자·밑줄 4~20자, 대소문자 구분 없음)와 비밀번호(8자 이상)로 회원가입 및 로그인
+- 아이디는 `users.username`, 비밀번호 해시는 `users.password_hash`에 PBKDF2 형식으로 저장
 - 같은 IP에서는 24시간에 한 계정만 가입 가능
 - 세션은 `code_sessions` 테이블과 `__Host-work_session` 쿠키로 관리
 - 로그인 성공 후 7일간 유지되는 HttpOnly·Secure·SameSite 세션 사용
@@ -66,7 +66,6 @@ Node.js 22.13 이상과 `package.json`에 선언된 pnpm 버전을 사용합니�
    ```env
    DATABASE_URL_POOLED="Neon pooler connection string"
    APP_ORIGIN="http://localhost:3000"
-   ACCESS_CODE_SECRET="32자 이상의 임의 문자열"
    ```
 
    DB 연결 변수는 `DATABASE_URL_POOLED`, `DATABASE_URL`, `CONNECTION_STRING` 순서로 사용합니다. 비밀값이 포함된 `.env.local`은 Git에 커밋하지 않습니다.
@@ -117,10 +116,9 @@ pnpm test
 ```env
 DATABASE_URL_POOLED="Neon pooler connection string"
 APP_ORIGIN="https://your-domain.example"
-ACCESS_CODE_SECRET="32자 이상의 임의 문자열"
 ```
 
-`APP_ORIGIN`은 실제 HTTPS Origin과 정확히 일치해야 하며 마지막에 `/`를 붙이지 않습니다. `ACCESS_CODE_SECRET`은 배포 후에도 같은 값을 유지해야 합니다. Vercel 배포는 저장소 관리자가 직접 수행합니다.
+`APP_ORIGIN`은 실제 HTTPS Origin과 정확히 일치해야 하며 마지막에 `/`를 붙이지 않습니다. Vercel 배포는 저장소 관리자가 직접 수행합니다.
 
 ## 동작 범위
 

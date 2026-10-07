@@ -2,7 +2,7 @@ import {getCodeUser} from '../../_auth/code-auth';
 import {database} from '../../../db/raw';
 const reply=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export async function GET(req:Request){
- const user=await getCodeUser(req);if(!user)return reply({error:'접속 코드를 입력해 주세요.'},401);
+ const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  const month=new URL(req.url).searchParams.get('month');
  if(!month||!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||Number(month.slice(0,4))<1900||Number(month.slice(0,4))>9998)return reply({error:'월을 확인해 주세요.'},400);
  try{

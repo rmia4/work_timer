@@ -4,8 +4,8 @@ type Row = Record<string, unknown>;
 type Statement = NeonQueryFunction<false, false>;
 
 const numericColumns = new Set([
-  "attempts", "count", "created", "elapsed", "ended_at", "expires", "position", "registered_at", "running",
-  "started", "started_at", "target", "total", "updated", "version", "window",
+  "attempts", "count", "created", "elapsed", "end_at", "ended_at", "expires", "position", "registered_at", "running",
+  "start_at", "started", "started_at", "target", "total", "updated", "version", "window",
 ]);
 
 function connectionString() {

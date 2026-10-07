@@ -72,3 +72,42 @@
   color: #78869a;
   margin-top: -10px;
 }
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-form,
+.settings-danger {
+  display: grid;
+  gap: 12px;
+}
+.settings-form h3,
+.settings-danger h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.settings-danger {
+  padding-top: 16px;
+  border-top: 1px solid #e0e6ee;
+}
+.dialog-label input {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  font-weight: 400;
+}
+.danger {
+  color: #c62828;
+  border-color: #f0c4c4;
+}
+.settings-error {
+  margin: 0;
+  font-size: 14px;
+  color: #c62828;
+}
