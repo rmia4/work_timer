@@ -62,7 +62,17 @@ function SummaryDay({
       className={`calendar-day ${modifiers.selected ? "selected" : ""} ${modifiers.today ? "is-today" : ""}`}
       aria-label={`${key}, ${text}`}
     >
-      <span>{day.date.getDate()}</span>
+      <span
+        className={
+          day.date.getDay() === 0
+            ? "day-sunday"
+            : day.date.getDay() === 6
+              ? "day-saturday"
+              : undefined
+        }
+      >
+        {day.date.getDate()}
+      </span>
       {ready && count > 0 && <span className="day-count">{count}개</span>}
     </button>
   );

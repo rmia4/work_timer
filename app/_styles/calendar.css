@@ -61,6 +61,14 @@
   background: #2859df;
   color: white;
 }
+.work-calendar .rdp-weekday:first-child,
+.calendar-day:not(.selected) .day-sunday {
+  color: #d93025;
+}
+.work-calendar .rdp-weekday:last-child,
+.calendar-day:not(.selected) .day-saturday {
+  color: #2859df;
+}
 .day-count {
   font-size: 12px;
   opacity: 0.85;
