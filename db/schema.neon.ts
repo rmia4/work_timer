@@ -13,6 +13,7 @@ export const users = pgTable(
     displayName: text("display_name").notNull().default(""),
     role: text("role").notNull().default("user"),
     status: text("status").notNull().default("active"),
+    layout: text("layout").notNull().default("default"),
     created: epoch("created").notNull(),
     updated: epoch("updated").notNull(),
   },

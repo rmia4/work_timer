@@ -7,6 +7,7 @@ import "./_styles/calendar.css";
 import "./_styles/result.css";
 import "./_styles/daily-activity-clock.css";
 import "./_styles/stats.css";
+import "./_styles/layouts.css";
 
 export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",
