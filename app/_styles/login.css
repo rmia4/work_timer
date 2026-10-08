@@ -1,192 +1,140 @@
+.login-page {
+  background: #fff;
+  min-height: calc(100vh - 80px);
+}
 .login-wrap {
-  width: 100%;
-  max-width: 1240px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 40px 24px 60px;
-}
-.login-container {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
-}
-.login-hero-row {
+  padding: 88px 40px 96px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 48px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 96px;
   align-items: start;
 }
-.login-hero {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding-top: 10px;
+.login-intro {
+  min-width: 0;
 }
-.login-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 5px 12px;
-  background: #eef3ff;
-  color: #2859df;
-  font-size: 12px;
+.login-title {
+  font-size: 32px;
   font-weight: 700;
-  border-radius: 6px;
-  letter-spacing: 0.08em;
-  margin-bottom: 18px;
-}
-.login-main-title {
-  font-size: clamp(30px, 3.8vw, 44px);
-  font-weight: 800;
-  color: #17243b;
-  line-height: 1.28;
   letter-spacing: -0.025em;
-  margin: 0 0 16px;
-}
-.login-title-accent {
-  color: #2859df;
-  display: inline-block;
-}
-.login-subtitle {
-  font-size: 16px;
-  color: #53627a;
-  line-height: 1.65;
-  margin: 0;
+  line-height: 1.3;
+  color: #17243b;
+  margin: 0 0 40px;
   word-break: keep-all;
 }
-.login-card {
-  width: 100%;
-  max-width: none;
-  padding: 34px 30px;
-  align-self: start;
-  box-shadow: 0 4px 18px rgba(24, 36, 60, 0.06);
+
+/* 기능 밑줄 탭 + 미리보기 */
+.login-feature-tabs,
+.login-mode-tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e9f0;
 }
-.login-card > svg {
-  color: #2859df;
-  margin-bottom: 14px;
+.login-feature-tabs {
+  gap: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.login-card h1 {
-  margin-bottom: 8px;
-  font-size: 22px;
-  font-weight: 700;
-}
-.login-card > p {
-  color: #64748b;
-  margin-bottom: 22px;
-  font-size: 13.5px;
-}
-.login-card button {
-  width: 100%;
-}
-.signup-button {
-  margin-top: 10px;
-  background: #fff;
-  border: 1px solid #c9d5e8;
-  color: #2859df;
-  font-weight: 600;
-  padding: 9px 14px;
-  border-radius: 8px;
+.login-feature-tabs button,
+.login-mode-tabs button {
+  flex: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0 0 12px;
+  margin-bottom: -1px;
   font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  color: #94a0b4;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
-.signup-button:hover {
-  background: #f0f4fc;
-  border-color: #2859df;
+.login-feature-tabs button:hover,
+.login-mode-tabs button:hover {
+  filter: none;
+  color: #53627a;
 }
-.login-features-section {
-  border-top: 1px solid #e4ebf5;
-  padding-top: 40px;
-}
-.features-section-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
-.features-badge {
-  color: #2859df;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  margin-bottom: 6px;
-}
-.features-section-header h2 {
-  font-size: 22px;
-  font-weight: 700;
+.login-feature-tabs button.on {
   color: #17243b;
-  margin: 0;
+  border-bottom-color: #2859df;
 }
-.login-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+.login-feature-panel {
+  min-height: 260px;
+  padding-top: 28px;
+  animation: login-fade 0.2s ease-out;
 }
-.login-feature-card {
-  background: #fff;
-  border: 1px solid #e0e6ee;
-  border-radius: 14px;
-  padding: 22px 18px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 8px rgba(24, 36, 60, 0.03);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-.login-feature-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(24, 36, 60, 0.07);
-}
-.feature-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: #eef3ff;
-  color: #2859df;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-.login-feature-card h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #17243b;
-  margin: 0 0 8px;
-}
-.login-feature-card p {
-  font-size: 13.5px;
+.login-feature-panel > p {
+  margin: 0 0 24px;
+  font-size: 14px;
   color: #64748b;
-  line-height: 1.55;
-  margin: 0;
   word-break: keep-all;
 }
-
-@media (max-width: 1024px) {
-  .login-feature-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.login-feature-preview {
+  max-width: 560px;
+}
+.login-feature-preview .memo-board {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+@keyframes login-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-feature-panel {
+    animation: none;
   }
 }
 
-@media (max-width: 860px) {
+/* 로그인 카드 */
+.login-card {
+  border: 1px solid #e5e9f0;
+  border-radius: 14px;
+  padding: 32px 28px;
+}
+.login-mode-tabs {
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.login-mode-tabs button {
+  font-size: 16px;
+  padding-bottom: 10px;
+}
+.login-mode-tabs button.on {
+  color: #17243b;
+  border-bottom-color: #17243b;
+}
+.login-hint {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0 0 24px;
+  word-break: keep-all;
+}
+.login-card form button.primary {
+  width: 100%;
+  margin-top: 4px;
+}
+.login-card .notice {
+  margin: 16px 0 0;
+}
+
+@media (max-width: 960px) {
   .login-wrap {
-    padding: 24px 16px 40px;
-  }
-  .login-hero-row {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 48px;
+    padding: 40px 16px 56px;
   }
-  .login-hero {
-    padding-top: 0;
+  .login-card {
+    order: -1;
   }
-  .login-main-title {
-    font-size: 28px;
+  .login-title {
+    font-size: 26px;
+    margin-bottom: 28px;
   }
 }
 
 @media (max-width: 600px) {
-  .login-feature-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
   .login-card {
     padding: 24px 20px;
   }
