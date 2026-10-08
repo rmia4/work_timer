@@ -17,6 +17,8 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LAYOUTS, type LayoutId } from "../../lib/layouts";
 
 export type DeleteKind = "tasks" | "memos" | "daily-memos";
 const deleteLabels: Record<DeleteKind, { button: string; target: string }> = {
@@ -28,11 +30,17 @@ const deleteLabels: Record<DeleteKind, { button: string; target: string }> = {
 export default function SettingsDialog({
   disabled,
   onDeleted,
+  layout,
+  onLayoutChange,
 }: {
   disabled?: boolean;
   onDeleted: (kind: DeleteKind) => void;
+  layout: LayoutId;
+  onLayoutChange: (layout: LayoutId) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false),
+    [tab, setTab] = useState("layout"),
+    [layoutBusy, setLayoutBusy] = useState(false),
     [password, setPassword] = useState(""),
     [verified, setVerified] = useState(false),
     [newPassword, setNewPassword] = useState(""),
@@ -43,6 +51,7 @@ export default function SettingsDialog({
     [message, setMessage] = useState("");
 
   function reset() {
+    setTab("layout");
     setPassword("");
     setVerified(false);
     setNewPassword("");
@@ -87,6 +96,16 @@ export default function SettingsDialog({
       setMessage("비밀번호가 변경되었습니다. 다른 기기는 로그아웃됩니다.");
     }
   }
+  async function chooseLayout(next: LayoutId) {
+    if (next === layout || layoutBusy) return;
+    setLayoutBusy(true);
+    setError("");
+    setMessage("");
+    const ok = await onLayoutChange(next);
+    setLayoutBusy(false);
+    if (ok) setMessage("화면이 변경되었습니다.");
+    else setError("화면 설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+  }
   async function deleteAll(kind: DeleteKind) {
     if (await request({ action: "delete-" + kind })) {
       onDeleted(kind);
@@ -121,82 +140,118 @@ export default function SettingsDialog({
           <DialogHeader>
             <DialogTitle>설정</DialogTitle>
             <DialogDescription>
-              {verified
-                ? "계정 비밀번호를 변경하거나 기록을 일괄 삭제합니다."
-                : "계속하려면 현재 비밀번호를 입력해 주세요."}
+              {tab === "layout"
+                ? "작업공간 화면 배치를 고릅니다. 계정에 저장되어 모든 기기에 적용됩니다."
+                : verified
+                  ? "계정 비밀번호를 변경하거나 기록을 일괄 삭제합니다."
+                  : "계속하려면 현재 비밀번호를 입력해 주세요."}
             </DialogDescription>
           </DialogHeader>
-          {!verified ? (
-            <form className="settings-form" onSubmit={verify}>
-              <label className="dialog-label">
-                현재 비밀번호
-                <input
-                  type="password"
-                  autoFocus
-                  autoComplete="current-password"
-                  maxLength={128}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </label>
-              <button
-                type="submit"
-                className="primary"
-                disabled={busy || !password}
-              >
-                {busy ? "확인 중…" : "확인"}
-              </button>
-            </form>
-          ) : (
-            <>
-              <form className="settings-form" onSubmit={changePassword}>
-                <h3>비밀번호 변경</h3>
-                <label className="dialog-label">
-                  새 비밀번호
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
-                </label>
-                <label className="dialog-label">
-                  새 비밀번호 확인
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    minLength={8}
-                    maxLength={128}
-                    value={confirmation}
-                    onChange={(e) => setConfirmation(e.target.value)}
-                  />
-                </label>
-                <button
-                  type="submit"
-                  className="primary"
-                  disabled={busy || !newPassword || !confirmation}
-                >
-                  비밀번호 변경
-                </button>
-              </form>
-              <div className="settings-danger">
-                <h3>데이터 삭제</h3>
-                {(Object.keys(deleteLabels) as DeleteKind[]).map((kind) => (
+          <Tabs
+            value={tab}
+            onValueChange={(value) => {
+              setTab(value);
+              setError("");
+              setMessage("");
+            }}
+            className="settings-tabs"
+          >
+            <TabsList>
+              <TabsTrigger value="layout">화면</TabsTrigger>
+              <TabsTrigger value="account">계정</TabsTrigger>
+            </TabsList>
+            <TabsContent value="layout">
+              <div className="layout-options" role="radiogroup" aria-label="화면 레이아웃">
+                {LAYOUTS.map((option) => (
                   <button
-                    key={kind}
+                    key={option.id}
                     type="button"
-                    className="danger"
-                    disabled={busy}
-                    onClick={() => setConfirmDelete(kind)}
+                    role="radio"
+                    aria-checked={layout === option.id}
+                    className={layout === option.id ? "layout-option on" : "layout-option"}
+                    disabled={layoutBusy}
+                    onClick={() => void chooseLayout(option.id)}
                   >
-                    {deleteLabels[kind].button}
+                    <strong>{option.name}</strong>
+                    <span>{option.description}</span>
                   </button>
                 ))}
               </div>
-            </>
-          )}
+            </TabsContent>
+            <TabsContent value="account">
+              {!verified ? (
+                <form className="settings-form" onSubmit={verify}>
+                  <label className="dialog-label">
+                    현재 비밀번호
+                    <input
+                      type="password"
+                      autoFocus
+                      autoComplete="current-password"
+                      maxLength={128}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={busy || !password}
+                  >
+                    {busy ? "확인 중…" : "확인"}
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <form className="settings-form" onSubmit={changePassword}>
+                    <h3>비밀번호 변경</h3>
+                    <label className="dialog-label">
+                      새 비밀번호
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        minLength={8}
+                        maxLength={128}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </label>
+                    <label className="dialog-label">
+                      새 비밀번호 확인
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        minLength={8}
+                        maxLength={128}
+                        value={confirmation}
+                        onChange={(e) => setConfirmation(e.target.value)}
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={busy || !newPassword || !confirmation}
+                    >
+                      비밀번호 변경
+                    </button>
+                  </form>
+                  <div className="settings-danger">
+                    <h3>데이터 삭제</h3>
+                    {(Object.keys(deleteLabels) as DeleteKind[]).map((kind) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        className="danger"
+                        disabled={busy}
+                        onClick={() => setConfirmDelete(kind)}
+                      >
+                        {deleteLabels[kind].button}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
           {error && (
             <p className="settings-error" role="alert">
               {error}
