@@ -208,6 +208,8 @@ useEffect(() => {
       }
       await load();
       invalidateCalendarCache(day);
+      const saved = (body as { day?: unknown }).day;
+      if (typeof saved === "string") invalidateCalendarCache(saved);
       setCalendarRefresh((n) => n + 1);
       setMessage("저장되었습니다.");
       return true;
@@ -268,7 +270,8 @@ useEffect(() => {
       result,
       target:
         targetMinutes === "" ? 0 : Math.round(Number(targetMinutes) * 60000),
-      day,
+      // 바로 측정을 시작하면 보고 있는 날짜와 상관없이 오늘에 기록한다.
+      day: run && !edit ? today() : day,
       elapsed: Math.round(Number(minutes) * 60000),
       started_at: parseTimeInput(first),
       ended_at: parseTimeInput(last),

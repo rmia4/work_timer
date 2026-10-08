@@ -35,7 +35,9 @@ export async function POST(req:Request){
  const first=b.run?now:(b.started_at??null),last=b.run?null:(b.ended_at??null);
  if(!validTimes(first,last))return reply({error:'종료 시각은 시작 시각 이후여야 합니다.'},400);
  const taskId=crypto.randomUUID();
- await db.prepare('INSERT INTO tasks (id,owner,day,title,note,result,target,elapsed,started,status,created,started_at,ended_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(taskId,owner,b.day,b.title.trim(),b.note,b.result,b.target,b.run?0:b.elapsed,b.run?now:null,b.run?'running':'done',now,first,last).run();
+ // 바로 측정을 시작하는 기록은 보고 있는 날짜와 상관없이 오늘(KST)에 저장한다.
+ const day=b.run?new Date(now+9*3600000).toISOString().slice(0,10):b.day;
+ await db.prepare('INSERT INTO tasks (id,owner,day,title,note,result,target,elapsed,started,status,created,started_at,ended_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(taskId,owner,day,b.title.trim(),b.note,b.result,b.target,b.run?0:b.elapsed,b.run?now:null,b.run?'running':'done',now,first,last).run();
  if(first!==null&&(b.run||last!==null))await addSession(db,taskId,owner,first,last);
  }else{
  if(typeof b.id!=='string'||!Number.isInteger(b.version))return reply({error:'기록을 다시 불러와 주세요.'},400);

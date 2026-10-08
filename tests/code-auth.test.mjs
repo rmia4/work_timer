@@ -83,11 +83,12 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  const postMemo=body=>memos.POST(new Request(memoReq.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  const dailyMemoReq=day=>new Request(env.APP_ORIGIN+'/api/daily-memos?day='+day,{headers:{cookie}});
  const postDailyMemo=body=>dailyMemos.POST(new Request(env.APP_ORIGIN+'/api/daily-memos',{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
- const base=Date.now(),originalNow=Date.now;let current=base;
+ const base=Date.parse('2026-09-10T10:00:00+09:00'),originalNow=Date.now;let current=base;
  Date.now=()=>current;
  try{
- assert.equal((await post({action:'create',title:'timer',note:'진행 내용',result:'',target:3600000,day:'2026-09-10',elapsed:0,run:true})).status,200);
+ assert.equal((await post({action:'create',title:'timer',note:'진행 내용',result:'',target:3600000,day:'2026-09-01',elapsed:0,run:true})).status,200);
  let timer=db.prepare("SELECT * FROM tasks WHERE title='timer'").get();const id=timer.id;
+ assert.equal(timer.day,'2026-09-10');
  assert.equal(timer.started_at,base);assert.equal(timer.ended_at,null);assert.equal(timer.target,3600000);
  current=base+3000;assert.equal((await post({action:'pause',id,version:0})).status,200);
  current=base+10000;assert.equal((await post({action:'resume',id,version:1})).status,200);
