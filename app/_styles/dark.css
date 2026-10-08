@@ -311,48 +311,39 @@
 }
 
 /* login.css */
-:where(:root[data-theme="dark"]) .login-eyebrow,
-:where(:root[data-theme="dark"]) .feature-icon {
-  background: var(--dk-tint);
-  color: var(--dk-accent);
+:where(:root[data-theme="dark"]) .login-page {
+  background: var(--dk-bg);
 }
-:where(:root[data-theme="dark"]) .login-main-title,
-:where(:root[data-theme="dark"]) .features-section-header h2,
-:where(:root[data-theme="dark"]) .login-feature-card h3 {
+:where(:root[data-theme="dark"]) .login-title {
   color: var(--dk-text-strong);
 }
-:where(:root[data-theme="dark"]) .login-title-accent,
-:where(:root[data-theme="dark"]) .login-card > svg,
-:where(:root[data-theme="dark"]) .features-badge {
-  color: var(--dk-accent);
+:where(:root[data-theme="dark"]) .login-feature-tabs,
+:where(:root[data-theme="dark"]) .login-mode-tabs {
+  border-bottom-color: var(--dk-border);
 }
-:where(:root[data-theme="dark"]) .login-subtitle,
-:where(:root[data-theme="dark"]) .login-card > p,
-:where(:root[data-theme="dark"]) .login-feature-card p {
+:where(:root[data-theme="dark"]) .login-feature-tabs button,
+:where(:root[data-theme="dark"]) .login-mode-tabs button {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .login-feature-tabs button:hover,
+:where(:root[data-theme="dark"]) .login-mode-tabs button:hover {
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .login-feature-tabs button.on {
+  color: var(--dk-text-strong);
+  border-bottom-color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .login-mode-tabs button.on {
+  color: var(--dk-text-strong);
+  border-bottom-color: var(--dk-text-strong);
+}
+:where(:root[data-theme="dark"]) .login-feature-panel > p,
+:where(:root[data-theme="dark"]) .login-hint {
   color: var(--dk-muted);
 }
 :where(:root[data-theme="dark"]) .login-card {
-  box-shadow: 0 4px 18px var(--dk-shadow);
-}
-:where(:root[data-theme="dark"]) .signup-button {
-  background: var(--dk-surface-2);
-  border-color: var(--dk-tint-border);
-  color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .signup-button:hover {
-  background: var(--dk-tint);
-  border-color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .login-features-section {
-  border-top-color: var(--dk-border);
-}
-:where(:root[data-theme="dark"]) .login-feature-card {
   background: var(--dk-surface);
   border-color: var(--dk-border);
-  box-shadow: 0 2px 8px var(--dk-shadow);
-}
-:where(:root[data-theme="dark"]) .login-feature-card:hover {
-  box-shadow: 0 6px 16px var(--dk-shadow);
 }
 
 /* layouts.css (설정 > 화면의 기본 외 레이아웃) */
