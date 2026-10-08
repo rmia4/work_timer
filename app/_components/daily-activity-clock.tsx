@@ -141,10 +141,12 @@ export default function DailyActivityClock({
   tasks,
   day,
   now,
+  preview = false,
 }: {
   tasks: ActivityTask[];
   day: string;
   now: number;
+  preview?: boolean;
 }) {
   const segments = activitySegments(tasks, day, now);
   const [, month, date] = day.split("-");
@@ -184,7 +186,14 @@ export default function DailyActivityClock({
           <span className="day-clock-date">{month}.{date}</span>
           <strong>하루 요약</strong>
         </div>
-        <StatsDialog day={day} />
+        {preview ? (
+          // 로그인 화면 미리보기용: 모양만 같고 동작하지 않음
+          <button type="button" tabIndex={-1} aria-hidden="true" style={{ cursor: "default" }}>
+            통계
+          </button>
+        ) : (
+          <StatsDialog day={day} />
+        )}
       </div>
       <div className="day-clock-wrap">
         <svg className="day-clock" viewBox="0 0 240 240" role="img">

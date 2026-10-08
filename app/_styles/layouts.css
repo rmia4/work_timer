@@ -1,0 +1,792 @@
+/* 작업공간 레이아웃 (설정 > 화면). 기본 레이아웃은 workspace.css를 그대로 쓴다. */
+
+/* ---------- 공용 조각 ---------- */
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  color: #17243b;
+}
+.date-nav > span {
+  padding: 0 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.date-nav button {
+  border: 0;
+  background: none;
+  padding: 6px;
+  color: #53627a;
+}
+.date-nav .date-nav-today {
+  padding: 6px 8px;
+  font-weight: 500;
+}
+.quick-start {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+}
+.quick-start input {
+  flex: 1;
+  margin: 0;
+}
+.quick-start button {
+  flex: none;
+}
+.record-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.record-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid #eef1f5;
+}
+.record-row-main {
+  min-width: 0;
+}
+.record-row-main strong {
+  display: block;
+  font-size: 15.5px;
+  color: #17243b;
+  margin: 2px 0 4px;
+  word-break: break-word;
+}
+.record-row-main .note {
+  margin: 0;
+  font-size: 13.5px;
+  color: #64748b;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.record-row-main .record-row-result {
+  color: #24324d;
+}
+.record-row-main .record-actions {
+  margin-top: 8px;
+}
+.record-row-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+.record-row.running .record-row-status,
+.record-row.paused .record-row-status {
+  color: #2859df;
+}
+.record-row-side {
+  flex: none;
+  text-align: right;
+}
+.record-row-time {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #17243b;
+}
+.record-row-range {
+  font-size: 12.5px;
+  color: #94a0b4;
+}
+.activity-strip {
+  margin: 56px 0 48px;
+}
+.activity-strip-track {
+  position: relative;
+  height: 14px;
+  background: #eef1f6;
+  border-radius: 999px;
+}
+.activity-strip-track span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 3px;
+  border-radius: 999px;
+  background: #8aa5ef;
+}
+.activity-strip-track span.running,
+.activity-strip-track span.paused {
+  background: #2859df;
+}
+.activity-strip-track i {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 2px;
+  background: #17243b;
+}
+.activity-strip-hours {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #94a0b4;
+  margin-top: 8px;
+}
+
+/* 설정 > 화면 */
+.settings-tabs .settings-theme {
+  margin-bottom: 12px;
+}
+.settings-tabs {
+  gap: 16px;
+}
+.layout-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.layout-options .layout-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-weight: 400;
+}
+.layout-option strong {
+  font-size: 14px;
+  color: #17243b;
+}
+.layout-option span {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+.layout-options .layout-option.on {
+  border-color: #2859df;
+  background: #eef3ff;
+  box-shadow: inset 0 0 0 1px #2859df;
+}
+
+/* ---------- 새 레이아웃 공통 ---------- */
+.lay {
+  min-height: 100vh;
+  background: #fff;
+}
+.lay-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 64px;
+  padding: 0 32px;
+  background: #fff;
+  border-bottom: 1px solid #eef1f5;
+}
+.lay-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lay-brand strong {
+  font-size: 16px;
+  color: #17243b;
+}
+.lay-top .top-actions {
+  display: flex;
+  gap: 4px;
+}
+.lay-top .top-actions button {
+  border: 0;
+  background: none;
+  padding: 6px 8px;
+  font-weight: 500;
+  color: #53627a;
+}
+.lay-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lay-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lay-date > button {
+  border: 0;
+  background: none;
+  padding: 6px 8px;
+  font-weight: 500;
+  color: #53627a;
+}
+.lay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.lay-head h2 {
+  font-size: 17px;
+  margin: 0;
+  color: #17243b;
+}
+.lay-muted {
+  color: #64748b;
+  font-size: 13px;
+}
+.lay-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2859df;
+}
+.lay-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.lay-buttons:empty {
+  display: none;
+}
+.lay .lay-text {
+  border: 0;
+  background: none;
+  padding: 6px 8px;
+  font-weight: 500;
+  color: #53627a;
+}
+.lay-card {
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.lay-underline-tabs {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid #e5e9f0;
+  margin-bottom: 14px;
+}
+.lay-underline-tabs button {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0 0 8px;
+  margin-bottom: -1px;
+  font-size: 13.5px;
+  color: #94a0b4;
+  border-bottom: 2px solid transparent;
+}
+.lay-underline-tabs button.on {
+  color: #17243b;
+  border-bottom-color: #2859df;
+}
+.lay .memo-board {
+  margin: 0;
+}
+.lay .notice {
+  margin-bottom: 0;
+}
+
+/* ---------- 미니멀 ---------- */
+.lay-minimal-main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 56px 32px 80px;
+  display: grid;
+  gap: 56px;
+}
+.lay-minimal-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 40px;
+  align-items: center;
+}
+.lay-minimal-clock {
+  font-size: 72px;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: #17243b;
+  line-height: 1.15;
+}
+.lay-minimal-add {
+  border-top: 1px solid #eef1f5;
+  border-bottom: 1px solid #eef1f5;
+  padding: 16px 0;
+}
+.lay-minimal-addbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lay-minimal-addbar .quick-start input {
+  border: 0;
+  padding: 10px 0;
+  font-size: 16px;
+}
+.lay-minimal-addbar .quick-start input:focus-visible {
+  outline: none;
+}
+.lay-minimal-form {
+  max-width: 560px;
+  padding-top: 20px;
+}
+.lay-minimal-form h2 {
+  font-size: 17px;
+  margin: 0 0 16px;
+}
+.lay-minimal-memos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+/* ---------- 대시보드 ---------- */
+.lay-dashboard {
+  background: #fafbfc;
+}
+.lay-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 32px 56px;
+}
+.lay-dashboard-grid main,
+.lay-dashboard-side {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+  min-width: 0;
+}
+.lay-dashboard-timer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 14px;
+  padding: 24px 28px;
+}
+.lay-dashboard-timer h2 {
+  font-size: 20px;
+  margin: 6px 0 4px;
+  color: #17243b;
+  word-break: break-word;
+}
+.lay-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a0b4;
+  margin-right: 6px;
+}
+.lay-dot.running {
+  background: #2859df;
+}
+.lay-dashboard-timer-right {
+  flex: none;
+  text-align: right;
+}
+.lay-dashboard-timer-right .lay-buttons {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.lay-dashboard-clock {
+  font-size: 44px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: #17243b;
+}
+.lay-dashboard-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.lay-dashboard-stats div {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e5e9f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.lay-dashboard-stats strong {
+  font-size: 20px;
+  color: #17243b;
+  font-variant-numeric: tabular-nums;
+}
+.lay-memo-tabs {
+  padding: 16px;
+}
+.lay-memo-tabs .memo-board-head {
+  display: none;
+}
+.lay-memo-tabs .memo-board {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* ---------- 사이드바 ---------- */
+.lay-sidebar {
+  min-height: 100vh;
+}
+.lay-sidebar .top {
+  padding: 0 32px;
+}
+.lay-sidebar-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px 32px 56px;
+}
+.lay-sidebar-side,
+.lay-sidebar-main {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  min-width: 0;
+}
+.lay-sidebar-card {
+  background: #fff;
+  border: 1px solid #e0e6ee;
+  border-radius: 14px;
+  padding: 20px;
+}
+.lay-sidebar-calendar {
+  padding: 12px;
+}
+.lay-sidebar-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lay-sidebar-summary strong {
+  font-size: 30px;
+  color: #17243b;
+  font-variant-numeric: tabular-nums;
+}
+.lay-sidebar-summary .date-nav {
+  margin-top: 8px;
+  margin-left: -6px;
+}
+.lay-sidebar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.lay-sidebar-addrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed #c9d5e8;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.lay-sidebar-addrow .quick-start input {
+  border: 0;
+  padding: 6px 4px;
+}
+.lay-sidebar-addrow .quick-start input:focus-visible {
+  outline: none;
+}
+.lay-sidebar-addrow > button {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.lay-sidebar-form {
+  padding: 4px 4px 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #eef1f5;
+}
+.lay-sidebar-form h3 {
+  font-size: 16px;
+  margin: 0 0 14px;
+}
+
+/* ---------- 탭 ---------- */
+.lay-tabs {
+  background: #fbfaf7;
+}
+.lay-tabs .lay-top {
+  background: transparent;
+  border-bottom: 0;
+}
+.lay-tabs-nav {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #f0eee8;
+  border-radius: 12px;
+}
+.lay-tabs-nav button {
+  border: 0;
+  background: none;
+  border-radius: 9px;
+  padding: 7px 16px;
+  color: #6b6558;
+  font-weight: 500;
+}
+.lay-tabs-nav button.on {
+  background: #fff;
+  color: #2c2a25;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.lay-tabs .top-actions button {
+  color: #6b6558;
+}
+.lay-tabs-main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+  display: grid;
+  gap: 24px;
+}
+.lay-tabs-greet {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+.lay-tabs-greet .date-nav {
+  margin-left: -6px;
+}
+.lay-tabs-greet h1 {
+  font-size: 28px;
+  margin: 4px 0 0;
+  color: #2c2a25;
+  letter-spacing: -0.02em;
+}
+.lay-tabs .lay-tabs-new {
+  border-radius: 12px;
+  padding: 11px 18px;
+}
+.lay-tabs-today {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.lay-tabs-timer {
+  grid-row: span 2;
+  background: #eef3ff;
+  border-radius: 20px;
+  padding: 32px;
+}
+.lay-chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2859df;
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.lay-tabs-timer h2 {
+  font-size: 20px;
+  margin: 12px 0 4px;
+  color: #17243b;
+  word-break: break-word;
+}
+.lay-tabs-clock {
+  font-size: 64px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: #17243b;
+  margin: 8px 0 16px;
+}
+.lay-progress {
+  height: 8px;
+  background: #fff;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.lay-progress span {
+  display: block;
+  height: 100%;
+  background: #2859df;
+  border-radius: 999px;
+}
+.lay-tabs-timer .lay-buttons button {
+  border-radius: 12px;
+  border-color: #fff;
+}
+.lay-tabs-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06);
+}
+.lay-tabs-sum {
+  display: flex;
+  flex-direction: column;
+}
+.lay-tabs-sum strong {
+  font-size: 32px;
+  color: #17243b;
+  font-variant-numeric: tabular-nums;
+}
+.lay-tabs-memos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.lay-drawer .task-form {
+  margin-top: 4px;
+}
+
+/* ---------- 집중 ---------- */
+.lay-focus-cmd {
+  gap: 10px;
+  min-width: 320px;
+  justify-content: flex-start;
+  background: #f6f8fb;
+  border-color: #e5e9f0;
+  color: #64748b;
+  font-weight: 400;
+}
+.lay-focus-cmd kbd {
+  margin-left: auto;
+  font-size: 11px;
+  font-family: inherit;
+  border: 1px solid #d5dce8;
+  border-radius: 4px;
+  padding: 1px 6px;
+  background: #fff;
+}
+.lay-focus-main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 64px 32px 72px;
+}
+.lay-focus-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.lay-focus-clock {
+  font-size: 120px;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  margin: 8px 0 12px;
+  color: #17243b;
+}
+.lay-focus-hero .lay-buttons {
+  justify-content: center;
+}
+.lay-focus-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 48px;
+}
+.lay-focus-grid .date-nav {
+  margin-left: -6px;
+}
+.lay-focus-memos {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+.lay-palette .quick-start {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.lay-palette .quick-start input {
+  border: 0;
+  border-bottom: 1px solid #eef1f5;
+  border-radius: 0;
+  padding: 20px 22px;
+  font-size: 18px;
+}
+.lay-palette .quick-start input:focus-visible {
+  outline: none;
+}
+.lay-palette .quick-start button {
+  display: none;
+}
+.lay-palette-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 10px 22px;
+  font-size: 12.5px;
+  color: #94a0b4;
+}
+.lay-palette-foot button {
+  border: 0;
+  background: none;
+  color: #2859df;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.lay-palette-form {
+  padding: 22px;
+}
+
+/* ---------- 좁은 화면 ---------- */
+@media (max-width: 960px) {
+  .lay-top {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+  .lay-focus-cmd {
+    order: 3;
+    min-width: 0;
+    width: 100%;
+  }
+  .lay-minimal-main,
+  .lay-tabs-main,
+  .lay-focus-main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .lay-minimal-hero,
+  .lay-minimal-memos,
+  .lay-dashboard-grid,
+  .lay-sidebar-grid,
+  .lay-sidebar-row,
+  .lay-tabs-today,
+  .lay-tabs-memos,
+  .lay-focus-grid,
+  .layout-options {
+    grid-template-columns: 1fr;
+  }
+  .lay-dashboard-grid,
+  .lay-sidebar-grid {
+    padding: 20px 16px 40px;
+  }
+  .lay-dashboard-timer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .lay-dashboard-timer-right {
+    text-align: left;
+  }
+  .lay-minimal-clock,
+  .lay-tabs-clock {
+    font-size: 48px;
+  }
+  .lay-focus-clock {
+    font-size: 64px;
+  }
+}
