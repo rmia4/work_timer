@@ -17,6 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
+import ThemeToggle from "./theme-toggle";
 
 export type DeleteKind = "tasks" | "memos" | "daily-memos";
 const deleteLabels: Record<DeleteKind, { button: string; target: string }> = {
@@ -126,6 +127,10 @@ export default function SettingsDialog({
                 : "계속하려면 현재 비밀번호를 입력해 주세요."}
             </DialogDescription>
           </DialogHeader>
+          <div className="settings-theme">
+            <h3>화면 테마</h3>
+            <ThemeToggle />
+          </div>
           {!verified ? (
             <form className="settings-form" onSubmit={verify}>
               <label className="dialog-label">

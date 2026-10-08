@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "../../vendor/shadcn-tailwind-4.13.0.css";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @utility scrollbar-thin {
   scrollbar-width: thin;
 }
@@ -95,40 +97,38 @@
     "Courier New", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card: #171717;
-    --card-foreground: #ededed;
-    --popover: #171717;
-    --popover-foreground: #ededed;
-    --primary: #ededed;
-    --primary-foreground: #171717;
-    --secondary: #262626;
-    --secondary-foreground: #ededed;
-    --muted: #262626;
-    --muted-foreground: #a1a1a1;
-    --accent: #262626;
-    --accent-foreground: #ededed;
-    --destructive: #ff6467;
-    --border: #ffffff1a;
-    --input: #ffffff26;
-    --ring: #737373;
-    --chart-1: #8e51ff;
-    --chart-2: #00bc7d;
-    --chart-3: #fe9a00;
-    --chart-4: #ad46ff;
-    --chart-5: #ff2056;
-    --sidebar: #171717;
-    --sidebar-foreground: #ededed;
-    --sidebar-primary: #8e51ff;
-    --sidebar-primary-foreground: #ededed;
-    --sidebar-accent: #262626;
-    --sidebar-accent-foreground: #ededed;
-    --sidebar-border: #ffffff1a;
-    --sidebar-ring: #737373;
-  }
+:root[data-theme="dark"] {
+  --background: #0f1419;
+  --foreground: #e4e9f1;
+  --card: #181e27;
+  --card-foreground: #e4e9f1;
+  --popover: #181e27;
+  --popover-foreground: #e4e9f1;
+  --primary: #3d6be6;
+  --primary-foreground: #ffffff;
+  --secondary: #212936;
+  --secondary-foreground: #e4e9f1;
+  --muted: #212936;
+  --muted-foreground: #9aa6b8;
+  --accent: #212936;
+  --accent-foreground: #e4e9f1;
+  --destructive: #ff6467;
+  --border: #2c3542;
+  --input: #3a4555;
+  --ring: #7ea2ff;
+  --chart-1: #8e51ff;
+  --chart-2: #00bc7d;
+  --chart-3: #fe9a00;
+  --chart-4: #ad46ff;
+  --chart-5: #ff2056;
+  --sidebar: #171717;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #8e51ff;
+  --sidebar-primary-foreground: #ededed;
+  --sidebar-accent: #262626;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #ffffff1a;
+  --sidebar-ring: #737373;
 }
 
 body {

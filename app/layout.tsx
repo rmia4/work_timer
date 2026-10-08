@@ -7,6 +7,8 @@ import "./_styles/calendar.css";
 import "./_styles/result.css";
 import "./_styles/daily-activity-clock.css";
 import "./_styles/stats.css";
+import "./_styles/dark.css";
+import { themeInitScript } from "./_components/theme-script";
 
 export const metadata: Metadata = {
   title: "업무 기록 · Work Timer",
@@ -24,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="antialiased">{children}</body>
     </html>
   );
