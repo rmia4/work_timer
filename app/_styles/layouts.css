@@ -132,6 +132,9 @@
 }
 
 /* 설정 > 화면 */
+.settings-tabs .settings-theme {
+  margin-bottom: 12px;
+}
 .settings-tabs {
   gap: 16px;
 }

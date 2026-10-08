@@ -1,0 +1,356 @@
+/*
+ * 다크 테마. <html data-theme="dark">일 때만 적용된다.
+ * :where()로 감싸 원래 규칙과 명시도를 같게 두고, 이 파일을 마지막에 불러와 순서로 덮어쓴다.
+ */
+:where(:root[data-theme="dark"]) {
+  color-scheme: dark;
+  --dk-bg: #0f1419;
+  --dk-surface: #181e27;
+  --dk-surface-2: #212936;
+  --dk-border: #2c3542;
+  --dk-border-strong: #3a4555;
+  --dk-text: #e4e9f1;
+  --dk-text-strong: #f1f4f9;
+  --dk-muted: #9aa6b8;
+  --dk-subtle: #7d899b;
+  --dk-accent: #7ea2ff;
+  --dk-accent-bg: #3d6be6;
+  --dk-tint: #1c2a4a;
+  --dk-tint-border: #2f4680;
+  --dk-error: #ff8a8a;
+  --dk-error-bg: #3a1c1f;
+  --dk-error-border: #6b2c31;
+  --dk-shadow: rgba(0, 0, 0, 0.35);
+}
+
+/* workspace.css */
+:where(:root[data-theme="dark"]) body {
+  background: var(--dk-bg);
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) button {
+  border-color: var(--dk-border-strong);
+  background: var(--dk-surface-2);
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) :is(button, a, input, textarea):focus-visible {
+  outline-color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .top {
+  background: var(--dk-surface);
+  border-bottom-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .brand svg,
+:where(:root[data-theme="dark"]) .summary-bottom b,
+:where(:root[data-theme="dark"]) .saved,
+:where(:root[data-theme="dark"]) .record-head strong,
+:where(:root[data-theme="dark"]) .record-times strong {
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .brand span,
+:where(:root[data-theme="dark"]) .private,
+:where(:root[data-theme="dark"]) .eyebrow,
+:where(:root[data-theme="dark"]) .date-controls label,
+:where(:root[data-theme="dark"]) .summary > p:last-child,
+:where(:root[data-theme="dark"]) .section-title > span,
+:where(:root[data-theme="dark"]) .hint,
+:where(:root[data-theme="dark"]) .status,
+:where(:root[data-theme="dark"]) .note,
+:where(:root[data-theme="dark"]) footer {
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .record-times small {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) :is(input, textarea) {
+  border-color: var(--dk-border-strong);
+  background: var(--dk-surface-2);
+  color: var(--dk-text-strong);
+}
+:where(:root[data-theme="dark"]) .timer-panel {
+  background: #262b33;
+}
+:where(:root[data-theme="dark"]) .badge {
+  background: #363c46;
+}
+:where(:root[data-theme="dark"]) .outline {
+  background: transparent;
+  color: white;
+  border-color: #5d6570;
+}
+:where(:root[data-theme="dark"]) .summary,
+:where(:root[data-theme="dark"]) .entry,
+:where(:root[data-theme="dark"]) .record {
+  background: var(--dk-surface);
+  border-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .summary-bottom {
+  border-top-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .primary {
+  background: var(--dk-accent-bg);
+  border-color: var(--dk-accent-bg);
+  color: white;
+}
+:where(:root[data-theme="dark"]) .empty {
+  border-color: var(--dk-border-strong);
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .empty svg {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .empty h3 {
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) .notice {
+  background: var(--dk-tint);
+  border-color: var(--dk-tint-border);
+}
+:where(:root[data-theme="dark"]) .notice a {
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .notice.error {
+  background: var(--dk-error-bg);
+  border-color: var(--dk-error-border);
+  color: var(--dk-error);
+}
+
+/* calendar.css */
+:where(:root[data-theme="dark"]) .calendar-panel {
+  background: var(--dk-surface);
+  border-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .calendar-day.is-today {
+  box-shadow: inset 0 0 0 1px var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .calendar-day.selected {
+  background: var(--dk-accent-bg);
+}
+:where(:root[data-theme="dark"]) .calendar-day:not(.selected) .day-sunday {
+  color: #ff7b72;
+}
+:where(:root[data-theme="dark"]) .calendar-day:not(.selected) .day-saturday,
+:where(:root[data-theme="dark"]) .manual-times summary {
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .calendar-selection {
+  background: var(--dk-tint);
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) .calendar-error {
+  color: var(--dk-error);
+}
+:where(:root[data-theme="dark"]) .task-times {
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .task-times dt {
+  color: var(--dk-subtle);
+}
+
+/* memo-board.css */
+:where(:root[data-theme="dark"]) .memo-card {
+  border-color: var(--dk-border);
+  background: var(--dk-surface);
+  box-shadow: 0 2px 8px var(--dk-shadow);
+}
+:where(:root[data-theme="dark"]) .memo-card-actions,
+:where(:root[data-theme="dark"]) .memo-card-actions button,
+:where(:root[data-theme="dark"]) .record-times span:first-child:not(:last-child) strong {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .memo-body:focus-visible {
+  outline-color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .memo-load-error {
+  border-color: var(--dk-error-border);
+  background: var(--dk-error-bg);
+  color: var(--dk-error);
+}
+:where(:root[data-theme="dark"]) .memo-error {
+  color: var(--dk-error);
+}
+
+/* result.css */
+:where(:root[data-theme="dark"]) .work-tabs [data-slot="tabs-list"] {
+  background: var(--dk-surface-2);
+  border-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .work-tabs [data-slot="tabs-trigger"] {
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .work-tabs [data-slot="tabs-trigger"]:hover {
+  background: var(--dk-border);
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) .work-tabs [data-slot="tabs-trigger"][data-state="active"],
+:where(:root[data-theme="dark"]) .work-tabs [data-slot="tabs-trigger"][data-state="active"]:hover {
+  background: #4a5260;
+  border-color: #566070;
+  color: #fff;
+  box-shadow: 0 2px 5px var(--dk-shadow);
+}
+:where(:root[data-theme="dark"]) .journal-block {
+  border-top-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .journal-block > strong,
+:where(:root[data-theme="dark"]) .result-counter {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .result-block {
+  border-left-color: var(--dk-accent);
+  background: var(--dk-tint);
+}
+:where(:root[data-theme="dark"]) .result-block > strong {
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .settings-danger {
+  border-top-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .danger {
+  color: var(--dk-error);
+  border-color: var(--dk-error-border);
+}
+:where(:root[data-theme="dark"]) .settings-error {
+  color: var(--dk-error);
+}
+
+/* stats.css */
+:where(:root[data-theme="dark"]) .stats-dialog {
+  --heat-0: var(--dk-surface-2);
+  --heat-1: #1f3366;
+  --heat-2: #2f50a8;
+  --heat-3: #4f7cf0;
+  --heat-4: #9db8ff;
+}
+:where(:root[data-theme="dark"]) .stats-nav {
+  border-right-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .stats-nav button,
+:where(:root[data-theme="dark"]) .stats-message,
+:where(:root[data-theme="dark"]) .heatmap-footer,
+:where(:root[data-theme="dark"]) .stats-total {
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .stats-nav button:hover {
+  background: var(--dk-surface-2);
+}
+:where(:root[data-theme="dark"]) .stats-nav button.active {
+  background: var(--dk-tint);
+  border-color: var(--dk-tint-border);
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .stats-error {
+  color: var(--dk-error);
+}
+:where(:root[data-theme="dark"]) .heatmap-weekdays,
+:where(:root[data-theme="dark"]) .heatmap-months,
+:where(:root[data-theme="dark"]) .stats-bar-label small {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .heat-tip {
+  background: #2c3542;
+  box-shadow: 0 4px 12px var(--dk-shadow);
+}
+:where(:root[data-theme="dark"]) .heat-cell {
+  border-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .stats-bar-value,
+:where(:root[data-theme="dark"]) .stats-bar-label {
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) .stats-bar-track {
+  border-bottom-color: var(--dk-border-strong);
+}
+:where(:root[data-theme="dark"]) .stats-bar-fill {
+  background: var(--dk-accent-bg);
+}
+:where(:root[data-theme="dark"]) .stats-bar-label small.stats-bar-count,
+:where(:root[data-theme="dark"]) .stats-total strong {
+  color: var(--dk-accent);
+}
+@media (max-width: 640px) {
+  :where(:root[data-theme="dark"]) .stats-nav {
+    border-bottom-color: var(--dk-border);
+  }
+}
+
+/* daily-activity-clock.css */
+:where(:root[data-theme="dark"]) .day-timeline-panel {
+  background: var(--dk-surface);
+  border-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .day-clock-heading,
+:where(:root[data-theme="dark"]) .day-clock-center {
+  color: var(--dk-text);
+}
+:where(:root[data-theme="dark"]) .day-clock-heading strong,
+:where(:root[data-theme="dark"]) .day-clock-center span {
+  color: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .day-clock-track {
+  stroke: var(--dk-surface-2);
+}
+:where(:root[data-theme="dark"]) .day-clock-guide-track {
+  stroke: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .day-clock-guide circle:not(.day-clock-guide-track),
+:where(:root[data-theme="dark"]) .day-clock-marks {
+  fill: var(--dk-subtle);
+}
+:where(:root[data-theme="dark"]) .day-clock-hand line {
+  stroke: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .day-clock-hand circle {
+  fill: var(--dk-muted);
+  stroke: var(--dk-surface);
+}
+:where(:root[data-theme="dark"]) .day-clock-tooltip {
+  border-color: var(--dk-border-strong);
+  background: rgba(44, 53, 66, 0.96);
+  box-shadow: 0 8px 22px var(--dk-shadow);
+}
+
+/* login.css */
+:where(:root[data-theme="dark"]) .login-eyebrow,
+:where(:root[data-theme="dark"]) .feature-icon {
+  background: var(--dk-tint);
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .login-main-title,
+:where(:root[data-theme="dark"]) .features-section-header h2,
+:where(:root[data-theme="dark"]) .login-feature-card h3 {
+  color: var(--dk-text-strong);
+}
+:where(:root[data-theme="dark"]) .login-title-accent,
+:where(:root[data-theme="dark"]) .login-card > svg,
+:where(:root[data-theme="dark"]) .features-badge {
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .login-subtitle,
+:where(:root[data-theme="dark"]) .login-card > p,
+:where(:root[data-theme="dark"]) .login-feature-card p {
+  color: var(--dk-muted);
+}
+:where(:root[data-theme="dark"]) .login-card {
+  box-shadow: 0 4px 18px var(--dk-shadow);
+}
+:where(:root[data-theme="dark"]) .signup-button {
+  background: var(--dk-surface-2);
+  border-color: var(--dk-tint-border);
+  color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .signup-button:hover {
+  background: var(--dk-tint);
+  border-color: var(--dk-accent);
+}
+:where(:root[data-theme="dark"]) .login-features-section {
+  border-top-color: var(--dk-border);
+}
+:where(:root[data-theme="dark"]) .login-feature-card {
+  background: var(--dk-surface);
+  border-color: var(--dk-border);
+  box-shadow: 0 2px 8px var(--dk-shadow);
+}
+:where(:root[data-theme="dark"]) .login-feature-card:hover {
+  box-shadow: 0 6px 16px var(--dk-shadow);
+}

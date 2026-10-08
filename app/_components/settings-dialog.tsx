@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LAYOUTS, type LayoutId } from "../../lib/layouts";
+import ThemeToggle from "./theme-toggle";
 
 export type DeleteKind = "tasks" | "memos" | "daily-memos";
 const deleteLabels: Record<DeleteKind, { button: string; target: string }> = {
@@ -161,6 +162,10 @@ export default function SettingsDialog({
               <TabsTrigger value="account">계정</TabsTrigger>
             </TabsList>
             <TabsContent value="layout">
+              <div className="settings-theme">
+                <h3>화면 테마</h3>
+                <ThemeToggle />
+              </div>
               <div className="layout-options" role="radiogroup" aria-label="화면 레이아웃">
                 {LAYOUTS.map((option) => (
                   <button

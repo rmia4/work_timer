@@ -82,6 +82,16 @@
   align-items: center;
   gap: 6px;
 }
+.settings-theme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-theme h3 {
+  margin: 0;
+  font-size: 15px;
+}
 .settings-form,
 .settings-danger {
   display: grid;
