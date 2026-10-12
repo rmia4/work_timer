@@ -5,12 +5,14 @@ import {database} from '../../../db/raw';
 
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
 const validText=(value:unknown,max:number)=>typeof value==='string'&&value.length<=max;
+type DailyMemoRow=Record<string,unknown>&{id:string;title:string;body:string;position:number;version:number;created:number;updated:number};
+type DailyMemoBody=Record<string,unknown>;
 
 export async function GET(req:Request){
  const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  const day=new URL(req.url).searchParams.get('day');if(!validDay(day))return reply({error:'날짜를 확인해 주세요.'},400);
  try{
-  const result=await database().prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE owner=? AND day=? ORDER BY position,created').bind(user.userId,day).all();
+  const result=await database().prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE owner=? AND day=? ORDER BY position,created').bind(user.userId,day).all<DailyMemoRow>();
   return reply({memos:result.results});
  }catch(error){console.error(error);return reply({error:'날짜별 메모를 불러오지 못했습니다. 다시 시도해 주세요.'},503);}
 }
@@ -18,7 +20,11 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  if(!sameOrigin(req,process.env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
- let body:any;try{body=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
+ let body:DailyMemoBody;try{
+ const limit=256*1024;if(Number(req.headers.get('content-length')||0)>limit)return reply({error:'요청을 확인해 주세요.'},400);
+ const input=await req.text();if(input.length>limit||new TextEncoder().encode(input).length>limit)return reply({error:'요청을 확인해 주세요.'},400);
+ body=JSON.parse(input);
+ }catch{return reply({error:'요청을 확인해 주세요.'},400);}
  if(!body||typeof body!=='object'||!validDay(body.day))return reply({error:'날짜를 확인해 주세요.'},400);
  try{
   const db=database(),owner=user.userId,day=body.day,now=Date.now();
@@ -33,8 +39,8 @@ export async function POST(req:Request){
    if(result.results.length!==2)return reply({error:'메모가 없습니다.'},404);
    return reply({ok:true});
   }
-  if(typeof body.id!=='string'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
-  const current:any=await db.prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE id=? AND owner=? AND day=?').bind(body.id,owner,day).first();
+  if(typeof body.id!=='string'||typeof body.version!=='number'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
+  const current=await db.prepare('SELECT id,title,body,position,version,created,updated FROM daily_memos WHERE id=? AND owner=? AND day=?').bind(body.id,owner,day).first<DailyMemoRow>();
   if(!current)return reply({error:'메모가 없습니다.'},404);
   if(current.version!==body.version)return reply({error:'다른 기기에서 변경되었습니다.',currentVersion:current.version,memo:current},409);
   if(body.action==='update'){

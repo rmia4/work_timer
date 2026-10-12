@@ -100,7 +100,7 @@ function kstTime(t: number | null) {
 }
 
 export function csvCell(value: string | number) {
-  const text = String(value);
+  const text = typeof value === "string" && /^[=+\-@\t\r]/.test(value) ? `'${value}` : String(value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

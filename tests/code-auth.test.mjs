@@ -37,7 +37,7 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,sameOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const user=await moduleFrom('app/_auth/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
- const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
+ const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validDay,validTimes}=globalThis.authFixture;');
  const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
  let memos=null;try{memos=await moduleFrom('app/api/memos/route.ts','const {getCodeUser,env,sameOrigin,database}=globalThis.authFixture;');}catch{}
  assert.ok(memos?.GET&&memos?.POST,'memo API is missing');
