@@ -7,6 +7,16 @@ const load=(path,replace=s=>s)=>{const source=replace(readFileSync(new URL(path,
 const datesUrl=load('../lib/work-dates.ts');
 const stats=await import(load('../lib/stats.ts',s=>s.replace('"./work-dates"',JSON.stringify(datesUrl))));
 
+test('csvCell neutralizes formula prefixes only for strings and then escapes CSV',()=>{
+ for(const prefix of ['=','+','-','@','\t'])assert.equal(stats.csvCell(prefix+'SUM(A1)'),"'"+prefix+'SUM(A1)');
+ assert.equal(stats.csvCell('\rformula'),'"\'\rformula"');
+ assert.equal(stats.csvCell('=A1,"quoted"'),'"\'=A1,""quoted"""');
+ assert.equal(stats.csvCell(-42),'-42');
+ assert.equal(stats.csvCell(42),'42');
+ assert.equal(stats.csvCell('normal?'),'normal?');
+ assert.equal(stats.csvCell(''),'');
+});
+
 test('weekDays starts on Monday',()=>{
  assert.deepEqual(stats.weekDays('2026-10-07'),['2026-10-05','2026-10-06','2026-10-07','2026-10-08','2026-10-09','2026-10-10','2026-10-11']);
  assert.equal(stats.weekStart('2026-10-11'),'2026-10-05');

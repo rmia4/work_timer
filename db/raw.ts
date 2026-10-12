@@ -17,7 +17,7 @@ function connectionString() {
 function postgresSql(text: string) {
   let index = 0;
   return text
-    .replace(/\?/g, () => `$${++index}`)
+    .replace(/'(?:''|[^'])*'|\?/g, (token) => token === "?" ? `$${++index}` : token)
     .replace(/MAX\(0,\s*\$(\d+)-started\)/g, "GREATEST(0, $$$1-started)");
 }
 
@@ -44,7 +44,16 @@ class PreparedStatement {
   }
 
   toQuery() {
-    return this.sql.query(postgresSql(this.text), this.values);
+    const modifies = /^\s*(UPDATE|DELETE)\b/i.test(this.text);
+    return this.sql.query(postgresSql(
+      modifies && !/\bRETURNING\b/i.test(this.text)
+        ? `${this.text} RETURNING 1 AS _changed`
+        : this.text,
+    ), this.values);
+  }
+
+  batchResult(rows: Row[]) {
+    return { meta: { changes: /^\s*(UPDATE|DELETE)\b/i.test(this.text) ? rows.length : 1 } };
   }
 
   private async query(text = this.text) {
@@ -76,7 +85,8 @@ export function database() {
   return {
     prepare: (text: string) => new PreparedStatement(sql, text),
     batch: async (statements: PreparedStatement[]) => {
-      await sql.transaction(statements.map((statement) => statement.toQuery()));
+      const results = await sql.transaction(statements.map((statement) => statement.toQuery()));
+      return results.map((rows, index) => statements[index].batchResult(rows as Row[]));
     },
   };
 }
