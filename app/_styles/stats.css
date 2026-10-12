@@ -24,7 +24,7 @@
   flex-direction: column;
   gap: 4px;
   padding-right: 16px;
-  border-right: 1px solid #e0e6ee;
+  border-right: 1px solid var(--c-border);
 }
 .stats-nav button {
   justify-content: flex-start;
@@ -39,7 +39,7 @@
 .stats-nav button.active {
   background: #eef2fc;
   border-color: #c9d5f6;
-  color: #2859df;
+  color: var(--c-accent);
   font-weight: 700;
 }
 .stats-body {
@@ -71,7 +71,7 @@
   font-size: 14px;
 }
 .stats-error {
-  color: #c62828;
+  color: var(--c-danger);
 }
 
 /* 잔디 */
@@ -84,7 +84,7 @@
   display: grid;
   grid-template-rows: 16px repeat(7, var(--heat-cell));
   gap: var(--heat-gap);
-  color: #7a8799;
+  color: var(--c-subtle);
   font-size: 10px;
   line-height: var(--heat-cell);
 }
@@ -131,7 +131,7 @@
 .heatmap-months {
   height: 16px;
   margin-bottom: var(--heat-gap);
-  color: #7a8799;
+  color: var(--c-subtle);
   font-size: 10px;
   white-space: nowrap;
 }
@@ -199,7 +199,7 @@
   max-width: 44px;
   margin: 0 auto;
   border-radius: 6px 6px 0 0;
-  background: #2859df;
+  background: var(--c-accent-fill);
 }
 .stats-bar-label {
   display: grid;
@@ -208,12 +208,12 @@
   font-weight: 600;
 }
 .stats-bar-label small {
-  color: #7a8799;
+  color: var(--c-subtle);
   font-size: 11px;
   font-weight: 400;
 }
 .stats-bar-label small.stats-bar-count {
-  color: #2859df;
+  color: var(--c-accent);
   font-weight: 600;
 }
 .stats-total {
@@ -222,7 +222,7 @@
   font-size: 14px;
 }
 .stats-total strong {
-  color: #2859df;
+  color: var(--c-accent);
 }
 
 /* 내보내기 */
@@ -268,7 +268,7 @@
     overflow-x: auto;
     padding: 0 0 8px;
     border-right: 0;
-    border-bottom: 1px solid #e0e6ee;
+    border-bottom: 1px solid var(--c-border);
   }
   .stats-bars {
     gap: 4px;

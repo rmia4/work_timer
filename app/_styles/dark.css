@@ -1,6 +1,7 @@
 /*
  * 다크 테마. <html data-theme="dark">일 때만 적용된다.
- * :where()로 감싸 원래 규칙과 명시도를 같게 두고, 이 파일을 마지막에 불러와 순서로 덮어쓴다.
+ * 공통 색은 globals.css의 --c-* 토큰을 아래에서 다시 정의해 바꾼다. 새 규칙은 토큰을 쓰면 여기에 따로 적지 않아도 된다.
+ * 토큰과 밝은 값이 다른 색만 개별 규칙으로 덮어쓴다. :where()로 감싸 원래 규칙과 명시도를 같게 두고, 이 파일을 마지막에 불러와 순서로 덮어쓴다.
  */
 :where(:root[data-theme="dark"]) {
   color-scheme: dark;
@@ -22,30 +23,34 @@
   --dk-error-border: #6b2c31;
   --dk-shadow: rgba(0, 0, 0, 0.35);
 }
+/* globals.css의 :root 토큰보다 명시도가 높아야 하므로 :where()로 감싸지 않는다. */
+:root[data-theme="dark"] {
+  --c-page: var(--dk-bg);
+  --c-surface: var(--dk-surface);
+  --c-control-bg: var(--dk-surface-2);
+  --c-text: var(--dk-text);
+  --c-text-strong: var(--dk-text-strong);
+  --c-control-text: var(--dk-text);
+  --c-muted: var(--dk-muted);
+  --c-subtle: var(--dk-subtle);
+  --c-faint: var(--dk-subtle);
+  --c-border: var(--dk-border);
+  --c-border-soft: var(--dk-border);
+  --c-control-border: var(--dk-border-strong);
+  --c-input-border: var(--dk-border-strong);
+  --c-accent: var(--dk-accent);
+  --c-accent-fill: var(--dk-accent-bg);
+  --c-tint: var(--dk-tint);
+  --c-focus: var(--dk-accent);
+  --c-error: var(--dk-error);
+  --c-danger: var(--dk-error);
+  --c-error-bg: var(--dk-error-bg);
+  --c-error-border: var(--dk-error-border);
+}
 
 /* workspace.css */
-:where(:root[data-theme="dark"]) body {
-  background: var(--dk-bg);
-  color: var(--dk-text);
-}
-:where(:root[data-theme="dark"]) button {
-  border-color: var(--dk-border-strong);
-  background: var(--dk-surface-2);
-  color: var(--dk-text);
-}
-:where(:root[data-theme="dark"]) :is(button, a, input, textarea):focus-visible {
-  outline-color: var(--dk-accent);
-}
 :where(:root[data-theme="dark"]) .top {
-  background: var(--dk-surface);
   border-bottom-color: var(--dk-border);
-}
-:where(:root[data-theme="dark"]) .brand svg,
-:where(:root[data-theme="dark"]) .summary-bottom b,
-:where(:root[data-theme="dark"]) .saved,
-:where(:root[data-theme="dark"]) .record-head strong,
-:where(:root[data-theme="dark"]) .record-times strong {
-  color: var(--dk-accent);
 }
 :where(:root[data-theme="dark"]) .brand span,
 :where(:root[data-theme="dark"]) .private,
@@ -54,18 +59,9 @@
 :where(:root[data-theme="dark"]) .summary > p:last-child,
 :where(:root[data-theme="dark"]) .section-title > span,
 :where(:root[data-theme="dark"]) .hint,
-:where(:root[data-theme="dark"]) .status,
 :where(:root[data-theme="dark"]) .note,
 :where(:root[data-theme="dark"]) footer {
   color: var(--dk-muted);
-}
-:where(:root[data-theme="dark"]) .record-times small {
-  color: var(--dk-subtle);
-}
-:where(:root[data-theme="dark"]) :is(input, textarea) {
-  border-color: var(--dk-border-strong);
-  background: var(--dk-surface-2);
-  color: var(--dk-text-strong);
 }
 :where(:root[data-theme="dark"]) .timer-panel {
   background: #262b33;
@@ -78,18 +74,10 @@
   color: white;
   border-color: #5d6570;
 }
-:where(:root[data-theme="dark"]) .summary,
-:where(:root[data-theme="dark"]) .entry,
-:where(:root[data-theme="dark"]) .record {
-  background: var(--dk-surface);
-  border-color: var(--dk-border);
-}
 :where(:root[data-theme="dark"]) .summary-bottom {
   border-top-color: var(--dk-border);
 }
 :where(:root[data-theme="dark"]) .primary {
-  background: var(--dk-accent-bg);
-  border-color: var(--dk-accent-bg);
   color: white;
 }
 :where(:root[data-theme="dark"]) .empty {
@@ -109,36 +97,17 @@
 :where(:root[data-theme="dark"]) .notice a {
   color: var(--dk-accent);
 }
-:where(:root[data-theme="dark"]) .notice.error {
-  background: var(--dk-error-bg);
-  border-color: var(--dk-error-border);
-  color: var(--dk-error);
-}
 
 /* calendar.css */
-:where(:root[data-theme="dark"]) .calendar-panel {
-  background: var(--dk-surface);
-  border-color: var(--dk-border);
-}
-:where(:root[data-theme="dark"]) .calendar-day.is-today {
-  box-shadow: inset 0 0 0 1px var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .calendar-day.selected {
-  background: var(--dk-accent-bg);
-}
 :where(:root[data-theme="dark"]) .calendar-day:not(.selected) .day-sunday {
   color: #ff7b72;
 }
-:where(:root[data-theme="dark"]) .calendar-day:not(.selected) .day-saturday,
-:where(:root[data-theme="dark"]) .manual-times summary {
+:where(:root[data-theme="dark"]) .calendar-day:not(.selected) .day-saturday {
   color: var(--dk-accent);
 }
 :where(:root[data-theme="dark"]) .calendar-selection {
   background: var(--dk-tint);
   color: var(--dk-text);
-}
-:where(:root[data-theme="dark"]) .calendar-error {
-  color: var(--dk-error);
 }
 :where(:root[data-theme="dark"]) .task-times {
   color: var(--dk-muted);
@@ -150,24 +119,10 @@
 /* memo-board.css */
 :where(:root[data-theme="dark"]) .memo-card {
   border-color: var(--dk-border);
-  background: var(--dk-surface);
   box-shadow: 0 2px 8px var(--dk-shadow);
 }
-:where(:root[data-theme="dark"]) .memo-card-actions,
-:where(:root[data-theme="dark"]) .memo-card-actions button,
-:where(:root[data-theme="dark"]) .record-times span:first-child:not(:last-child) strong {
+:where(:root[data-theme="dark"]) .memo-card-actions button {
   color: var(--dk-subtle);
-}
-:where(:root[data-theme="dark"]) .memo-body:focus-visible {
-  outline-color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .memo-load-error {
-  border-color: var(--dk-error-border);
-  background: var(--dk-error-bg);
-  color: var(--dk-error);
-}
-:where(:root[data-theme="dark"]) .memo-error {
-  color: var(--dk-error);
 }
 
 /* result.css */
@@ -197,21 +152,14 @@
   color: var(--dk-subtle);
 }
 :where(:root[data-theme="dark"]) .result-block {
-  border-left-color: var(--dk-accent);
   background: var(--dk-tint);
 }
+/* 위의 .journal-block > strong 덮어쓰기보다 뒤에 있어야 결과 제목이 강조색으로 남는다. */
 :where(:root[data-theme="dark"]) .result-block > strong {
-  color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .settings-danger {
-  border-top-color: var(--dk-border);
+  color: var(--c-accent);
 }
 :where(:root[data-theme="dark"]) .danger {
-  color: var(--dk-error);
   border-color: var(--dk-error-border);
-}
-:where(:root[data-theme="dark"]) .settings-error {
-  color: var(--dk-error);
 }
 
 /* stats.css */
@@ -222,14 +170,15 @@
   --heat-3: #4f7cf0;
   --heat-4: #9db8ff;
 }
-:where(:root[data-theme="dark"]) .stats-nav {
-  border-right-color: var(--dk-border);
-}
 :where(:root[data-theme="dark"]) .stats-nav button,
 :where(:root[data-theme="dark"]) .stats-message,
 :where(:root[data-theme="dark"]) .heatmap-footer,
 :where(:root[data-theme="dark"]) .stats-total {
   color: var(--dk-muted);
+}
+/* .stats-message.stats-error는 위 덮어쓰기보다 뒤에서 오류 색을 다시 지정해야 한다. */
+:where(:root[data-theme="dark"]) .stats-error {
+  color: var(--c-danger);
 }
 :where(:root[data-theme="dark"]) .stats-nav button:hover {
   background: var(--dk-surface-2);
@@ -237,15 +186,6 @@
 :where(:root[data-theme="dark"]) .stats-nav button.active {
   background: var(--dk-tint);
   border-color: var(--dk-tint-border);
-  color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .stats-error {
-  color: var(--dk-error);
-}
-:where(:root[data-theme="dark"]) .heatmap-weekdays,
-:where(:root[data-theme="dark"]) .heatmap-months,
-:where(:root[data-theme="dark"]) .stats-bar-label small {
-  color: var(--dk-subtle);
 }
 :where(:root[data-theme="dark"]) .heat-tip {
   background: #2c3542;
@@ -261,32 +201,8 @@
 :where(:root[data-theme="dark"]) .stats-bar-track {
   border-bottom-color: var(--dk-border-strong);
 }
-:where(:root[data-theme="dark"]) .stats-bar-fill {
-  background: var(--dk-accent-bg);
-}
-:where(:root[data-theme="dark"]) .stats-bar-label small.stats-bar-count,
-:where(:root[data-theme="dark"]) .stats-total strong {
-  color: var(--dk-accent);
-}
-@media (max-width: 640px) {
-  :where(:root[data-theme="dark"]) .stats-nav {
-    border-bottom-color: var(--dk-border);
-  }
-}
 
 /* daily-activity-clock.css */
-:where(:root[data-theme="dark"]) .day-timeline-panel {
-  background: var(--dk-surface);
-  border-color: var(--dk-border);
-}
-:where(:root[data-theme="dark"]) .day-clock-heading,
-:where(:root[data-theme="dark"]) .day-clock-center {
-  color: var(--dk-text);
-}
-:where(:root[data-theme="dark"]) .day-clock-heading strong,
-:where(:root[data-theme="dark"]) .day-clock-center span {
-  color: var(--dk-subtle);
-}
 :where(:root[data-theme="dark"]) .day-clock-track {
   stroke: var(--dk-surface-2);
 }
@@ -302,7 +218,6 @@
 }
 :where(:root[data-theme="dark"]) .day-clock-hand circle {
   fill: var(--dk-muted);
-  stroke: var(--dk-surface);
 }
 :where(:root[data-theme="dark"]) .day-clock-tooltip {
   border-color: var(--dk-border-strong);
@@ -314,36 +229,12 @@
 :where(:root[data-theme="dark"]) .login-page {
   background: var(--dk-bg);
 }
-:where(:root[data-theme="dark"]) .login-title {
-  color: var(--dk-text-strong);
-}
-:where(:root[data-theme="dark"]) .login-feature-tabs,
-:where(:root[data-theme="dark"]) .login-mode-tabs {
-  border-bottom-color: var(--dk-border);
-}
-:where(:root[data-theme="dark"]) .login-feature-tabs button,
-:where(:root[data-theme="dark"]) .login-mode-tabs button {
-  color: var(--dk-subtle);
-}
 :where(:root[data-theme="dark"]) .login-feature-tabs button:hover,
 :where(:root[data-theme="dark"]) .login-mode-tabs button:hover {
   color: var(--dk-muted);
 }
-:where(:root[data-theme="dark"]) .login-feature-tabs button.on {
-  color: var(--dk-text-strong);
-  border-bottom-color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .login-mode-tabs button.on {
-  color: var(--dk-text-strong);
-  border-bottom-color: var(--dk-text-strong);
-}
-:where(:root[data-theme="dark"]) .login-feature-panel > p,
-:where(:root[data-theme="dark"]) .login-hint {
-  color: var(--dk-muted);
-}
 :where(:root[data-theme="dark"]) .login-card {
   background: var(--dk-surface);
-  border-color: var(--dk-border);
 }
 
 /* layouts.css (설정 > 화면의 기본 외 레이아웃) */
@@ -353,28 +244,12 @@
   background: var(--dk-bg);
 }
 :where(:root[data-theme="dark"]) .lay-top {
-  background: var(--dk-surface);
   border-bottom-color: var(--dk-border);
 }
 :where(:root[data-theme="dark"]) .lay-tabs .lay-top {
   background: transparent;
 }
-:where(:root[data-theme="dark"]) .lay-brand strong,
-:where(:root[data-theme="dark"]) .date-nav,
-:where(:root[data-theme="dark"]) .lay-head h2,
-:where(:root[data-theme="dark"]) .lay-minimal-clock,
-:where(:root[data-theme="dark"]) .lay-dashboard-timer h2,
-:where(:root[data-theme="dark"]) .lay-dashboard-clock,
-:where(:root[data-theme="dark"]) .lay-dashboard-stats strong,
-:where(:root[data-theme="dark"]) .lay-sidebar-summary strong,
-:where(:root[data-theme="dark"]) .lay-tabs-greet h1,
-:where(:root[data-theme="dark"]) .lay-tabs-timer h2,
-:where(:root[data-theme="dark"]) .lay-tabs-clock,
-:where(:root[data-theme="dark"]) .lay-tabs-sum strong,
-:where(:root[data-theme="dark"]) .lay-focus-clock,
-:where(:root[data-theme="dark"]) .record-row-main strong,
-:where(:root[data-theme="dark"]) .record-row-time,
-:where(:root[data-theme="dark"]) .layout-option strong {
+:where(:root[data-theme="dark"]) .lay-tabs-greet h1 {
   color: var(--dk-text-strong);
 }
 :where(:root[data-theme="dark"]) .date-nav button,
@@ -382,33 +257,8 @@
 :where(:root[data-theme="dark"]) .lay-date > button,
 :where(:root[data-theme="dark"]) .lay .lay-text,
 :where(:root[data-theme="dark"]) .lay-tabs .top-actions button,
-:where(:root[data-theme="dark"]) .lay-tabs-nav button,
-:where(:root[data-theme="dark"]) .record-row-main .record-row-result {
+:where(:root[data-theme="dark"]) .lay-tabs-nav button {
   color: var(--dk-text);
-}
-:where(:root[data-theme="dark"]) .lay-muted,
-:where(:root[data-theme="dark"]) .record-row-main .note,
-:where(:root[data-theme="dark"]) .record-row-status,
-:where(:root[data-theme="dark"]) .layout-option span,
-:where(:root[data-theme="dark"]) .lay-focus-cmd {
-  color: var(--dk-muted);
-}
-:where(:root[data-theme="dark"]) .record-row-range,
-:where(:root[data-theme="dark"]) .activity-strip-hours,
-:where(:root[data-theme="dark"]) .lay-underline-tabs button,
-:where(:root[data-theme="dark"]) .lay-palette-foot {
-  color: var(--dk-subtle);
-}
-:where(:root[data-theme="dark"]) .lay-label,
-:where(:root[data-theme="dark"]) .record-row.running .record-row-status,
-:where(:root[data-theme="dark"]) .record-row.paused .record-row-status,
-:where(:root[data-theme="dark"]) .lay-chip,
-:where(:root[data-theme="dark"]) .lay-palette-foot button {
-  color: var(--dk-accent);
-}
-:where(:root[data-theme="dark"]) .lay-underline-tabs button.on {
-  color: var(--dk-text-strong);
-  border-bottom-color: var(--dk-accent);
 }
 :where(:root[data-theme="dark"]) .record-row,
 :where(:root[data-theme="dark"]) .lay-minimal-add,
@@ -420,9 +270,10 @@
 :where(:root[data-theme="dark"]) .lay-card,
 :where(:root[data-theme="dark"]) .lay-dashboard-timer,
 :where(:root[data-theme="dark"]) .lay-dashboard-stats div,
-:where(:root[data-theme="dark"]) .lay-sidebar-card,
+:where(:root[data-theme="dark"]) .lay-sidebar-card {
+  box-shadow: none;
+}
 :where(:root[data-theme="dark"]) .lay-tabs-card {
-  background: var(--dk-surface);
   border-color: var(--dk-border);
   box-shadow: none;
 }
@@ -435,52 +286,22 @@
 :where(:root[data-theme="dark"]) .lay-sidebar-addrow {
   border-color: var(--dk-border-strong);
 }
-:where(:root[data-theme="dark"]) .lay-dot {
-  background: var(--dk-subtle);
-}
-:where(:root[data-theme="dark"]) .lay-dot.running,
-:where(:root[data-theme="dark"]) .lay-progress span,
-:where(:root[data-theme="dark"]) .activity-strip-track span.running,
-:where(:root[data-theme="dark"]) .activity-strip-track span.paused {
-  background: var(--dk-accent-bg);
-}
 :where(:root[data-theme="dark"]) .activity-strip-track {
   background: var(--dk-surface-2);
 }
 :where(:root[data-theme="dark"]) .activity-strip-track span {
   background: var(--dk-tint-border);
 }
-:where(:root[data-theme="dark"]) .activity-strip-track i {
-  background: var(--dk-text-strong);
-}
 :where(:root[data-theme="dark"]) .lay-tabs-nav {
   background: var(--dk-surface);
 }
 :where(:root[data-theme="dark"]) .lay-tabs-nav button.on {
-  background: var(--dk-surface-2);
   color: var(--dk-text-strong);
   box-shadow: 0 1px 3px var(--dk-shadow);
-}
-:where(:root[data-theme="dark"]) .lay-tabs-timer {
-  background: var(--dk-tint);
-}
-:where(:root[data-theme="dark"]) .lay-chip,
-:where(:root[data-theme="dark"]) .lay-progress {
-  background: var(--dk-surface);
 }
 :where(:root[data-theme="dark"]) .lay-tabs-timer .lay-buttons button {
   border-color: var(--dk-tint-border);
 }
 :where(:root[data-theme="dark"]) .lay-focus-cmd {
   background: var(--dk-surface-2);
-  border-color: var(--dk-border);
-}
-:where(:root[data-theme="dark"]) .lay-focus-cmd kbd {
-  background: var(--dk-surface);
-  border-color: var(--dk-border-strong);
-}
-:where(:root[data-theme="dark"]) .layout-options .layout-option.on {
-  background: var(--dk-tint);
-  border-color: var(--dk-accent);
-  box-shadow: inset 0 0 0 1px var(--dk-accent);
 }
