@@ -9,8 +9,8 @@
 }
 .calendar-panel {
   padding: 22px 20px;
-  background: white;
-  border: 1px solid #e0e6ee;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 14px;
   min-width: 0;
 }
@@ -52,13 +52,13 @@
   font-weight: 400;
 }
 .calendar-day.is-today {
-  box-shadow: inset 0 0 0 1px #2859df;
+  box-shadow: inset 0 0 0 1px var(--c-accent);
 }
 .calendar-day:hover {
   filter: none;
 }
 .calendar-day.selected {
-  background: #2859df;
+  background: var(--c-accent-fill);
   color: white;
 }
 .work-calendar .rdp-weekday:first-child,
@@ -83,7 +83,7 @@
 }
 .calendar-error {
   font-size: 14px;
-  color: #a02e2e;
+  color: var(--c-error);
 }
 .task-times {
   display: flex;
@@ -109,7 +109,7 @@
 .manual-times summary {
   font-size: 14px;
   cursor: pointer;
-  color: #2859df;
+  color: var(--c-accent);
   margin-bottom: 12px;
 }
 .manual-times input {

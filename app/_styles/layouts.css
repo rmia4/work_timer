@@ -6,7 +6,7 @@
   align-items: center;
   gap: 2px;
   font-size: 14px;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .date-nav > span {
   padding: 0 6px;
@@ -54,19 +54,19 @@
 .record-row-main strong {
   display: block;
   font-size: 15.5px;
-  color: #17243b;
+  color: var(--c-text-strong);
   margin: 2px 0 4px;
   word-break: break-word;
 }
 .record-row-main .note {
   margin: 0;
   font-size: 13.5px;
-  color: #64748b;
+  color: var(--c-muted);
   white-space: pre-wrap;
   word-break: break-word;
 }
 .record-row-main .record-row-result {
-  color: #24324d;
+  color: var(--c-control-text);
 }
 .record-row-main .record-actions {
   margin-top: 8px;
@@ -74,11 +74,11 @@
 .record-row-status {
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--c-muted);
 }
 .record-row.running .record-row-status,
 .record-row.paused .record-row-status {
-  color: #2859df;
+  color: var(--c-accent);
 }
 .record-row-side {
   flex: none;
@@ -89,11 +89,11 @@
   font-size: 16px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .record-row-range {
   font-size: 12.5px;
-  color: #94a0b4;
+  color: var(--c-faint);
 }
 .activity-strip {
   margin: 56px 0 48px;
@@ -114,20 +114,20 @@
 }
 .activity-strip-track span.running,
 .activity-strip-track span.paused {
-  background: #2859df;
+  background: var(--c-accent-fill);
 }
 .activity-strip-track i {
   position: absolute;
   top: -6px;
   bottom: -6px;
   width: 2px;
-  background: #17243b;
+  background: var(--c-text-strong);
 }
 .activity-strip-hours {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #94a0b4;
+  color: var(--c-faint);
   margin-top: 8px;
 }
 
@@ -156,18 +156,18 @@
 }
 .layout-option strong {
   font-size: 14px;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .layout-option span {
   font-size: 12.5px;
-  color: #64748b;
+  color: var(--c-muted);
   line-height: 1.45;
   word-break: keep-all;
 }
 .layout-options .layout-option.on {
-  border-color: #2859df;
-  background: #eef3ff;
-  box-shadow: inset 0 0 0 1px #2859df;
+  border-color: var(--c-accent);
+  background: var(--c-tint);
+  box-shadow: inset 0 0 0 1px var(--c-accent);
 }
 
 /* ---------- 새 레이아웃 공통 ---------- */
@@ -182,7 +182,7 @@
   gap: 16px;
   height: 64px;
   padding: 0 32px;
-  background: #fff;
+  background: var(--c-surface);
   border-bottom: 1px solid #eef1f5;
 }
 .lay-brand {
@@ -192,7 +192,7 @@
 }
 .lay-brand strong {
   font-size: 16px;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .lay-top .top-actions {
   display: flex;
@@ -232,16 +232,16 @@
 .lay-head h2 {
   font-size: 17px;
   margin: 0;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .lay-muted {
-  color: #64748b;
+  color: var(--c-muted);
   font-size: 13px;
 }
 .lay-label {
   font-size: 13px;
   font-weight: 600;
-  color: #2859df;
+  color: var(--c-accent);
 }
 .lay-buttons {
   display: flex;
@@ -259,8 +259,8 @@
   color: #53627a;
 }
 .lay-card {
-  background: #fff;
-  border: 1px solid #e5e9f0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
   border-radius: 14px;
   padding: 20px 24px;
 }
@@ -277,12 +277,12 @@
   padding: 0 0 8px;
   margin-bottom: -1px;
   font-size: 13.5px;
-  color: #94a0b4;
+  color: var(--c-faint);
   border-bottom: 2px solid transparent;
 }
 .lay-underline-tabs button.on {
-  color: #17243b;
-  border-bottom-color: #2859df;
+  color: var(--c-text-strong);
+  border-bottom-color: var(--c-accent);
 }
 .lay .memo-board {
   margin: 0;
@@ -310,7 +310,7 @@
   font-weight: 300;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: #17243b;
+  color: var(--c-text-strong);
   line-height: 1.15;
 }
 .lay-minimal-add {
@@ -330,6 +330,12 @@
 }
 .lay-minimal-addbar .quick-start input:focus-visible {
   outline: none;
+}
+/* 테두리 없는 입력줄은 입력칸 대신 감싼 줄에 포커스 표시를 그린다. */
+.lay-minimal-addbar .quick-start:has(input:focus-visible) {
+  border-radius: 8px;
+  outline: 3px solid var(--c-focus);
+  outline-offset: 3px;
 }
 .lay-minimal-form {
   max-width: 560px;
@@ -370,15 +376,15 @@
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  background: #fff;
-  border: 1px solid #e5e9f0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
   border-radius: 14px;
   padding: 24px 28px;
 }
 .lay-dashboard-timer h2 {
   font-size: 20px;
   margin: 6px 0 4px;
-  color: #17243b;
+  color: var(--c-text-strong);
   word-break: break-word;
 }
 .lay-dot {
@@ -386,11 +392,11 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #94a0b4;
+  background: var(--c-faint);
   margin-right: 6px;
 }
 .lay-dot.running {
-  background: #2859df;
+  background: var(--c-accent-fill);
 }
 .lay-dashboard-timer-right {
   flex: none;
@@ -404,7 +410,7 @@
   font-size: 44px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .lay-dashboard-stats {
   display: grid;
@@ -414,14 +420,14 @@
 .lay-dashboard-stats div {
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid #e5e9f0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
   border-radius: 12px;
   padding: 14px 16px;
 }
 .lay-dashboard-stats strong {
   font-size: 20px;
-  color: #17243b;
+  color: var(--c-text-strong);
   font-variant-numeric: tabular-nums;
 }
 .lay-memo-tabs {
@@ -459,8 +465,8 @@
   min-width: 0;
 }
 .lay-sidebar-card {
-  background: #fff;
-  border: 1px solid #e0e6ee;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 14px;
   padding: 20px;
 }
@@ -474,7 +480,7 @@
 }
 .lay-sidebar-summary strong {
   font-size: 30px;
-  color: #17243b;
+  color: var(--c-text-strong);
   font-variant-numeric: tabular-nums;
 }
 .lay-sidebar-summary .date-nav {
@@ -501,6 +507,10 @@
 }
 .lay-sidebar-addrow .quick-start input:focus-visible {
   outline: none;
+}
+.lay-sidebar-addrow:has(input:focus-visible) {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 3px;
 }
 .lay-sidebar-addrow > button {
   padding: 8px 10px;
@@ -540,7 +550,7 @@
   font-weight: 500;
 }
 .lay-tabs-nav button.on {
-  background: #fff;
+  background: var(--c-control-bg);
   color: #2c2a25;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -581,7 +591,7 @@
 }
 .lay-tabs-timer {
   grid-row: span 2;
-  background: #eef3ff;
+  background: var(--c-tint);
   border-radius: 20px;
   padding: 32px;
 }
@@ -589,15 +599,15 @@
   display: inline-block;
   font-size: 12px;
   font-weight: 700;
-  color: #2859df;
-  background: #fff;
+  color: var(--c-accent);
+  background: var(--c-surface);
   border-radius: 999px;
   padding: 3px 10px;
 }
 .lay-tabs-timer h2 {
   font-size: 20px;
   margin: 12px 0 4px;
-  color: #17243b;
+  color: var(--c-text-strong);
   word-break: break-word;
 }
 .lay-tabs-clock {
@@ -605,12 +615,12 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  color: #17243b;
+  color: var(--c-text-strong);
   margin: 8px 0 16px;
 }
 .lay-progress {
   height: 8px;
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 999px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -618,7 +628,7 @@
 .lay-progress span {
   display: block;
   height: 100%;
-  background: #2859df;
+  background: var(--c-accent-fill);
   border-radius: 999px;
 }
 .lay-tabs-timer .lay-buttons button {
@@ -626,7 +636,7 @@
   border-color: #fff;
 }
 .lay-tabs-card {
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 20px;
   padding: 24px;
   box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06);
@@ -637,7 +647,7 @@
 }
 .lay-tabs-sum strong {
   font-size: 32px;
-  color: #17243b;
+  color: var(--c-text-strong);
   font-variant-numeric: tabular-nums;
 }
 .lay-tabs-memos {
@@ -656,18 +666,18 @@
   min-width: 320px;
   justify-content: flex-start;
   background: #f6f8fb;
-  border-color: #e5e9f0;
-  color: #64748b;
+  border-color: var(--c-border-soft);
+  color: var(--c-muted);
   font-weight: 400;
 }
 .lay-focus-cmd kbd {
   margin-left: auto;
   font-size: 11px;
   font-family: inherit;
-  border: 1px solid #d5dce8;
+  border: 1px solid var(--c-control-border);
   border-radius: 4px;
   padding: 1px 6px;
-  background: #fff;
+  background: var(--c-surface);
 }
 .lay-focus-main {
   max-width: 1040px;
@@ -687,7 +697,7 @@
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   margin: 8px 0 12px;
-  color: #17243b;
+  color: var(--c-text-strong);
 }
 .lay-focus-hero .lay-buttons {
   justify-content: center;
@@ -719,6 +729,7 @@
 }
 .lay-palette .quick-start input:focus-visible {
   outline: none;
+  box-shadow: inset 0 -2px 0 var(--c-focus);
 }
 .lay-palette .quick-start button {
   display: none;
@@ -729,12 +740,12 @@
   align-items: center;
   padding: 10px 14px 10px 22px;
   font-size: 12.5px;
-  color: #94a0b4;
+  color: var(--c-faint);
 }
 .lay-palette-foot button {
   border: 0;
   background: none;
-  color: #2859df;
+  color: var(--c-accent);
   padding: 4px 0;
   font-size: 13px;
 }
@@ -788,5 +799,39 @@
   }
   .lay-focus-clock {
     font-size: 64px;
+  }
+}
+/* 휴대폰: 빠른 입력줄의 입력칸이 버튼에 밀려 좁아지지 않게 상세 버튼을 다음 줄로 내린다. */
+@media (max-width: 560px) {
+  .lay-head {
+    flex-wrap: wrap;
+  }
+  /* 공통 main 여백 때문에 한 열에서 옆 카드들보다 좁아지지 않게 한다. */
+  .lay-dashboard-grid main {
+    padding-inline: 0;
+  }
+  .lay-sidebar-addrow {
+    flex-wrap: wrap;
+  }
+  .lay-sidebar-addrow .quick-start {
+    flex-basis: 100%;
+  }
+  .lay-sidebar-addrow > button {
+    margin-left: auto;
+  }
+}
+/* 터치 화면: 누르는 영역을 40px 이상으로 둔다. */
+@media (pointer: coarse) {
+  .date-nav button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .lay-top .top-actions button,
+  .lay-date > button,
+  .lay .lay-text,
+  .lay-underline-tabs button,
+  .lay-tabs-nav button,
+  .lay-sidebar-addrow > button {
+    min-height: 40px;
   }
 }

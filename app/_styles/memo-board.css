@@ -56,7 +56,7 @@ main {
   padding: 10px 16px 16px;
   border: 1px solid #dce2eb;
   border-radius: 12px;
-  background: #fff;
+  background: var(--c-surface);
   margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(24, 36, 60, 0.04);
 }
@@ -71,7 +71,7 @@ main {
   align-items: center;
   justify-content: flex-end;
   gap: 7px;
-  color: #7a8799;
+  color: var(--c-subtle);
   font-size: 11px;
 }
 .memo-card-actions button {
@@ -108,7 +108,7 @@ main {
 }
 .memo-title:focus-visible,
 .memo-body:focus-visible {
-  outline: 2px solid #729bf4;
+  outline: 2px solid var(--c-focus);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -126,9 +126,9 @@ main {
 }
 .memo-load-error {
   border-style: solid;
-  border-color: #f2cccc;
-  background: #fff0f0;
-  color: #a02e2e;
+  border-color: var(--c-error-border);
+  background: var(--c-error-bg);
+  color: var(--c-error);
 }
 .memo-load-error button {
   margin: 10px auto 0;
@@ -140,7 +140,7 @@ main {
   justify-content: space-between;
   gap: 8px;
   margin-top: 10px;
-  color: #a02e2e;
+  color: var(--c-error);
   font-size: 12px;
 }
 .memo-error button {
@@ -188,5 +188,5 @@ main {
   font-size: 15px;
 }
 .record-times span:first-child:not(:last-child) strong {
-  color: #7a8799;
+  color: var(--c-subtle);
 }
