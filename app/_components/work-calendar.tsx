@@ -1,5 +1,6 @@
 "use client";
 import {
+  memo,
   createContext,
   useContext,
   useEffect,
@@ -77,7 +78,7 @@ function SummaryDay({
     </button>
   );
 }
-export default function WorkCalendar({
+function WorkCalendar({
   day,
   onSelect,
   refresh,
@@ -93,24 +94,29 @@ export default function WorkCalendar({
     [loadedAt, setLoadedAt] = useState(0),
     [ready, setReady] = useState(false),
     [error, setError] = useState("");
-  const monthKey = localDay(month).slice(0, 7);
-  useEffect(() => {
+  const [shownDay, setShownDay] = useState(day),
+    [shownKey, setShownKey] = useState<string | null>(null);
+  // 선택한 날짜가 바뀌면 그 달을 보여 준다.
+  if (shownDay !== day) {
+    setShownDay(day);
     setMonth(new Date(day + "T12:00:00"));
-  }, [day]);
-  useEffect(() => {
-    let cancelled = false;
+  }
+  const monthKey = localDay(month).slice(0, 7),
+    loadKey = `${monthKey}:${refresh}`;
+  // 달이 바뀌거나 새로고침을 요청받으면 캐시를 바로 반영하고, 없으면 아래 effect가 불러온다.
+  if (shownKey !== loadKey) {
+    setShownKey(loadKey);
     setError("");
     const cached = monthCache.get(monthKey);
     if (cached) {
       setDays(cached.days);
       setLoadedAt(cached.now);
       setReady(true);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setReady(false);
+    } else setReady(false);
+  }
+  useEffect(() => {
+    if (monthCache.has(monthKey)) return;
+    let cancelled = false;
     const load = async () => {
       try {
         const r = await fetch("/api/calendar?month=" + monthKey);
@@ -195,3 +201,5 @@ export default function WorkCalendar({
     </section>
   );
 }
+
+export default memo(WorkCalendar);
