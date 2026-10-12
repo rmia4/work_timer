@@ -32,9 +32,32 @@ export async function verifyPassword(password: string, stored: string) {
  let diff=0;for(let i=0;i<bytes.length;i++)diff|=bytes[i]^target[i];return diff===0;
 }
 export function clientAddress(req:Request){
- const forwarded=req.headers.get('x-vercel-forwarded-for')||req.headers.get('x-forwarded-for')||req.headers.get('x-real-ip');
+ // On Vercel only x-vercel-forwarded-for is set by the platform; x-forwarded-for can carry client-supplied values.
+ const forwarded=process.env.VERCEL?req.headers.get('x-vercel-forwarded-for'):req.headers.get('x-vercel-forwarded-for')||req.headers.get('x-forwarded-for')||req.headers.get('x-real-ip');
  return forwarded?.split(',')[0]?.trim().slice(0,128)||'unavailable';
 }
+type LimitDb={prepare(sql:string):{bind(...values:unknown[]):{first<T extends Record<string,unknown>>():Promise<T|null>;run():Promise<unknown>}}};
+const FAILURES_PER_BLOCK=5;
+const BASE_BLOCK_MS=15*60_000;
+// Latest block end among the given code_limits keys, or 0 when none is blocked.
+export async function blockedUntil(db:LimitDb,ids:string[],now:number){
+ let until=0;
+ for(const id of ids){
+  const limit=await db.prepare('SELECT "window" FROM code_limits WHERE id=?').bind(id).first<{window:number}>();
+  if(limit&&Number(limit.window)>now)until=Math.max(until,Number(limit.window));
+ }
+ return until;
+}
+// Counts one failure; every 5th failure blocks for 15 min x 5^n. Returns the block end, or 0 when not blocked.
+export async function recordFailure(db:LimitDb,id:string,now:number){
+ const failure=await db.prepare('INSERT INTO code_limits (id,"window",attempts) VALUES (?,0,1) ON CONFLICT(id) DO UPDATE SET attempts=code_limits.attempts+1 RETURNING attempts').bind(id).first<{attempts:number}>();
+ const attempts=Number(failure?.attempts||1);
+ if(attempts%FAILURES_PER_BLOCK!==0)return 0;
+ const until=now+BASE_BLOCK_MS*5**(attempts/FAILURES_PER_BLOCK-1);
+ await db.prepare('UPDATE code_limits SET "window"=CASE WHEN "window">? THEN "window" ELSE ? END WHERE id=?').bind(until,until,id).run();
+ return until;
+}
+export const retryAfter=(until:number,now:number)=>String(Math.ceil((until-now)/1000));
 export function sessionToken(req:Request){
  const token=(req.headers.get('cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);
  return token&&/^[a-f0-9]{64}$/.test(token)?token:null;
