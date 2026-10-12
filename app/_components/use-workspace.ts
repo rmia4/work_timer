@@ -54,10 +54,12 @@ export const statusLabel = (status: string) =>
 export function useWorkspace() {
   const [day, setDay] = useState(today),
     [tasks, setTasks] = useState<Task[]>([]),
-    [now, setNow] = useState(Date.now()),
+    [now, setNow] = useState(() => Date.now()),
     [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
     [auth, setAuth] = useState(true),
+    // 첫 로그인 확인이 끝나기 전에는 로그인 화면을 보여 주지 않는다.
+    [checking, setChecking] = useState(true),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false);
   const [title, setTitle] = useState(""),
@@ -77,7 +79,7 @@ export function useWorkspace() {
     [finishResult, setFinishResult] = useState("");
   const request = useRef(0),
     lock = useRef(false);
-  function clearForm() {
+  const clearForm = useCallback(() => {
     setTitle("");
     setNote("");
     setResult("");
@@ -86,16 +88,20 @@ export function useWorkspace() {
     setFirst("");
     setLast("");
     setEdit(null);
-  }
-  function chooseDay(value: string) {
-    if (value === day) return;
-    request.current++;
-    setLoading(true);
-    setTasks([]);
-    setDay(value);
-    if (edit) clearForm();
-    setMessage("");
-  }
+  }, []);
+  // memo된 캘린더에 넘기므로 참조를 고정한다.
+  const chooseDay = useCallback(
+    (value: string) => {
+      if (value === day) return;
+      request.current++;
+      setLoading(true);
+      setTasks([]);
+      setDay(value);
+      if (edit) clearForm();
+      setMessage("");
+    },
+    [day, edit, clearForm],
+  );
   const load = useCallback(async () => {
     const seq = ++request.current;
     try {
@@ -120,7 +126,10 @@ export function useWorkspace() {
       if (seq === request.current)
         setError(e instanceof Error ? e.message : "연결을 확인해 주세요.");
     } finally {
-      if (seq === request.current) setLoading(false);
+      if (seq === request.current) {
+        setLoading(false);
+        setChecking(false);
+      }
     }
   }, [day]);
   // ctrl s 기능 방지
@@ -135,20 +144,44 @@ export function useWorkspace() {
     return () => window.removeEventListener("keydown", preventSave, true);
   }, []);
 
+  // 탭이 숨겨진 동안은 조회하지 않는다(DB가 자동으로 잠들 수 있게). 다시 보이면 바로 조회하되,
+  // visibilitychange와 focus가 함께 오면 한 번만 부른다.
   useEffect(() => {
+    let last = Date.now();
+    // load는 비동기라 setState가 모두 await fetch 뒤에 일어난다(규칙의 오탐).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-    const id = setInterval(load, 10000);
-    const focus = () => void load();
-    window.addEventListener("focus", focus);
+    const refresh = () => {
+      if (document.hidden || Date.now() - last < 1000) return;
+      last = Date.now();
+      void load();
+    };
+    const id = setInterval(refresh, 10000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       clearInterval(id);
-      window.removeEventListener("focus", focus);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
       request.current++;
     };
   }, [load]);
+  // 화면 시계는 탭이 보일 때만 돈다. 탭 제목은 아래 별도 타이머가 갱신한다.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    const tick = () => setNow(Date.now());
+    let id = document.hidden ? undefined : setInterval(tick, 1000);
+    const sync = () => {
+      clearInterval(id);
+      id = undefined;
+      if (document.hidden) return;
+      tick();
+      id = setInterval(tick, 1000);
+    };
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", sync);
+    };
   }, []);
   async function act(body: object) {
     if (lock.current) return false;
@@ -298,7 +331,7 @@ export function useWorkspace() {
     void load();
   }
   return {
-    day, now, offset, error, auth, loading, busy, message,
+    day, now, offset, error, auth, checking, loading, busy, message,
     tasks, daily, active, total, elapsed,
     title, setTitle, note, setNote, result, setResult,
     targetMinutes, setTargetMinutes, minutes, setMinutes,

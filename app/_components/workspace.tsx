@@ -56,6 +56,7 @@ export default function Workspace() {
     }
   }
 
+  if (ws.checking) return <div className="shell" aria-busy="true" />;
   if (ws.auth) return <Login onSuccess={ws.load} />;
   if (!layout) return <div className="shell" aria-busy="true" />;
   const Layout = LAYOUT_COMPONENTS[layout];
