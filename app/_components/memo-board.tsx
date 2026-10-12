@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Plus, StickyNote, Trash2 } from "lucide-react";
 
 type Memo = {
@@ -15,11 +15,16 @@ type Memo = {
 };
 type SaveState = "saved" | "saving" | "error";
 
-async function memoRequest(endpoint: string, body: unknown) {
+// 브라우저는 keepalive 요청 본문을 64KB로 제한한다.
+const KEEPALIVE_LIMIT = 64 * 1024;
+
+async function memoRequest(endpoint: string, body: unknown, keepalive = false) {
+  const json = JSON.stringify(body);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: json,
+    keepalive: keepalive && new TextEncoder().encode(json).length <= KEEPALIVE_LIMIT,
   });
   const data = (await response.json()) as {
     memo?: Memo;
@@ -55,7 +60,7 @@ function MemoCard({
   canMoveDown: boolean;
   onDeleted: (id: string) => void;
   onMove: (direction: "up" | "down") => void;
-  request: (body: Record<string, unknown>) => Promise<{ memo?: Memo }>;
+  request: (body: Record<string, unknown>, keepalive?: boolean) => Promise<{ memo?: Memo }>;
 }) {
   const [title, setTitle] = useState(memo.title),
     [body, setBody] = useState(memo.body),
@@ -74,9 +79,6 @@ function MemoCard({
     queuedRef = useRef(false),
     mountedRef = useRef(true),
     areaRef = useRef<HTMLTextAreaElement>(null);
-  titleRef.current = title;
-  bodyRef.current = body;
-  collapsedRef.current = collapsed;
 
   // 다른 기기의 변경을 덮어쓰지 않도록 충돌 해결 전에는 자동 저장을 멈춘다.
   const handleFailure = (reason: unknown) => {
@@ -119,7 +121,7 @@ function MemoCard({
     void save();
   };
 
-  const save = async () => {
+  const save = async (keepalive = false) => {
     if (conflictRef.current) return;
     if (savingRef.current) {
       queuedRef.current = true;
@@ -148,7 +150,7 @@ function MemoCard({
         id: memo.id,
         version: versionRef.current,
         ...snapshot,
-      });
+      }, keepalive);
       if (data.memo) {
         versionRef.current = data.memo.version;
         persistedRef.current = snapshot;
@@ -170,16 +172,32 @@ function MemoCard({
   };
   const schedule = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => void save(), 700);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      void save();
+    }, 700);
   };
 
-  useEffect(
-    () => () => {
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  });
+  // 날짜·레이아웃 전환으로 사라지거나 탭이 닫힐 때 디바운스 중인 입력을 바로 저장한다.
+  useEffect(() => {
+    const flush = (keepalive: boolean) => {
+      if (!timerRef.current) return;
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+      void saveRef.current(keepalive);
+    };
+    const pagehide = () => flush(true);
+    window.addEventListener("pagehide", pagehide);
+    return () => {
+      window.removeEventListener("pagehide", pagehide);
       mountedRef.current = false;
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
+      flush(false);
+    };
+  }, []);
   useEffect(() => {
     const area = areaRef.current;
     if (area) {
@@ -203,6 +221,7 @@ function MemoCard({
     )
       return;
     if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
     try {
       await request({
         action: "delete",
@@ -272,6 +291,7 @@ function MemoCard({
         autoFocus={focus}
         value={title}
         onChange={(event) => {
+          titleRef.current = event.target.value;
           setTitle(event.target.value);
           schedule();
         }}
@@ -288,6 +308,7 @@ function MemoCard({
           rows={2}
           value={body}
           onChange={(event) => {
+            bodyRef.current = event.target.value;
             setBody(event.target.value);
             schedule();
           }}
@@ -317,20 +338,31 @@ function MemoCard({
   );
 }
 
-export default function MemoBoard({ day }: { day?: string } = {}) {
+function MemoBoard({ day }: { day?: string } = {}) {
   const [memos, setMemos] = useState<Memo[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [focusId, setFocusId] = useState<string | null>(null),
-    [moving, setMoving] = useState(false);
+    [moving, setMoving] = useState(false),
+    [shownDay, setShownDay] = useState(day);
+  // 날짜가 바뀌면 이전 날짜의 메모를 바로 비우고 불러오기 상태로 둔다.
+  if (shownDay !== day) {
+    setShownDay(day);
+    setMemos([]);
+    setLoading(true);
+    setError("");
+  }
   const moveLock = useRef(false),
     dayRef = useRef(day);
   const endpoint = day ? "/api/daily-memos" : "/api/memos",
-    request = (body: Record<string, unknown>) =>
-      memoRequest(endpoint, day ? { ...body, day } : body);
+    request = (body: Record<string, unknown>, keepalive?: boolean) =>
+      memoRequest(endpoint, day ? { ...body, day } : body, keepalive);
   const load = async () => {
     setLoading(true);
     setError("");
+    await fetchMemos();
+  };
+  const fetchMemos = async () => {
     try {
       const response = await fetch(
         day ? endpoint + "?day=" + encodeURIComponent(day) : endpoint,
@@ -349,8 +381,7 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
   };
   useEffect(() => {
     dayRef.current = day;
-    setMemos([]);
-    void load();
+    void fetchMemos();
   }, [day]);
   const create = async () => {
     setError("");
@@ -454,3 +485,5 @@ export default function MemoBoard({ day }: { day?: string } = {}) {
     </aside>
   );
 }
+
+export default memo(MemoBoard);

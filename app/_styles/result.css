@@ -47,7 +47,7 @@
   margin: 5px 0 0;
 }
 .result-block {
-  border-left: 3px solid #2859df;
+  border-left: 3px solid var(--c-accent);
   border-top: 0;
   background: #f3f6fd;
   border-radius: 7px;
@@ -55,7 +55,7 @@
   margin-top: 12px;
 }
 .result-block > strong {
-  color: #2859df;
+  color: var(--c-accent);
 }
 .dialog-label {
   font-size: 14px;
@@ -104,7 +104,7 @@
 }
 .settings-danger {
   padding-top: 16px;
-  border-top: 1px solid #e0e6ee;
+  border-top: 1px solid var(--c-border);
 }
 .dialog-label input {
   display: block;
@@ -113,11 +113,11 @@
   font-weight: 400;
 }
 .danger {
-  color: #c62828;
+  color: var(--c-danger);
   border-color: #f0c4c4;
 }
 .settings-error {
   margin: 0;
   font-size: 14px;
-  color: #c62828;
+  color: var(--c-danger);
 }

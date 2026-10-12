@@ -4,19 +4,25 @@ import {database} from '../../../db/raw';
 
 const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
 const validText=(value:unknown,max:number)=>typeof value==='string'&&value.length<=max;
+type MemoRow=Record<string,unknown>&{id:string;title:string;body:string;collapsed:boolean|number;position:number;version:number;created:number;updated:number};
+type MemoBody=Record<string,unknown>;
 
 export async function GET(req:Request){
  const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  try{
-  const result=await database().prepare('SELECT id,title,body,collapsed,position,version,created,updated FROM memos WHERE owner=? ORDER BY position,created').bind(user.userId).all();
-  return reply({memos:result.results.map((memo:any)=>({...memo,collapsed:Boolean(memo.collapsed)}))});
+  const result=await database().prepare('SELECT id,title,body,collapsed,position,version,created,updated FROM memos WHERE owner=? ORDER BY position,created').bind(user.userId).all<MemoRow>();
+  return reply({memos:result.results.map(memo=>({...memo,collapsed:Boolean(memo.collapsed)}))});
  }catch(error){console.error(error);return reply({error:'메모를 불러오지 못했습니다. 다시 시도해 주세요.'},503);}
 }
 
 export async function POST(req:Request){
  const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
  if(!sameOrigin(req,process.env.APP_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
- let body:any;try{body=await req.json();}catch{return reply({error:'요청을 확인해 주세요.'},400);}
+ let body:MemoBody;try{
+ const limit=256*1024;if(Number(req.headers.get('content-length')||0)>limit)return reply({error:'요청을 확인해 주세요.'},400);
+ const input=await req.text();if(input.length>limit||new TextEncoder().encode(input).length>limit)return reply({error:'요청을 확인해 주세요.'},400);
+ body=JSON.parse(input);
+ }catch{return reply({error:'요청을 확인해 주세요.'},400);}
  if(!body||typeof body!=='object')return reply({error:'요청을 확인해 주세요.'},400);
  try{
   const db=database(),owner=user.userId,now=Date.now();
@@ -31,8 +37,8 @@ export async function POST(req:Request){
    if(result.results.length!==2)return reply({error:'메모가 없습니다.'},404);
    return reply({ok:true});
   }
-  if(typeof body.id!=='string'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
-  const current:any=await db.prepare('SELECT id,title,body,collapsed,position,version,created,updated FROM memos WHERE id=? AND owner=?').bind(body.id,owner).first();
+  if(typeof body.id!=='string'||typeof body.version!=='number'||!Number.isInteger(body.version))return reply({error:'메모를 다시 불러와 주세요.'},400);
+  const current=await db.prepare('SELECT id,title,body,collapsed,position,version,created,updated FROM memos WHERE id=? AND owner=?').bind(body.id,owner).first<MemoRow>();
   if(!current)return reply({error:'메모가 없습니다.'},404);
   if(current.version!==body.version)return reply({error:'다른 기기에서 변경되었습니다.',currentVersion:current.version,memo:{...current,collapsed:Boolean(current.collapsed)}},409);
   if(body.action==='update'){

@@ -1,10 +1,8 @@
 import {getCodeUser} from '../../_auth/code-auth';
 import {database} from '../../../db/raw';
-import {createPasswordHash,hashToken,verifyPassword,sessionToken,sameOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH} from '../../../lib/auth';
+import {createPasswordHash,hashToken,verifyPassword,sessionToken,sameOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
 
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
-const FAILURES_PER_BLOCK=5;
-const BASE_BLOCK_MS=15*60_000;
 const DELETE_TABLES:Record<string,string>={'delete-tasks':'tasks','delete-memos':'memos','delete-daily-memos':'daily_memos'};
 
 // 설정 팝업의 모든 동작은 매 요청마다 현재 비밀번호를 다시 확인한다.
@@ -24,16 +22,13 @@ export async function POST(req:Request){
   }
 
   const db=database(),now=Date.now(),owner=user.userId,limitId='account:'+owner;
-  const limit=await db.prepare('SELECT "window",attempts FROM code_limits WHERE id=?').bind(limitId).first<{window:number;attempts:number}>();
-  if(limit&&limit.window>now)return json({error:'비밀번호 확인이 차단되었습니다. 잠시 후 다시 시도해 주세요.'},429,{'Retry-After':String(Math.ceil((limit.window-now)/1000))});
+  const blocked=await blockedUntil(db,[limitId],now);
+  if(blocked)return json({error:'비밀번호 확인이 차단되었습니다. 잠시 후 다시 시도해 주세요.'},429,{'Retry-After':retryAfter(blocked,now)});
   const row=await db.prepare("SELECT password_hash FROM users WHERE id=? AND status='active' LIMIT 1").bind(owner).first<{password_hash:string|null}>();
   if(!row?.password_hash||!await verifyPassword(body.password,row.password_hash)){
-   const failure=await db.prepare('INSERT INTO code_limits (id,"window",attempts) VALUES (?,0,1) ON CONFLICT(id) DO UPDATE SET attempts=code_limits.attempts+1 RETURNING attempts').bind(limitId).first<{attempts:number}>();
-   const attempts=Number(failure?.attempts||1);
-   if(attempts%FAILURES_PER_BLOCK!==0)return json({error:'비밀번호가 일치하지 않습니다.'},401);
-   const blockedUntil=now+BASE_BLOCK_MS*5**(attempts/FAILURES_PER_BLOCK-1);
-   await db.prepare('UPDATE code_limits SET "window"=CASE WHEN "window">? THEN "window" ELSE ? END WHERE id=?').bind(blockedUntil,blockedUntil,limitId).run();
-   return json({error:'비밀번호 확인이 차단되었습니다. 잠시 후 다시 시도해 주세요.'},429,{'Retry-After':String(Math.ceil((blockedUntil-now)/1000))});
+   const until=await recordFailure(db,limitId,now);
+   if(!until)return json({error:'비밀번호가 일치하지 않습니다.'},401);
+   return json({error:'비밀번호 확인이 차단되었습니다. 잠시 후 다시 시도해 주세요.'},429,{'Retry-After':retryAfter(until,now)});
   }
   const clearLimit=db.prepare('DELETE FROM code_limits WHERE id=?').bind(limitId);
   if(action==='verify'){await clearLimit.run();return json({ok:true});}

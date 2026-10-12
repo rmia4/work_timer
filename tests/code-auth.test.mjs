@@ -33,11 +33,11 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  const helpers=await moduleFrom('lib/auth.ts');
  const dates=await moduleFrom('lib/work-dates.ts');
  globalThis.authFixture={...helpers,...dates,env,database:()=>adapter};
- const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH}=globalThis.authFixture;');
- const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,sameOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH}=globalThis.authFixture;');
+ const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
+ const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,sameOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const user=await moduleFrom('app/_auth/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
- const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validTimes}=globalThis.authFixture;');
+ const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validDay,validTimes}=globalThis.authFixture;');
  const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
  let memos=null;try{memos=await moduleFrom('app/api/memos/route.ts','const {getCodeUser,env,sameOrigin,database}=globalThis.authFixture;');}catch{}
  assert.ok(memos?.GET&&memos?.POST,'memo API is missing');
@@ -71,12 +71,19 @@ test('password auth: wrong password, secure session, old records, expiry, logout
   const signupAttackIp='192.0.2.20';
   for(let attempt=1;attempt<5;attempt++)assert.equal((await signup.POST(signupRequest('new_user','new-password','new-password',signupAttackIp))).status,409);
   const signupBlocked=await signup.POST(signupRequest('new_user','new-password','new-password',signupAttackIp));assert.equal(signupBlocked.status,429);assert.equal(signupBlocked.headers.get('retry-after'),'900');
-  assert.equal((await auth.POST(request('new-password',env.APP_ORIGIN,signupAttackIp,'new_user'))).status,429);
+  // Signup failures are counted under signup-fail:, so the same IP can still log in.
+  assert.ok(db.prepare("SELECT id FROM code_limits WHERE id=?").get('signup-fail:'+await helpers.hashToken(signupAttackIp)));
+  assert.equal((await auth.POST(request('new-password',env.APP_ORIGIN,signupAttackIp,'new_user'))).status,200);
   assert.equal((await auth.POST(request(code,env.APP_ORIGIN,'192.0.2.12','new_user'))).status,401);
   const newLogin=await auth.POST(request('new-password',env.APP_ORIGIN,'192.0.2.13','new_user'));assert.equal(newLogin.status,200);
   assert.deepEqual(await user.getCodeUser(new Request(req.url,{headers:{cookie:newLogin.headers.get('set-cookie')}})),{userId:joinedUser.id});
   Date.now=()=>signupStart+24*60*60_000;
+  db.prepare("INSERT INTO signup_limits (id,registered_at) VALUES ('signup-ip:stale',?)").run(signupStart-1);
+  db.prepare("INSERT INTO code_sessions (token_hash,owner,expires) VALUES ('stale-session','legacy-owner',?)").run(signupStart);
   assert.equal((await signup.POST(signupRequest('next_day_user'))).status,201);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM signup_limits WHERE id='signup-ip:stale'").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM code_sessions WHERE token_hash='stale-session'").get().n,0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM signup_limits").get().n,1);
  }finally{Date.now=originalSignupNow;}
  const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
  const memoReq=new Request(env.APP_ORIGIN+'/api/memos',{headers:{cookie}});
@@ -161,7 +168,7 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  dailyOrder=(await (await dailyMemos.GET(dailyMemoReq('2026-09-10'))).json()).memos;assert.deepEqual(dailyOrder.map(memo=>memo.id),[secondDaily.id,dailyCreated.id]);
  assert.equal((await dailyMemos.GET(dailyMemoReq('invalid'))).status,400);
  }finally{Date.now=originalNow;}
- const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,sameOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH}=globalThis.authFixture;');
+ const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,sameOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const accountPost=(body,sessionCookie,origin=env.APP_ORIGIN)=>account.POST(new Request(env.APP_ORIGIN+'/api/account',{method:'POST',headers:{cookie:sessionCookie,origin,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  const otherOwner=db.prepare("SELECT id FROM users WHERE username='new_user'").get().id;
  const otherLogin=ip=>auth.POST(request('new-password',env.APP_ORIGIN,ip,'new_user'));
@@ -202,15 +209,37 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  const attackIp='198.51.100.22';
  const rateStart=Date.now();Date.now=()=>rateStart;
  try{
-  for(let attempt=1;attempt<5;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp))).status,401);
-  let blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'900');
+  // Per-IP limit: a different username on each try still counts toward the IP key.
+  for(let attempt=1;attempt<5;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp,'ip_probe_'+attempt))).status,401);
+  let blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp,'ip_probe_5'));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'900');
   assert.equal((await auth.POST(request(code,env.APP_ORIGIN,attackIp))).status,429);
-  const storedLimit=db.prepare('SELECT id,attempts FROM code_limits WHERE attempts=5').get();assert.equal(storedLimit.attempts,5);assert.match(storedLimit.id,/^ip:[a-f0-9]{64}$/);assert.ok(!storedLimit.id.includes(attackIp));
+  const storedLimit=db.prepare("SELECT id,attempts FROM code_limits WHERE attempts=5 AND id LIKE 'ip:%'").get();assert.equal(storedLimit.attempts,5);assert.match(storedLimit.id,/^ip:[a-f0-9]{64}$/);assert.ok(!storedLimit.id.includes(attackIp));
   assert.equal((await auth.POST(request(code,env.APP_ORIGIN,'198.51.100.23'))).status,200);
   Date.now=()=>rateStart+900001;
-  for(let attempt=6;attempt<10;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp))).status,401);
-  blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'4500');
+  for(let attempt=6;attempt<10;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp,'ip_probe_'+attempt))).status,401);
+  blocked=await auth.POST(request('incorrect',env.APP_ORIGIN,attackIp,'ip_probe_10'));assert.equal(blocked.status,429);assert.equal(blocked.headers.get('retry-after'),'4500');
  }finally{Date.now=originalNow;}
+ // Per-username limit: changing IP does not help, and unknown usernames behave the same as existing ones.
+ const userStart=Date.now();Date.now=()=>userStart;
+ try{
+  for(const username of ['legacy_user','ghost_user']){
+   for(let attempt=1;attempt<5;attempt++)assert.equal((await auth.POST(request('incorrect',env.APP_ORIGIN,'198.18.0.'+attempt,username))).status,401);
+   const userBlocked=await auth.POST(request('incorrect',env.APP_ORIGIN,'198.18.0.5',username));assert.equal(userBlocked.status,429);assert.equal(userBlocked.headers.get('retry-after'),'900');
+   assert.equal((await auth.POST(request(code,env.APP_ORIGIN,'198.18.1.1',' '+username.toUpperCase()))).status,429);
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM code_limits WHERE id LIKE 'user:%' AND attempts=5").get().n,2);
+  Date.now=()=>userStart+900001;
+  assert.equal((await auth.POST(request(code,env.APP_ORIGIN,'198.18.0.1'))).status,200);
+  for(const id of ['user:'+await helpers.hashToken('legacy_user'),'ip:'+await helpers.hashToken('198.18.0.1')])assert.equal(db.prepare('SELECT COUNT(*) AS n FROM code_limits WHERE id=?').get(id).n,0);
+ }finally{Date.now=originalNow;}
+ // On Vercel only the platform header is trusted; elsewhere x-forwarded-for still works.
+ const addressOf=headers=>helpers.clientAddress(new Request(env.APP_ORIGIN,{headers}));
+ assert.equal(addressOf({'x-forwarded-for':'203.0.113.1'}),'203.0.113.1');
+ process.env.VERCEL='1';
+ try{
+  assert.equal(addressOf({'x-forwarded-for':'203.0.113.1'}),'unavailable');
+  assert.equal(addressOf({'x-forwarded-for':'203.0.113.1','x-vercel-forwarded-for':'198.51.100.7'}),'198.51.100.7');
+ }finally{delete process.env.VERCEL;}
  assert.equal(db.prepare('SELECT owner FROM tasks').get().owner,'legacy-owner');
  db.close();delete globalThis.authFixture;delete process.env.APP_ORIGIN;
 });

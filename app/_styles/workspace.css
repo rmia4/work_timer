@@ -1,7 +1,7 @@
 body {
   margin: 0;
-  background: #f3f5f9;
-  color: #18243c;
+  background: var(--c-page);
+  color: var(--c-text);
   font-family: Arial, "Noto Sans KR", sans-serif;
   font-size: 16px;
   line-height: 1.6;
@@ -20,11 +20,11 @@ button {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid #d5dce8;
+  border: 1px solid var(--c-control-border);
   border-radius: 9px;
   padding: 10px 15px;
-  background: white;
-  color: #24324d;
+  background: var(--c-control-bg);
+  color: var(--c-control-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -40,12 +40,12 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid #729bf4;
+  outline: 3px solid var(--c-focus);
   outline-offset: 3px;
 }
 .top {
   height: 80px;
-  background: #fff;
+  background: var(--c-surface);
   border-bottom: 1px solid #e0e5ed;
   display: flex;
   align-items: center;
@@ -63,7 +63,7 @@ textarea:focus-visible {
   height: 24px;
 }
 .brand svg {
-  color: #2859df;
+  color: var(--c-accent);
 }
 .brand strong {
   font-size: 20px;
@@ -127,11 +127,11 @@ input,
 textarea {
   font: inherit;
   width: 100%;
-  border: 1px solid #d6ddea;
+  border: 1px solid var(--c-input-border);
   border-radius: 8px;
   padding: 11px 12px;
-  background: white;
-  color: #17243b;
+  background: var(--c-control-bg);
+  color: var(--c-text-strong);
 }
 .date-controls input {
   width: auto;
@@ -199,8 +199,8 @@ textarea {
 }
 .summary {
   position: relative;
-  background: #fff;
-  border: 1px solid #e0e6ee;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 18px;
   padding: 30px;
   display: flex;
@@ -249,7 +249,7 @@ textarea {
 }
 .summary-bottom b {
   margin-left: 8px;
-  color: #2859df;
+  color: var(--c-accent);
 }
 .summary > p:last-child {
   font-size: 12px;
@@ -267,8 +267,8 @@ textarea {
 }
 .entry {
   padding: 24px;
-  background: #fff;
-  border: 1px solid #e0e6ee;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 14px;
   align-self: start;
 }
@@ -324,21 +324,21 @@ textarea {
   margin-top: 20px;
 }
 .primary {
-  background: #2859df;
-  border-color: #2859df;
+  background: var(--c-accent-fill);
+  border-color: var(--c-accent-fill);
   color: white;
 }
 .saved {
   font-size: 14px;
-  color: #2859df;
+  color: var(--c-accent);
   min-height: 22px;
   margin-bottom: 0;
 }
 .record {
   padding: 22px 24px;
-  border: 1px solid #e0e6ee;
+  border: 1px solid var(--c-border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--c-surface);
   margin-bottom: 12px;
 }
 .record-head {
@@ -353,13 +353,13 @@ textarea {
 .record-head strong {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: #2859df;
+  color: var(--c-accent);
 }
 .status {
   display: inline-block;
   margin-top: 5px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--c-muted);
 }
 .note {
   white-space: pre-wrap;
@@ -409,9 +409,9 @@ textarea {
   margin-left: 12px;
 }
 .notice.error {
-  background: #fff0f0;
-  border-color: #f2cccc;
-  color: #a02e2e;
+  background: var(--c-error-bg);
+  border-color: var(--c-error-border);
+  color: var(--c-error);
 }
 .notice button {
   margin-left: 10px;
@@ -446,13 +446,13 @@ footer {
 .record-times small {
   font-size: 11px;
   line-height: 1.3;
-  color: #7a8799;
+  color: var(--c-subtle);
   font-weight: 600;
 }
 .record-times strong {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: #2859df;
+  color: var(--c-accent);
 }
 @media (max-width: 800px) {
   .columns {
@@ -521,5 +521,25 @@ footer {
   }
   .record-head {
     flex-wrap: wrap;
+  }
+}
+/* 휴대폰: 2열이면 요약 카드가 좁아져 날짜와 날짜 이동 버튼이 겹친다. */
+@media (max-width: 560px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* 터치 화면: 누르는 영역을 40px 이상으로 둔다. */
+@media (pointer: coarse) {
+  .memo-card-actions button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .record-actions button,
+  .section-title button {
+    min-height: 40px;
+  }
+  .manual-times summary {
+    padding-block: 9px;
   }
 }
