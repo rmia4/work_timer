@@ -125,13 +125,15 @@
             <label><input type="radio" name="csv-scope" value="all" />전체</label>
             <label><input type="radio" name="csv-scope" value="detail" />세부내용만</label>
           </fieldset>
-          <p class="hint">세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기가 늘어납니다.</p>
+          <p class="hint">세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기와 AI 작업량이 늘어납니다.</p>
+          <p class="hint">CSV를 AI에 첨부할 때 같은 범위로 복사한 프롬프트를 함께 붙여넣으세요.</p>
           <p class="error" id="csv-range" hidden>기간을 확인해 주세요. (최대 366일)</p>
           <p class="error" id="csv-error" role="alert"></p>
           <div class="row">
             <button type="button" id="csv-cancel" class="outline">취소</button>
             <button id="csv-submit">CSV 다운로드</button>
           </div>
+          <button type="button" id="csv-prompt" class="outline">AI 요약 프롬프트 복사</button>
         </form>
       </dialog>
 

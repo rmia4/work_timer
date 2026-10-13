@@ -1,6 +1,7 @@
 import { authed, call, download, onUnauthorized } from "./api.js";
 import { activitySegments, drawClock } from "./activity-clock.js";
 import { createCalendar, invalidateCalendarCache } from "./calendar.js";
+import { summaryPrompt } from "./export-prompt.js";
 import {
   duration,
   parseTimeInput,
@@ -508,7 +509,23 @@ function renderCsv() {
   $("csv-submit").disabled = exporting || csvInvalid(from, to);
   $("csv-submit").textContent = exporting ? "내보내는 중…" : "CSV 다운로드";
   $("csv-range").hidden = !(from && to && csvInvalid(from, to));
+  $("csv-prompt").disabled = csvInvalid(from, to);
 }
+
+// 웹앱 copyPrompt(): 고른 기간·범위에 맞는 AI 요약 프롬프트를 복사하고 2초 동안 알린다.
+$("csv-prompt").addEventListener("click", async () => {
+  const from = $("csv-from").value,
+    to = $("csv-to").value;
+  if (csvInvalid(from, to)) return;
+  $("csv-error").textContent = "";
+  try {
+    await navigator.clipboard.writeText(summaryPrompt(from, to, new FormData($("csv-form")).get("csv-scope")));
+    $("csv-prompt").textContent = "복사했습니다";
+    setTimeout(() => ($("csv-prompt").textContent = "AI 요약 프롬프트 복사"), 2000);
+  } catch {
+    $("csv-error").textContent = "프롬프트를 복사하지 못했습니다.";
+  }
+});
 
 $("csv-open").addEventListener("click", () => {
   const [year, month] = day.split("-").map(Number);
