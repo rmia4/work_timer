@@ -1,5 +1,5 @@
 import {getCodeUser} from '../../_auth/code-auth';
-import {sameOrigin} from '../../../lib/auth';
+import {trustedOrigin} from '../../../lib/auth';
 import {database} from '../../../db/raw';
 import {validDay,validTimes} from '../../../lib/work-dates';
 const reply=(x:unknown,status=200)=>Response.json(x,{status,headers:{'Cache-Control':'no-store'}});
@@ -27,8 +27,7 @@ export async function GET(req:Request){
 }
 export async function POST(req:Request){
  const user=await getCodeUser(req);if(!user)return reply({error:'로그인이 필요합니다.'},401);
- // 크롬 확장 팝업(EXTENSION_ORIGIN)도 타이머를 조작할 수 있다.
- if(!sameOrigin(req,process.env.APP_ORIGIN)&&!sameOrigin(req,process.env.EXTENSION_ORIGIN))return reply({error:'허용되지 않은 요청입니다.'},403);
+ if(!trustedOrigin(req))return reply({error:'허용되지 않은 요청입니다.'},403);
  let b:TaskBody;try{
  const limit=256*1024;if(Number(req.headers.get('content-length')||0)>limit)return reply({error:'요청을 확인해 주세요.'},400);
  const input=await req.text();if(input.length>limit||new TextEncoder().encode(input).length>limit)return reply({error:'요청을 확인해 주세요.'},400);
