@@ -64,3 +64,5 @@ export function sessionToken(req:Request){
 }
 export function sessionCookie(token:string,maxAge=SESSION_SECONDS){return `${COOKIE}=${token}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=${maxAge}`;}
 export function sameOrigin(req:Request,origin:string|undefined){return !!origin&&req.headers.get('origin')===origin&&req.headers.get('sec-fetch-site')!=='cross-site';}
+// 웹앱과 크롬 확장 팝업(EXTENSION_ORIGIN)의 쓰기 요청을 허용한다.
+export function trustedOrigin(req:Request){return sameOrigin(req,process.env.APP_ORIGIN)||sameOrigin(req,process.env.EXTENSION_ORIGIN);}

@@ -33,15 +33,15 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  const helpers=await moduleFrom('lib/auth.ts');
  const dates=await moduleFrom('lib/work-dates.ts');
  globalThis.authFixture={...helpers,...dates,env,database:()=>adapter};
- const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
- const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,sameOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
+ const auth=await moduleFrom('app/api/auth/route.ts','const {env,database,clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,trustedOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
+ const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,trustedOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const user=await moduleFrom('app/_auth/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
- const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,sameOrigin,database,validDay,validTimes}=globalThis.authFixture;');
+ const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,trustedOrigin,database,validDay,validTimes}=globalThis.authFixture;');
  const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
- let memos=null;try{memos=await moduleFrom('app/api/memos/route.ts','const {getCodeUser,env,sameOrigin,database}=globalThis.authFixture;');}catch{}
+ let memos=null;try{memos=await moduleFrom('app/api/memos/route.ts','const {getCodeUser,env,trustedOrigin,database}=globalThis.authFixture;');}catch{}
  assert.ok(memos?.GET&&memos?.POST,'memo API is missing');
- let dailyMemos=null;try{dailyMemos=await moduleFrom('app/api/daily-memos/route.ts','const {getCodeUser,env,sameOrigin,database,validDay}=globalThis.authFixture;');}catch{}
+ let dailyMemos=null;try{dailyMemos=await moduleFrom('app/api/daily-memos/route.ts','const {getCodeUser,env,trustedOrigin,database,validDay}=globalThis.authFixture;');}catch{}
  assert.ok(dailyMemos?.GET&&dailyMemos?.POST,'daily memo API is missing');
  const request=(password,origin=env.APP_ORIGIN,ip='203.0.113.10',username='legacy_user')=>new Request(env.APP_ORIGIN+'/api/auth',{method:'POST',headers:{origin,'Content-Type':'application/json','x-forwarded-for':ip},body:JSON.stringify({username,password})});
  assert.equal((await tasks.GET(new Request(env.APP_ORIGIN+'/api/tasks?day=2026-09-10'))).status,401);
@@ -86,6 +86,20 @@ test('password auth: wrong password, secure session, old records, expiry, logout
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM signup_limits").get().n,1);
  }finally{Date.now=originalSignupNow;}
  const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
+ const extensionOrigin='chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+ // 확장 Origin은 EXTENSION_ORIGIN을 설정했을 때만 모든 쓰기 API를 통과한다(본문이 비어 있어 400).
+ const extensionCall=(handler,path,method='POST',headers={cookie})=>handler(new Request(env.APP_ORIGIN+path,{method,headers:{...headers,origin:extensionOrigin},body:method==='POST'?'{}':undefined}));
+ const extensionAllowed=async(handler,path,status=400,method,headers)=>{
+  assert.equal((await extensionCall(handler,path,method,headers)).status,403);
+  process.env.EXTENSION_ORIGIN=extensionOrigin;
+  try{assert.equal((await extensionCall(handler,path,method,headers)).status,status);}finally{delete process.env.EXTENSION_ORIGIN;}
+ };
+ await extensionAllowed(tasks.POST,'/api/tasks');
+ await extensionAllowed(memos.POST,'/api/memos');
+ await extensionAllowed(dailyMemos.POST,'/api/daily-memos');
+ await extensionAllowed(auth.POST,'/api/auth',400,'POST',{});
+ await extensionAllowed(signup.POST,'/api/auth/signup',400,'POST',{});
+ await extensionAllowed(auth.DELETE,'/api/auth',200,'DELETE',{});
  const memoReq=new Request(env.APP_ORIGIN+'/api/memos',{headers:{cookie}});
  const postMemo=body=>memos.POST(new Request(memoReq.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  const dailyMemoReq=day=>new Request(env.APP_ORIGIN+'/api/daily-memos?day='+day,{headers:{cookie}});
@@ -168,8 +182,9 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  dailyOrder=(await (await dailyMemos.GET(dailyMemoReq('2026-09-10'))).json()).memos;assert.deepEqual(dailyOrder.map(memo=>memo.id),[secondDaily.id,dailyCreated.id]);
  assert.equal((await dailyMemos.GET(dailyMemoReq('invalid'))).status,400);
  }finally{Date.now=originalNow;}
- const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,sameOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
+ const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const accountPost=(body,sessionCookie,origin=env.APP_ORIGIN)=>account.POST(new Request(env.APP_ORIGIN+'/api/account',{method:'POST',headers:{cookie:sessionCookie,origin,'Content-Type':'application/json'},body:JSON.stringify(body)}));
+ await extensionAllowed(account.POST,'/api/account');
  const otherOwner=db.prepare("SELECT id FROM users WHERE username='new_user'").get().id;
  const otherLogin=ip=>auth.POST(request('new-password',env.APP_ORIGIN,ip,'new_user'));
  const otherCookie=(await otherLogin('192.0.2.30')).headers.get('set-cookie'),otherDevice=(await otherLogin('192.0.2.31')).headers.get('set-cookie');
