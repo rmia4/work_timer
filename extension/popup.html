@@ -7,6 +7,13 @@
     <script type="module" src="popup.js"></script>
   </head>
   <body>
+    <nav aria-label="화면 이동" hidden>
+      <button data-view="timer">타이머</button>
+      <button data-view="log">일지</button>
+      <button data-view="memo">메모</button>
+      <button data-view="summary">요약</button>
+      <button id="logout">로그아웃</button>
+    </nav>
     <main>
       <p id="loading">불러오는 중…</p>
 
@@ -100,13 +107,5 @@
 
       <p id="error" role="alert"></p>
     </main>
-
-    <nav aria-label="화면 이동" hidden>
-      <button data-view="timer">타이머</button>
-      <button data-view="summary">요약</button>
-      <button data-view="log">일지</button>
-      <button data-view="memo">메모</button>
-      <button id="logout">로그아웃</button>
-    </nav>
   </body>
 </html>
