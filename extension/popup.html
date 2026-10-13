@@ -7,29 +7,57 @@
     <script type="module" src="popup.js"></script>
   </head>
   <body>
-    <p id="loading">불러오는 중…</p>
+    <main>
+      <p id="loading">불러오는 중…</p>
 
-    <section id="login" hidden>
-      <p>로그인이 필요합니다.</p>
-      <button id="open-site">사이트에서 로그인</button>
-    </section>
+      <section id="login" hidden>
+        <p>로그인이 필요합니다.</p>
+        <button id="open-site">사이트에서 로그인</button>
+      </section>
 
-    <section id="active" hidden>
-      <p class="state" id="state"></p>
-      <h1 id="title"></h1>
-      <p class="clock" id="clock">0:00:00</p>
-      <div class="row">
-        <button id="toggle"></button>
-        <button id="finish">종료</button>
-      </div>
-    </section>
+      <section id="view-timer" hidden>
+        <section id="active" hidden>
+          <p class="state" id="state"></p>
+          <h1 id="title"></h1>
+          <p class="clock" id="clock">0:00:00</p>
+          <div class="row">
+            <button id="toggle"></button>
+            <button id="finish">종료</button>
+          </div>
+        </section>
 
-    <form id="start" hidden>
-      <label for="new-title">새 작업</label>
-      <input id="new-title" maxlength="200" placeholder="업무 제목" required />
-      <button>시작</button>
-    </form>
+        <form id="start" hidden>
+          <label for="new-title">새 작업</label>
+          <input id="new-title" maxlength="200" placeholder="업무 제목" required />
+          <button>시작</button>
+        </form>
+      </section>
 
-    <p id="error" role="alert"></p>
+      <section id="view-summary" hidden>
+        <h2>하루 요약</h2>
+        <p class="total" id="sum-total">0:00:00</p>
+        <p class="state" id="sum-count"></p>
+        <svg class="day-clock" id="day-clock" viewBox="0 0 240 240" role="img" aria-label="하루 활동 시계"></svg>
+      </section>
+
+      <section id="view-log" hidden>
+        <h2>업무 일지</h2>
+        <ul class="list" id="log-list"></ul>
+      </section>
+
+      <section id="view-memo" hidden>
+        <h2>메모장</h2>
+        <ul class="list" id="memo-list"></ul>
+      </section>
+
+      <p id="error" role="alert"></p>
+    </main>
+
+    <nav aria-label="화면 이동">
+      <button data-view="timer">타이머</button>
+      <button data-view="summary">요약</button>
+      <button data-view="log">일지</button>
+      <button data-view="memo">메모</button>
+    </nav>
   </body>
 </html>
