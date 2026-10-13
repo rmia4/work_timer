@@ -1,4 +1,4 @@
-import { APP_ORIGIN } from "./config.js";
+import { authed, call, onUnauthorized } from "./api.js";
 import { activitySegments, drawClock } from "./activity-clock.js";
 
 const $ = (id) => document.getElementById(id);
@@ -10,6 +10,7 @@ let memos = null; // 메모 화면을 처음 열 때 불러온다.
 let task = null;
 let offset = 0;
 let busy = false;
+let mode = "login"; // login | signup
 
 // 웹앱 use-workspace.ts의 today()와 같다(한국 시간 기준 날짜).
 const today = () =>
@@ -73,11 +74,29 @@ function renderMemo() {
   );
 }
 
+// 웹앱 login.tsx의 로그인·회원가입 화면과 같은 규칙이다.
+function renderLogin() {
+  const signup = mode === "signup";
+  for (const b of document.querySelectorAll("[data-mode]")) b.setAttribute("aria-selected", b.dataset.mode === mode);
+  $("login-hint").textContent = signup
+    ? "아이디는 영문 소문자·숫자·밑줄 4~20자, 비밀번호는 8자 이상 입력해 주세요."
+    : "아이디와 비밀번호를 입력해 주세요.";
+  for (const el of document.querySelectorAll(".signup-only")) el.hidden = !signup;
+  $("confirmation").required = signup;
+  for (const [name, value] of [["minlength", "4"], ["pattern", "[A-Za-z0-9_]{4,20}"]])
+    if (signup) $("username").setAttribute(name, value);
+    else $("username").removeAttribute(name);
+  $("password").autocomplete = signup ? "new-password" : "current-password";
+  $("login-submit").textContent = signup ? "가입하기" : "로그인";
+}
+
 function render() {
   $("loading").hidden = status !== "loading";
   $("login").hidden = status !== "login";
+  document.querySelector("nav").hidden = status !== "ready";
   for (const v of VIEWS) $(`view-${v}`).hidden = status !== "ready" || v !== view;
-  for (const b of document.querySelectorAll("nav button")) b.setAttribute("aria-current", b.dataset.view === view);
+  for (const b of document.querySelectorAll("nav button[data-view]")) b.setAttribute("aria-current", b.dataset.view === view);
+  if (status === "login") renderLogin();
   if (status !== "ready") return;
   if (view === "summary") renderSummary();
   if (view === "log") renderLog();
@@ -91,16 +110,23 @@ function render() {
   $("toggle").textContent = task.status === "running" ? "일시정지" : "다시 시작";
 }
 
+// 로그아웃되면 이전 계정의 데이터를 비우고 로그인 화면을 보여 준다.
+function showLogin() {
+  status = "login";
+  tasks = [];
+  memos = null;
+  task = null;
+  view = "timer";
+  render();
+  $("username").focus();
+}
+onUnauthorized(showLogin);
+
 async function get(path) {
-  const r = await fetch(`${APP_ORIGIN}${path}`, { credentials: "include" });
-  if (r.status === 401) {
-    status = "login";
-    render();
-    return null;
-  }
-  const data = await r.json();
-  if (!r.ok) throw Error(data.error);
-  return data;
+  const res = await authed(path);
+  if (!res) return null;
+  if (!res.ok) throw Error(res.data.error);
+  return res.data;
 }
 
 const showError = (e) =>
@@ -137,14 +163,9 @@ async function act(body) {
   for (const b of document.querySelectorAll("button")) b.disabled = true;
   $("error").textContent = "";
   try {
-    const r = await fetch(`${APP_ORIGIN}/api/tasks`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await r.json();
-    if (!r.ok) $("error").textContent = data.error || "저장에 실패했습니다.";
+    const r = await authed("/api/tasks", { method: "POST", body });
+    if (!r) return false;
+    if (!r.ok) $("error").textContent = r.data.error || "저장에 실패했습니다.";
     await load();
     return r.ok;
   } catch {
@@ -155,13 +176,57 @@ async function act(body) {
   }
 }
 
-for (const b of document.querySelectorAll("nav button"))
+for (const b of document.querySelectorAll("nav button[data-view]"))
   b.addEventListener("click", () => {
     view = b.dataset.view;
     if (view === "memo" && !memos) loadMemos();
     render();
   });
-$("open-site").addEventListener("click", () => chrome.tabs.create({ url: APP_ORIGIN }));
+for (const b of document.querySelectorAll("[data-mode]"))
+  b.addEventListener("click", () => {
+    if (b.dataset.mode === mode) return;
+    mode = b.dataset.mode;
+    $("password").value = "";
+    $("confirmation").value = "";
+    $("error").textContent = "";
+    render();
+  });
+$("login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  busy = true;
+  $("login-submit").disabled = true;
+  $("error").textContent = "";
+  try {
+    const r = await call(mode === "login" ? "/api/auth" : "/api/auth/signup", {
+      method: "POST",
+      body: { username: $("username").value, password: $("password").value, confirmation: $("confirmation").value },
+    });
+    if (!r.ok) throw Error(r.data.error || (mode === "login" ? "로그인하지 못했습니다." : "가입하지 못했습니다."));
+    $("password").value = "";
+    $("confirmation").value = "";
+    status = "loading";
+    render();
+    await load();
+    // 로그인은 됐는데 바로 401이면 브라우저가 로그인 쿠키를 저장하지 않은 것이다.
+    if (status === "login") $("error").textContent = "로그인 정보를 저장하지 못했습니다. 사이트에서 로그인해 주세요.";
+  } catch (e) {
+    showError(e);
+  } finally {
+    busy = false;
+    $("login-submit").disabled = false;
+  }
+});
+$("logout").addEventListener("click", async () => {
+  $("error").textContent = "";
+  try {
+    const r = await call("/api/auth", { method: "DELETE" });
+    if (!r.ok) throw Error("로그아웃하지 못했습니다.");
+    showLogin();
+  } catch (e) {
+    showError(e);
+  }
+});
 $("toggle").addEventListener("click", () =>
   act({ action: task.status === "running" ? "pause" : "resume", id: task.id, version: task.version }),
 );
