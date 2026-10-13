@@ -1,1 +1,0 @@
-ALTER TABLE `tasks` ADD `result` text DEFAULT '' NOT NULL;
