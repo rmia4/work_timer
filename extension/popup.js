@@ -2,6 +2,7 @@ import { authed, call, download, onUnauthorized } from "./api.js";
 import { activitySegments, drawClock } from "./activity-clock.js";
 import { createCalendar, invalidateCalendarCache } from "./calendar.js";
 import { summaryPrompt } from "./export-prompt.js";
+import { createMemoBoard } from "./memo-board.js";
 import {
   duration,
   parseTimeInput,
@@ -24,7 +25,7 @@ let tasks = [];
 let edit = null; // 수정 중인 기록
 let editTimes = { first: "", last: "" }; // 수정 중인 기록의 시작·종료 시각(웹앱 first·last)
 let remove = null; // 삭제 확인 중인 기록
-let memos = null; // 메모 화면을 처음 열 때 불러온다.
+let logMode = "records"; // 일지 화면에서 보는 것: records(업무 일지) | memos(일일 메모)
 let task = null;
 let finishTask = null; // 종료·저장 대화상자를 열 때의 진행 작업
 let offset = 0;
@@ -35,21 +36,6 @@ const CACHE = "tasks-cache"; // 마지막으로 불러온 오늘 기록(로그�
 
 const elapsed = (t) =>
   t.elapsed + (t.started === null ? 0 : Math.max(0, Date.now() + offset - t.started));
-
-function item(title, sub, text) {
-  const li = document.createElement("li");
-  const h = document.createElement("strong");
-  h.textContent = title;
-  const p = document.createElement("span");
-  p.textContent = sub;
-  li.append(h, p);
-  if (text) {
-    const body = document.createElement("p");
-    body.textContent = text;
-    li.append(body);
-  }
-  return li;
-}
 
 function el(tag, className, text) {
   const e = document.createElement(tag);
@@ -104,6 +90,9 @@ const daily = () => tasks.filter((t) => t.day === day);
 function renderLog() {
   $("day-label").textContent = `${day} (${weekday(day)})`;
   for (const id of ["day-prev", "day-next", "day-today"]) $(id).disabled = busy;
+  for (const b of document.querySelectorAll("[data-log]")) b.setAttribute("aria-selected", b.dataset.log === logMode);
+  $("log-list").hidden = logMode !== "records";
+  $("daily-memo-board").hidden = logMode !== "memos";
   if (loading) return $("log-list").replaceChildren(el("p", "hint", "기록을 불러오는 중입니다."));
   const list = daily();
   if (!list.length) {
@@ -132,16 +121,6 @@ function renderSummary() {
   drawClock($("day-clock"), segments, now);
 }
 
-function renderMemo() {
-  if (!memos) {
-    $("memo-list").replaceChildren(item("불러오는 중…", ""));
-    return;
-  }
-  $("memo-list").replaceChildren(
-    ...(memos.length ? memos.map((m) => item(m.title || "제목 없음", "", m.body)) : [item("메모가 없습니다.", "")]),
-  );
-}
-
 // 웹앱 login.tsx의 로그인·회원가입 화면과 같은 규칙이다.
 function renderLogin() {
   const signup = mode === "signup";
@@ -168,7 +147,9 @@ function render() {
   if (status !== "ready") return;
   if (view === "summary") renderSummary();
   if (view === "log") renderLog();
-  if (view === "memo") renderMemo();
+  // 메모 보드는 처음 열 때와 날짜가 바뀔 때만 불러오고, 그 밖에는 다시 그리지 않는다(입력 중 포커스 유지).
+  if (view === "memo") memoBoard.show();
+  if (view === "log" && logMode === "memos") dailyBoard.show(day);
   renderTimer();
 }
 
@@ -202,7 +183,10 @@ function showLogin() {
   invalidateCalendarCache();
   status = "login";
   tasks = [];
-  memos = null;
+  memoBoard.reset();
+  dailyBoard.reset();
+  logMode = "records";
+  if ($("memo-remove-dialog").open) $("memo-remove-dialog").close();
   task = null;
   view = "timer";
   day = today();
@@ -243,17 +227,6 @@ async function load() {
     render();
   } catch (e) {
     if (seq === request) showError(e);
-  }
-}
-
-async function loadMemos() {
-  try {
-    const data = await get("/api/memos");
-    if (!data) return;
-    memos = data.memos;
-    render();
-  } catch (e) {
-    showError(e);
   }
 }
 
@@ -346,6 +319,34 @@ const calendar = createCalendar($("calendar"), {
   },
 });
 
+// 웹앱의 window.confirm 대신 팝업 안 대화상자로 묻는다(Esc·취소면 false).
+function confirmMemoRemove() {
+  const dialog = $("memo-remove-dialog");
+  dialog.returnValue = "";
+  dialog.showModal();
+  return new Promise((resolve) =>
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "remove"), { once: true }),
+  );
+}
+
+const memoBoard = createMemoBoard($("memo-board"), {
+  endpoint: "/api/memos",
+  collapsible: true,
+  emptyText: "항상 표시할 메모를 남겨보세요.",
+  confirmRemove: confirmMemoRemove,
+});
+const dailyBoard = createMemoBoard($("daily-memo-board"), {
+  endpoint: "/api/daily-memos",
+  collapsible: false,
+  emptyText: "선택한 날짜에 메모를 남겨보세요.",
+  confirmRemove: confirmMemoRemove,
+});
+// 팝업이 닫힐 때 디바운스 중인 메모 입력을 바로 저장한다.
+addEventListener("pagehide", () => {
+  memoBoard.flush(true);
+  dailyBoard.flush(true);
+});
+
 function askRemove(t) {
   remove = t;
   $("remove-desc").textContent = `“${t.title}”의 업무 내용과 측정 시간이 삭제됩니다.`;
@@ -385,7 +386,11 @@ async function save(run) {
 for (const b of document.querySelectorAll("nav button[data-view]"))
   b.addEventListener("click", () => {
     view = b.dataset.view;
-    if (view === "memo" && !memos) loadMemos();
+    render();
+  });
+for (const b of document.querySelectorAll("[data-log]"))
+  b.addEventListener("click", () => {
+    logMode = b.dataset.log;
     render();
   });
 for (const b of document.querySelectorAll("[data-mode]"))
