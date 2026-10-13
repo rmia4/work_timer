@@ -6,10 +6,10 @@
 
 ## 설치 (개발용)
 
-1. 웹앱을 실행합니다(`pnpm dev`, 기본 `http://localhost:3000`).
+1. 확장은 Vercel 서버(`https://work-timer-mauve-seven.vercel.app`)에 연결합니다.
 2. 크롬에서 `chrome://extensions`를 열고 **개발자 모드**를 켭니다.
 3. **압축해제된 확장 프로그램을 로드합니다**를 눌러 이 `extension/` 폴더를 고릅니다.
-4. 카드에 표시된 확장 ID를 웹앱 `.env.local`에 넣고 서버를 다시 시작합니다.
+4. 카드에 표시된 확장 ID를 Vercel 프로젝트 환경 변수에 넣고 다시 배포합니다.
 
    ```
    EXTENSION_ORIGIN="chrome-extension://<확장 ID>"
