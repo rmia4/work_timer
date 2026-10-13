@@ -1,12 +1,28 @@
 import { authed, call, onUnauthorized } from "./api.js";
 import { activitySegments, drawClock } from "./activity-clock.js";
-import { duration, statusLabel, timestampLabel, today } from "./dates.js";
+import { createCalendar, invalidateCalendarCache } from "./calendar.js";
+import {
+  duration,
+  parseTimeInput,
+  shiftDay,
+  statusLabel,
+  timeInput,
+  timeLabel,
+  timestampLabel,
+  today,
+  weekday,
+} from "./dates.js";
 
 const $ = (id) => document.getElementById(id);
 const VIEWS = ["timer", "summary", "log", "memo"];
 let status = "loading"; // loading | login | ready
 let view = "timer";
+let day = today(); // 일지에서 보는 날짜
+let loading = false; // 날짜를 바꾼 뒤 그 날짜 기록을 아직 못 받았는지
 let tasks = [];
+let edit = null; // 수정 중인 기록
+let editTimes = { first: "", last: "" }; // 수정 중인 기록의 시작·종료 시각(웹앱 first·last)
+let remove = null; // 삭제 확인 중인 기록
 let memos = null; // 메모 화면을 처음 열 때 불러온다.
 let task = null;
 let finishTask = null; // 종료·저장 대화상자를 열 때의 진행 작업
@@ -34,22 +50,84 @@ function item(title, sub, text) {
   return li;
 }
 
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function button(text, onClick) {
+  const b = el("button", "outline", text);
+  b.type = "button";
+  b.disabled = busy;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+// 웹앱 RecordList(카드형)와 같은 내용이다. 소요 시간은 1초마다 data-elapsed만 갱신한다.
+function record(t) {
+  const card = el("article", "record");
+  const head = el("div", "record-head");
+  const times = el("div", "record-times");
+  const time = (label, value) => {
+    const s = el("span");
+    const strong = el("strong", "", value);
+    s.append(el("small", "", label), strong);
+    times.append(s);
+    return strong;
+  };
+  if (t.target > 0) time("목표", duration(t.target));
+  time("소요", duration(elapsed(t))).dataset.elapsed = t.id;
+  head.append(el("h3", "", t.title), times);
+  const range = el("p", "state", `${statusLabel(t.status)} · 시작 ${timeLabel(t.started_at)} · 종료 ${
+    t.status === "done" ? timeLabel(t.ended_at) : "진행 중"
+  }`);
+  card.append(head, range);
+  for (const [label, text] of [["업무 내용", t.note], ["업무 결과", t.result]])
+    if (text) {
+      const block = el("div", "journal-block");
+      block.append(el("strong", "", label), el("p", "note", text));
+      card.append(block);
+    }
+  if (t.status === "done") {
+    const actions = el("div", "row record-actions");
+    actions.append(button("수정", () => startEdit(t)), button("삭제", () => askRemove(t)));
+    card.append(actions);
+  }
+  return card;
+}
+
+const daily = () => tasks.filter((t) => t.day === day);
+
 function renderLog() {
-  $("log-list").replaceChildren(
-    ...(tasks.length
-      ? tasks.map((t) => item(t.title, `${statusLabel(t.status)} · ${duration(elapsed(t))}`))
-      : [item("오늘 기록이 없습니다.", "")]),
-  );
+  $("day-label").textContent = `${day} (${weekday(day)})`;
+  for (const id of ["day-prev", "day-next", "day-today"]) $(id).disabled = busy;
+  if (loading) return $("log-list").replaceChildren(el("p", "hint", "기록을 불러오는 중입니다."));
+  const list = daily();
+  if (!list.length) {
+    const empty = el("div", "empty");
+    empty.append(el("strong", "", "아직 기록이 없습니다."), el("p", "hint", "작업을 시작하거나 완료한 업무를 남겨보세요."));
+    return $("log-list").replaceChildren(empty);
+  }
+  $("log-list").replaceChildren(...list.map(record));
+}
+
+function tickLog() {
+  for (const s of document.querySelectorAll("[data-elapsed]")) {
+    const t = tasks.find((x) => x.id === s.dataset.elapsed);
+    if (t) s.textContent = duration(elapsed(t));
+  }
 }
 
 // 시계 바늘과 진행 중 구간은 1분마다 다시 그린다(매초 그리면 구간 위 툴팁이 사라진다).
 function renderSummary() {
   const now = Date.now() + offset;
-  const segments = activitySegments(tasks, today(), now);
-  const todays = tasks.filter((t) => t.day === today());
+  const segments = activitySegments(tasks, day, now);
+  const list = daily();
   $("sum-total").textContent = duration(segments.reduce((sum, s) => sum + s.end - s.start, 0));
   $("sum-count").textContent =
-    `오늘 측정 시간 · 작업 ${todays.length}개 · 완료 ${todays.filter((t) => t.status === "done").length}개`;
+    `${day === today() ? "오늘" : day} 측정 시간 · 작업 ${list.length}개 · 완료 ${list.filter((t) => t.status === "done").length}개`;
   drawClock($("day-clock"), segments, now);
 }
 
@@ -99,15 +177,19 @@ function renderTimer() {
   $("title").textContent = task?.title || "지금 집중할 작업";
   $("target").textContent = task && task.target > 0 ? `목표 ${duration(task.target)}` : "";
   $("clock").textContent = duration(task ? elapsed(task) : 0);
-  // 기록 중인 작업이 있으면 그 작업만, 없으면 새 기록 추가 폼만 보여 준다.
-  $("active").hidden = !task;
-  $("task-form").hidden = !!task;
+  // 기록 중인 작업이 있으면 그 작업만, 없으면 새 기록 추가 폼만 보여 준다. 기록 수정 중에는 폼만 보여 준다.
+  $("active").hidden = !task || !!edit;
+  $("task-form").hidden = !!task && !edit;
   $("active-note").textContent = task
     ? `${timestampLabel(task.started_at)} 시작 · 브라우저를 닫아도 기록이 유지됩니다.`
     : "";
   $("toggle").textContent = task?.status === "running" ? "일시정지" : "다시 시작";
   for (const id of ["toggle", "finish", "f-save", "logout"]) $(id).disabled = busy;
   $("f-start").disabled = busy || !!task || !$("f-title").value.trim();
+  $("form-title").textContent = edit ? "기록 수정" : "새 기록 추가";
+  $("f-cancel").hidden = !edit;
+  $("f-start").textContent = edit ? "수정 후 측정 재개" : "측정 시작";
+  $("f-save").textContent = edit ? "수정 저장" : "기록 저장";
   $("finish-submit").disabled = busy || !finishTask;
   $("finish-submit").textContent = busy ? "저장 중…" : "종료하고 저장";
   $("finish-cancel").disabled = busy;
@@ -116,14 +198,19 @@ function renderTimer() {
 // 로그아웃되면 이전 계정의 데이터를 비우고 로그인 화면을 보여 준다.
 function showLogin() {
   localStorage.removeItem(CACHE);
+  invalidateCalendarCache();
   status = "login";
   tasks = [];
   memos = null;
   task = null;
   view = "timer";
+  day = today();
+  loading = false;
   request++;
   clearForm();
   if (finishTask) closeFinish();
+  if (remove) closeRemove();
+  $("calendar").hidden = true;
   render();
   $("username").focus();
 }
@@ -142,12 +229,13 @@ const showError = (e) =>
 async function load() {
   const seq = ++request;
   try {
-    const data = await get(`/api/tasks?day=${today()}`);
+    const data = await get(`/api/tasks?day=${day}`);
     if (seq !== request || !data) return;
     tasks = data.tasks;
     task = tasks.find((t) => t.status !== "done") || null;
     offset = data.now - Date.now();
-    localStorage.setItem(CACHE, JSON.stringify({ day: today(), tasks, offset }));
+    loading = false;
+    if (day === today()) localStorage.setItem(CACHE, JSON.stringify({ day, tasks, offset }));
     status = "ready";
     $("error").textContent = "";
     render();
@@ -183,6 +271,9 @@ async function act(body) {
       throw Error(r.data.error);
     }
     await load();
+    invalidateCalendarCache(day);
+    if (typeof body.day === "string") invalidateCalendarCache(body.day);
+    calendar.refresh();
     $("message").textContent = "저장되었습니다.";
     return true;
   } catch (e) {
@@ -205,6 +296,63 @@ function showWork(name) {
 function clearForm() {
   $("task-form").reset();
   showWork("note");
+  edit = null;
+  editTimes = { first: "", last: "" };
+}
+
+// 웹앱 startEdit(): 완료 기록을 타이머 화면의 폼에 채운다.
+function startEdit(t) {
+  edit = t;
+  editTimes = { first: timeInput(t.started_at), last: timeInput(t.ended_at) };
+  $("f-title").value = t.title;
+  $("f-note").value = t.note;
+  $("f-result").value = t.result || "";
+  $("f-target").value = t.target > 0 ? String(Math.round(t.target / 600) / 100) : "";
+  $("f-minutes").value = String(Math.round(t.elapsed / 600) / 100);
+  showWork("note");
+  $("message").textContent = "";
+  view = "timer";
+  render();
+  $("f-title").focus();
+}
+
+// 웹앱 chooseDay(): 다른 날짜를 고르면 그 날짜 기록을 새로 불러온다.
+function chooseDay(value) {
+  if (value === day) return;
+  request++;
+  loading = true;
+  tasks = [];
+  task = null;
+  day = value;
+  if (edit) clearForm();
+  $("message").textContent = "";
+  render();
+  load();
+}
+
+function toggleCalendar(open) {
+  $("calendar").hidden = !open;
+  $("day-calendar").setAttribute("aria-expanded", open);
+  if (open) calendar.open(day);
+}
+
+const calendar = createCalendar($("calendar"), {
+  fetchMonth: (month) => get(`/api/calendar?month=${month}`),
+  onChoose: (value) => {
+    chooseDay(value);
+    toggleCalendar(false);
+  },
+});
+
+function askRemove(t) {
+  remove = t;
+  $("remove-desc").textContent = `“${t.title}”의 업무 내용과 측정 시간이 삭제됩니다.`;
+  $("remove-dialog").showModal();
+}
+
+function closeRemove() {
+  remove = null;
+  $("remove-dialog").close();
 }
 
 function closeFinish() {
@@ -215,15 +363,18 @@ function closeFinish() {
 // 웹앱 save(): 목표·소요 시간은 분 단위 입력을 밀리초로 바꾼다.
 async function save(run) {
   const ok = await act({
-    action: "create",
+    action: edit ? "edit" : "create",
+    id: edit?.id,
+    version: edit?.version,
     title: $("f-title").value,
     note: $("f-note").value,
     result: $("f-result").value,
     target: $("f-target").value === "" ? 0 : Math.round(Number($("f-target").value) * 60000),
-    day: today(),
+    // 바로 측정을 시작하면 보고 있는 날짜와 상관없이 오늘에 기록한다.
+    day: run && !edit ? today() : day,
     elapsed: Math.round(Number($("f-minutes").value) * 60000),
-    started_at: null,
-    ended_at: null,
+    started_at: parseTimeInput(editTimes.first),
+    ended_at: parseTimeInput(editTimes.last),
     run,
   });
   if (ok) clearForm();
@@ -321,10 +472,30 @@ $("task-form").addEventListener("submit", (event) => {
   event.preventDefault();
   save(false);
 });
+$("f-cancel").addEventListener("click", () => {
+  clearForm();
+  render();
+});
+$("day-prev").addEventListener("click", () => chooseDay(shiftDay(day, -1)));
+$("day-next").addEventListener("click", () => chooseDay(shiftDay(day, 1)));
+$("day-today").addEventListener("click", () => chooseDay(today()));
+$("day-calendar").addEventListener("click", () => toggleCalendar($("calendar").hidden));
+$("remove-cancel").addEventListener("click", closeRemove);
+$("remove-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeRemove();
+});
+// 웹앱처럼 확인하면 대화상자를 닫고 삭제한다. 오류는 화면 아래에 보여 준다.
+$("remove-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const t = remove;
+  closeRemove();
+  if (t) act({ action: "delete", id: t.id, version: t.version });
+});
 
 setInterval(() => {
   if (task) $("clock").textContent = duration(elapsed(task));
-  if (status === "ready" && view === "log") renderLog();
+  if (status === "ready" && view === "log") tickLog();
 }, 1000);
 setInterval(() => {
   if (status === "ready" && view === "summary") renderSummary();
