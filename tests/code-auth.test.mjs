@@ -86,6 +86,11 @@ test('password auth: wrong password, secure session, old records, expiry, logout
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM signup_limits").get().n,1);
  }finally{Date.now=originalSignupNow;}
  const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
+ const extensionOrigin='chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+ const extensionPost=()=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:extensionOrigin},body:'{}'}));
+ assert.equal((await extensionPost()).status,403);
+ process.env.EXTENSION_ORIGIN=extensionOrigin;
+ try{assert.equal((await extensionPost()).status,400);}finally{delete process.env.EXTENSION_ORIGIN;}
  const memoReq=new Request(env.APP_ORIGIN+'/api/memos',{headers:{cookie}});
  const postMemo=body=>memos.POST(new Request(memoReq.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  const dailyMemoReq=day=>new Request(env.APP_ORIGIN+'/api/daily-memos?day='+day,{headers:{cookie}});
