@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Work Timer</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <p id="loading">불러오는 중…</p>
+
+    <section id="login" hidden>
+      <p>로그인이 필요합니다.</p>
+      <button id="open-site">사이트에서 로그인</button>
+    </section>
+
+    <section id="active" hidden>
+      <p class="state" id="state"></p>
+      <h1 id="title"></h1>
+      <p class="clock" id="clock">0:00:00</p>
+      <div class="row">
+        <button id="toggle"></button>
+        <button id="finish">종료</button>
+      </div>
+    </section>
+
+    <form id="start" hidden>
+      <label for="new-title">새 작업</label>
+      <input id="new-title" maxlength="200" placeholder="업무 제목" required />
+      <button>시작</button>
+    </form>
+
+    <p id="error" role="alert"></p>
+  </body>
+</html>
