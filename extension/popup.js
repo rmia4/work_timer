@@ -14,6 +14,7 @@ let offset = 0;
 let busy = false;
 let request = 0; // 늦게 온 이전 조회 응답을 버리기 위한 번호
 let mode = "login"; // login | signup
+const CACHE = "tasks-cache"; // 마지막으로 불러온 오늘 기록(로그아웃하면 지운다)
 
 const elapsed = (t) =>
   t.elapsed + (t.started === null ? 0 : Math.max(0, Date.now() + offset - t.started));
@@ -112,6 +113,7 @@ function renderTimer() {
 
 // 로그아웃되면 이전 계정의 데이터를 비우고 로그인 화면을 보여 준다.
 function showLogin() {
+  localStorage.removeItem(CACHE);
   status = "login";
   tasks = [];
   memos = null;
@@ -143,6 +145,7 @@ async function load() {
     tasks = data.tasks;
     task = tasks.find((t) => t.status !== "done") || null;
     offset = data.now - Date.now();
+    localStorage.setItem(CACHE, JSON.stringify({ day: today(), tasks, offset }));
     status = "ready";
     $("error").textContent = "";
     render();
@@ -328,5 +331,14 @@ setInterval(() => {
 setInterval(() => {
   if (status === "ready" && !busy) load();
 }, 10000);
+// 팝업을 열 때마다 기다리지 않도록 마지막으로 불러온 오늘 기록을 먼저 보여 주고 뒤에서 새로 불러온다.
+try {
+  const cached = JSON.parse(localStorage.getItem(CACHE));
+  if (cached?.day === today()) {
+    ({ tasks, offset } = cached);
+    task = tasks.find((t) => t.status !== "done") || null;
+    status = "ready";
+  }
+} catch {}
 render();
 load();
