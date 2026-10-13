@@ -200,3 +200,27 @@ input {
 #error:empty {
   display: none;
 }
+nav[hidden] {
+  display: none;
+}
+#logout {
+  margin-top: auto;
+}
+.mode {
+  margin-bottom: 8px;
+}
+.mode button {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+.mode button[aria-selected="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
