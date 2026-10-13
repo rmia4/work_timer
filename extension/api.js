@@ -22,6 +22,20 @@ export async function call(path, { method = "GET", body, keepalive = false } = {
   return { ok: r.ok, status: r.status, data };
 }
 
+// 로그인이 필요한 파일 받기(GET). 401이면 로그인 화면으로 보내고 null, 실패하면 서버 오류 문구로 던진다.
+export async function download(path) {
+  const r = await fetch(`${APP_ORIGIN}${path}`, { credentials: "include" });
+  if (r.status === 401) {
+    unauthorized();
+    return null;
+  }
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw Error(data.error || "데이터를 내보내지 못했습니다.");
+  }
+  return r.blob();
+}
+
 // 로그인이 필요한 API. 401이면 로그인 화면으로 보내고 null을 돌려준다.
 export async function authed(path, options) {
   const res = await call(path, options);

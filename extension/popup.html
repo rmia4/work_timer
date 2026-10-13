@@ -102,11 +102,40 @@
       </dialog>
 
       <section id="view-summary" hidden>
-        <h2>하루 요약</h2>
-        <p class="total" id="sum-total">0:00:00</p>
+        <div class="sum-head">
+          <p class="total" id="sum-total">0:00:00</p>
+          <button type="button" id="csv-open" class="outline">CSV</button>
+        </div>
         <p class="state" id="sum-count"></p>
         <svg class="day-clock" id="day-clock" viewBox="0 0 240 240" role="img" aria-label="하루 활동 시계"></svg>
       </section>
+
+      <!-- 웹앱 통계 대화상자의 "데이터 내보내기"만 옮겼다. -->
+      <dialog id="csv-dialog">
+        <form method="dialog" id="csv-form">
+          <h2>데이터 내보내기</h2>
+          <p class="hint">선택한 기간의 업무 기록을 CSV 파일로 저장합니다. (최대 366일)</p>
+          <label for="csv-from">시작일</label>
+          <input id="csv-from" type="date" required />
+          <label for="csv-to">종료일</label>
+          <input id="csv-to" type="date" required />
+          <fieldset class="csv-scope">
+            <legend>내보내기 범위</legend>
+            <label><input type="radio" name="csv-scope" value="time" checked />시간 기록만</label>
+            <label><input type="radio" name="csv-scope" value="all" />전체</label>
+            <label><input type="radio" name="csv-scope" value="detail" />세부내용만</label>
+          </fieldset>
+          <p class="hint">세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기와 AI 작업량이 늘어납니다.</p>
+          <p class="hint">CSV를 AI에 첨부할 때 같은 범위로 복사한 프롬프트를 함께 붙여넣으세요.</p>
+          <p class="error" id="csv-range" hidden>기간을 확인해 주세요. (최대 366일)</p>
+          <p class="error" id="csv-error" role="alert"></p>
+          <div class="row">
+            <button type="button" id="csv-cancel" class="outline">취소</button>
+            <button id="csv-submit">CSV 다운로드</button>
+          </div>
+          <button type="button" id="csv-prompt" class="outline">AI 요약 프롬프트 복사</button>
+        </form>
+      </dialog>
 
       <section id="view-log" hidden>
         <div class="row mode" role="tablist" aria-label="업무 일지 또는 일일 메모">

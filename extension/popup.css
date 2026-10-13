@@ -395,6 +395,55 @@ nav[hidden] {
 .empty .hint {
   margin-top: 4px;
 }
+/* 요약 화면은 스크롤 없이 팝업 높이에 맞추고, 남는 높이만큼 시계를 줄인다. */
+#view-summary {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.sum-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sum-head button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+#view-summary .day-clock {
+  flex: 1;
+  min-height: 0;
+}
+.csv-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+}
+.csv-scope legend {
+  padding: 0;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.csv-scope label {
+  display: flex;
+  align-items: center;
+  color: var(--fg);
+}
+.csv-scope input {
+  min-height: 0;
+  margin: 0 4px 0 0;
+}
+#csv-form .hint,
+#csv-form .error {
+  margin: 0;
+}
 /* 웹앱 memo-board.css의 메모 카드를 팝업 폭에 맞게 줄였다. */
 .memo-card {
   display: grid;
