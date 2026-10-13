@@ -19,7 +19,7 @@
 }
 body {
   display: flex;
-  width: 360px;
+  width: 400px;
   margin: 0;
   background: var(--bg);
   color: var(--fg);
@@ -157,7 +157,8 @@ h1 {
   gap: 8px;
 }
 button,
-input {
+input,
+textarea {
   font: inherit;
   min-height: 36px;
   border-radius: 6px;
@@ -173,7 +174,7 @@ button:disabled {
   opacity: 0.5;
   cursor: default;
 }
-#finish {
+.outline {
   background: transparent;
   color: var(--fg);
   border-color: var(--line);
@@ -187,13 +188,69 @@ label {
   color: var(--muted);
   font-size: 12px;
 }
-input {
+input,
+textarea {
   padding: 0 8px;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--fg);
 }
-#error {
+textarea {
+  padding: 8px;
+  resize: vertical;
+}
+/* form·.row 같은 display 규칙이 hidden을 덮어쓰지 않게 한다. */
+[hidden] {
+  display: none !important;
+}
+#active {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+#active .hint {
+  margin-bottom: 12px;
+}
+#target:empty,
+.saved:empty,
+.error:empty {
+  display: none;
+}
+summary {
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+details label {
+  display: block;
+  margin-top: 8px;
+}
+details input {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 4px 0;
+}
+#task-form .hint {
+  margin: 0;
+}
+.saved {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+}
+dialog {
+  width: calc(100% - 48px);
+  max-width: 360px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.counter {
+  text-align: right;
+}
+#error,
+.error {
   margin: 8px 0 0;
   color: var(--danger);
 }

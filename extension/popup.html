@@ -28,22 +28,58 @@
       </section>
 
       <section id="view-timer" hidden>
-        <section id="active" hidden>
-          <p class="state" id="state"></p>
+        <section id="active">
+          <p class="state"><span>작업 스톱워치</span> · <span id="state"></span></p>
           <h1 id="title"></h1>
-          <p class="clock" id="clock">0:00:00</p>
-          <div class="row">
+          <p class="state" id="target"></p>
+          <p class="clock" id="clock" role="timer">00:00:00</p>
+          <p class="hint" id="active-note"></p>
+          <div class="row" id="timer-buttons">
             <button id="toggle"></button>
-            <button id="finish">종료</button>
+            <button id="finish" class="outline">종료·저장</button>
           </div>
         </section>
 
-        <form id="start" hidden>
-          <label for="new-title">새 작업</label>
-          <input id="new-title" maxlength="200" placeholder="업무 제목" required />
-          <button>시작</button>
+        <form id="task-form">
+          <label for="f-title">작업명</label>
+          <input id="f-title" required maxlength="200" placeholder="목표 작업 적기" />
+          <div class="row mode" role="tablist" aria-label="업무 내용 또는 결과">
+            <button type="button" role="tab" data-work="note" aria-selected="true">업무 내용</button>
+            <button type="button" role="tab" data-work="result">업무 결과</button>
+          </div>
+          <textarea id="f-note" aria-label="업무 내용" maxlength="20000" rows="5" placeholder="작업 세부사항, 목표 적기"></textarea>
+          <textarea id="f-result" aria-label="업무 결과" maxlength="20000" rows="5" placeholder="결과, 산출물, 추후 확인 사항 적기" hidden></textarea>
+          <label for="f-target">목표 시간 (분)</label>
+          <input id="f-target" type="number" min="0" max="525600" step="0.01" placeholder="선택 입력" />
+          <p class="hint">입력하지 않으면 목표 시간이 표시되지 않습니다.</p>
+          <details>
+            <summary>소요 시간 직접 입력 (선택)</summary>
+            <label for="f-minutes">소요 시간 (분)</label>
+            <input id="f-minutes" type="number" min="0" max="525600" step="0.01" required value="0" />
+            <p class="hint">직접 기록할 때 입력하세요. 측정 시작 시에는 0부터 시작합니다.</p>
+          </details>
+          <div class="row">
+            <button type="button" id="f-start">측정 시작</button>
+            <button id="f-save" class="outline">기록 저장</button>
+          </div>
+          <p role="status" class="saved" id="message"></p>
         </form>
       </section>
+
+      <dialog id="finish-dialog">
+        <form method="dialog" id="finish-form">
+          <h2>업무 결과 저장</h2>
+          <p class="hint" id="finish-desc"></p>
+          <label for="finish-result">업무 결과</label>
+          <textarea id="finish-result" maxlength="20000" rows="7" placeholder="완료 결과, 산출물, 확인 사항을 입력하세요."></textarea>
+          <p class="hint counter" id="finish-count"></p>
+          <p class="error" id="finish-error" role="alert"></p>
+          <div class="row">
+            <button type="button" id="finish-cancel" class="outline">취소</button>
+            <button id="finish-submit">종료하고 저장</button>
+          </div>
+        </form>
+      </dialog>
 
       <section id="view-summary" hidden>
         <h2>하루 요약</h2>
