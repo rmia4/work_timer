@@ -106,36 +106,6 @@ h2 {
   dominant-baseline: middle;
   text-anchor: middle;
 }
-.list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.list li {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line);
-}
-.list strong {
-  display: block;
-  overflow-wrap: anywhere;
-}
-.list span {
-  color: var(--muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-.list span:empty {
-  display: none;
-}
-.list p {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  overflow: hidden;
-  margin: 4px 0 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 h1 {
   margin: 4px 0;
   font-size: 16px;
@@ -424,4 +394,91 @@ nav[hidden] {
 }
 .empty .hint {
   margin-top: 4px;
+}
+/* 웹앱 memo-board.css의 메모 카드를 팝업 폭에 맞게 줄였다. */
+.memo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 6px;
+  margin-bottom: 8px;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.memo-card.is-collapsed {
+  padding-bottom: 6px;
+}
+.memo-card-actions {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.memo-card-actions span {
+  margin-right: 4px;
+}
+.memo-card-actions button {
+  flex: none;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 4px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.memo-title {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  font-weight: 600;
+}
+/* 내용 칸은 글 길이만큼 늘어나 전문이 보인다. 팝업을 넘으면 main이 스크롤된다. */
+.memo-body {
+  grid-column: 1 / -1;
+  field-sizing: content;
+  min-height: 3em;
+  margin-top: 4px;
+  resize: none;
+  overflow-wrap: anywhere;
+}
+.memo-title:focus,
+.memo-body:focus {
+  outline: 1px solid var(--accent);
+}
+.memo-error {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 8px;
+  color: var(--danger);
+  font-size: 12px;
+}
+.memo-error button,
+.memo-add {
+  flex: none;
+  min-height: 28px;
+  padding: 0 8px;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+}
+.memo-error-actions {
+  display: flex;
+  gap: 6px;
+}
+.memo-add {
+  display: block;
+  margin-left: auto;
+}
+.empty .memo-add {
+  margin: 8px auto 0;
 }

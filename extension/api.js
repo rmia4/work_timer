@@ -4,13 +4,19 @@ let unauthorized = () => {};
 // 세션이 끝났을 때(401) 할 일을 정한다.
 export const onUnauthorized = (fn) => (unauthorized = fn);
 
+// 브라우저는 keepalive 요청 본문을 64KB로 제한한다.
+const KEEPALIVE_LIMIT = 64 * 1024;
+
 // 웹앱 API를 사이트 로그인 쿠키로 부른다. 상태와 JSON 본문을 돌려준다.
-export async function call(path, { method = "GET", body } = {}) {
+// keepalive는 팝업이 닫혀도 요청을 끝까지 보내게 한다.
+export async function call(path, { method = "GET", body, keepalive = false } = {}) {
+  const json = body === undefined ? undefined : JSON.stringify(body);
   const r = await fetch(`${APP_ORIGIN}${path}`, {
     method,
     credentials: "include",
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: json === undefined ? undefined : { "Content-Type": "application/json" },
+    body: json,
+    keepalive: keepalive && json !== undefined && new TextEncoder().encode(json).length <= KEEPALIVE_LIMIT,
   });
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };

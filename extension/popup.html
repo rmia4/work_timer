@@ -109,7 +109,10 @@
       </section>
 
       <section id="view-log" hidden>
-        <h2>업무 일지</h2>
+        <div class="row mode" role="tablist" aria-label="업무 일지 또는 일일 메모">
+          <button type="button" role="tab" data-log="records">업무 일지</button>
+          <button type="button" role="tab" data-log="memos">일일 메모</button>
+        </div>
         <div class="date-nav">
           <button type="button" id="day-prev" class="outline" aria-label="이전 날">‹</button>
           <span id="day-label"></span>
@@ -119,12 +122,23 @@
         </div>
         <div id="calendar" class="calendar" hidden></div>
         <div id="log-list"></div>
+        <div id="daily-memo-board" hidden></div>
       </section>
 
       <section id="view-memo" hidden>
         <h2>메모장</h2>
-        <ul class="list" id="memo-list"></ul>
+        <div id="memo-board"></div>
       </section>
+
+      <dialog id="memo-remove-dialog">
+        <form method="dialog">
+          <h2>이 메모를 삭제하시겠습니까?</h2>
+          <div class="row">
+            <button value="" class="outline">취소</button>
+            <button value="remove">삭제</button>
+          </div>
+        </form>
+      </dialog>
 
       <p id="error" role="alert"></p>
     </main>
