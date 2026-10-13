@@ -1,6 +1,6 @@
 import {getCodeUser} from '../../_auth/code-auth';
 import {database} from '../../../db/raw';
-import {createPasswordHash,hashToken,verifyPassword,sessionToken,sameOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
+import {createPasswordHash,hashToken,verifyPassword,sessionToken,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
 
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const DELETE_TABLES:Record<string,string>={'delete-tasks':'tasks','delete-memos':'memos','delete-daily-memos':'daily_memos'};
@@ -8,7 +8,7 @@ const DELETE_TABLES:Record<string,string>={'delete-tasks':'tasks','delete-memos'
 // 설정 팝업의 모든 동작은 매 요청마다 현재 비밀번호를 다시 확인한다.
 export async function POST(req:Request){
  const user=await getCodeUser(req);if(!user)return json({error:'로그인이 필요합니다.'},401);
- if(!sameOrigin(req,process.env.APP_ORIGIN))return json({error:'허용되지 않은 요청입니다.'},403);
+ if(!trustedOrigin(req))return json({error:'허용되지 않은 요청입니다.'},403);
  try{
   if(Number(req.headers.get('content-length')||0)>2048)return json({error:'입력값이 너무 깁니다.'},400);
   const input=await req.text();if(input.length>2048)return json({error:'입력값이 너무 깁니다.'},400);

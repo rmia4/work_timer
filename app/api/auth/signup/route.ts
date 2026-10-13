@@ -1,5 +1,5 @@
 import {database} from '../../../../db/raw';
-import {clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,sameOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../../lib/auth';
+import {clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,trustedOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../../lib/auth';
 
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const SIGNUP_WINDOW_MS=24*60*60_000;
@@ -11,7 +11,7 @@ async function failedAttempt(db:ReturnType<typeof database>,limitId:string,now:n
 }
 
 export async function POST(req:Request){
- if(!sameOrigin(req,process.env.APP_ORIGIN))return json({error:'허용되지 않은 요청입니다.'},403);
+ if(!trustedOrigin(req))return json({error:'허용되지 않은 요청입니다.'},403);
  try{
   if(Number(req.headers.get('content-length')||0)>2048)return json({error:'입력값이 너무 깁니다.'},400);
   const input=await req.text();if(input.length>2048)return json({error:'입력값이 너무 깁니다.'},400);

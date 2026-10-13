@@ -1,8 +1,8 @@
 import {database} from '../../../db/raw';
-import {clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,sameOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
+import {clientAddress,hashToken,normalizeUsername,verifyPassword,sessionToken,sessionCookie,trustedOrigin,SESSION_SECONDS,MAX_PASSWORD_LENGTH,UNKNOWN_USER_HASH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 export async function POST(req:Request){
- if(!sameOrigin(req,process.env.APP_ORIGIN))return json({error:'허용되지 않은 요청입니다.'},403);
+ if(!trustedOrigin(req))return json({error:'허용되지 않은 요청입니다.'},403);
  try{
  if(Number(req.headers.get('content-length')||0)>2048)return json({error:'입력값이 너무 깁니다.'},400);
  const input=await req.text();if(input.length>2048)return json({error:'입력값이 너무 깁니다.'},400);
@@ -30,7 +30,7 @@ export async function POST(req:Request){
  }catch(e){console.error('Password authentication failed',e);return json({error:'접속하지 못했습니다. 잠시 후 다시 시도해 주세요.'},503);}
 }
 export async function DELETE(req:Request){
- if(!sameOrigin(req,process.env.APP_ORIGIN))return json({error:'허용되지 않은 요청입니다.'},403);
+ if(!trustedOrigin(req))return json({error:'허용되지 않은 요청입니다.'},403);
  try{const token=sessionToken(req);if(token)await database().prepare('DELETE FROM code_sessions WHERE token_hash=?').bind(await hashToken(token)).run();
  return json({ok:true},200,{'Set-Cookie':sessionCookie('',0)});
  }catch{return json({error:'로그아웃하지 못했습니다. 다시 시도해 주세요.'},503);}
