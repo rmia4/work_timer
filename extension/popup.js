@@ -1,4 +1,4 @@
-import { authed, call, onUnauthorized } from "./api.js";
+import { authed, call, download, onUnauthorized } from "./api.js";
 import { activitySegments, drawClock } from "./activity-clock.js";
 import { createCalendar, invalidateCalendarCache } from "./calendar.js";
 import {
@@ -210,6 +210,7 @@ function showLogin() {
   clearForm();
   if (finishTask) closeFinish();
   if (remove) closeRemove();
+  if ($("csv-dialog").open) $("csv-dialog").close();
   $("calendar").hidden = true;
   render();
   $("username").focus();
@@ -491,6 +492,59 @@ $("remove-form").addEventListener("submit", (event) => {
   const t = remove;
   closeRemove();
   if (t) act({ action: "delete", id: t.id, version: t.version });
+});
+
+// 웹앱 stats-dialog.tsx의 ExportView(CSV 다운로드)와 같은 규칙이다. 기본 기간은 보고 있는 날짜의 달이다.
+let exporting = false;
+const dayCount = (from, to) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+const csvInvalid = (from, to) => !from || !to || from > to || dayCount(from, to) > 366;
+
+function renderCsv() {
+  const from = $("csv-from").value,
+    to = $("csv-to").value;
+  $("csv-from").max = to;
+  $("csv-to").min = from;
+  $("csv-submit").disabled = exporting || csvInvalid(from, to);
+  $("csv-submit").textContent = exporting ? "내보내는 중…" : "CSV 다운로드";
+  $("csv-range").hidden = !(from && to && csvInvalid(from, to));
+}
+
+$("csv-open").addEventListener("click", () => {
+  const [year, month] = day.split("-").map(Number);
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  $("csv-from").value = `${day.slice(0, 8)}01`;
+  $("csv-to").value = `${day.slice(0, 8)}${String(last).padStart(2, "0")}`;
+  $("csv-error").textContent = "";
+  renderCsv();
+  $("csv-dialog").showModal();
+});
+for (const id of ["csv-from", "csv-to"]) $(id).addEventListener("input", renderCsv);
+$("csv-cancel").addEventListener("click", () => $("csv-dialog").close());
+$("csv-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const from = $("csv-from").value,
+    to = $("csv-to").value,
+    scope = new FormData($("csv-form")).get("csv-scope");
+  if (exporting || csvInvalid(from, to)) return;
+  exporting = true;
+  $("csv-error").textContent = "";
+  renderCsv();
+  try {
+    const blob = await download(`/api/export?from=${from}&to=${to}&scope=${scope}`);
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `work-timer_${from}_${to}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    $("csv-error").textContent = e instanceof Error && e.message ? e.message : "데이터를 내보내지 못했습니다.";
+  } finally {
+    exporting = false;
+    renderCsv();
+  }
 });
 
 setInterval(() => {
