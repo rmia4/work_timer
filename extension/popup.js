@@ -99,10 +99,12 @@ function renderTimer() {
   $("title").textContent = task?.title || "지금 집중할 작업";
   $("target").textContent = task && task.target > 0 ? `목표 ${duration(task.target)}` : "";
   $("clock").textContent = duration(task ? elapsed(task) : 0);
+  // 기록 중인 작업이 있으면 그 작업만, 없으면 새 기록 추가 폼만 보여 준다.
+  $("active").hidden = !task;
+  $("task-form").hidden = !!task;
   $("active-note").textContent = task
     ? `${timestampLabel(task.started_at)} 시작 · 브라우저를 닫아도 기록이 유지됩니다.`
-    : "아래에 작업을 입력하고 측정을 시작하세요.";
-  $("timer-buttons").hidden = !task;
+    : "";
   $("toggle").textContent = task?.status === "running" ? "일시정지" : "다시 시작";
   for (const id of ["toggle", "finish", "f-save", "logout"]) $(id).disabled = busy;
   $("f-start").disabled = busy || !!task || !$("f-title").value.trim();
