@@ -48,6 +48,7 @@
         </section>
 
         <form id="task-form">
+          <h2 id="edit-title" hidden>기록 수정</h2>
           <label for="f-title">작업명</label>
           <input id="f-title" required maxlength="200" placeholder="목표 작업 적기" />
           <div class="row mode" role="tablist" aria-label="업무 내용 또는 결과">
@@ -68,6 +69,7 @@
           <div class="row">
             <button type="button" id="f-start">측정 시작</button>
             <button id="f-save" class="outline">기록 저장</button>
+            <button type="button" id="f-cancel" class="outline" hidden>취소</button>
           </div>
           <p role="status" class="saved" id="message"></p>
         </form>
@@ -88,6 +90,17 @@
         </form>
       </dialog>
 
+      <dialog id="remove-dialog">
+        <form method="dialog" id="remove-form">
+          <h2>이 기록을 삭제하시겠습니까?</h2>
+          <p class="hint" id="remove-desc"></p>
+          <div class="row">
+            <button type="button" id="remove-cancel" class="outline">취소</button>
+            <button id="remove-submit">삭제</button>
+          </div>
+        </form>
+      </dialog>
+
       <section id="view-summary" hidden>
         <h2>하루 요약</h2>
         <p class="total" id="sum-total">0:00:00</p>
@@ -97,7 +110,15 @@
 
       <section id="view-log" hidden>
         <h2>업무 일지</h2>
-        <ul class="list" id="log-list"></ul>
+        <div class="date-nav">
+          <button type="button" id="day-prev" class="outline" aria-label="이전 날">‹</button>
+          <span id="day-label"></span>
+          <button type="button" id="day-next" class="outline" aria-label="다음 날">›</button>
+          <button type="button" id="day-today" class="outline">오늘</button>
+          <button type="button" id="day-calendar" class="outline" aria-label="캘린더 열기 또는 닫기" aria-expanded="false">캘린더</button>
+        </div>
+        <div id="calendar" class="calendar" hidden></div>
+        <div id="log-list"></div>
       </section>
 
       <section id="view-memo" hidden>

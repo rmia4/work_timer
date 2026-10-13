@@ -280,3 +280,143 @@ nav[hidden] {
   color: var(--muted);
   font-size: 12px;
 }
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.date-nav button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+#day-label {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.calendar {
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.cal-head,
+.cal-month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.cal-head h2 {
+  margin: 0;
+}
+.calendar button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 8px;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-weekday {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+.calendar .cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0;
+  border-color: transparent;
+  line-height: 1.1;
+}
+.cal-day.is-today {
+  border-color: var(--line);
+}
+.calendar .cal-day.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.day-sunday {
+  color: var(--danger);
+}
+.day-saturday {
+  color: var(--accent);
+}
+.day-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+.calendar .hint,
+.calendar .error {
+  margin: 6px 0 0;
+}
+.record {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.record-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.record h3 {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.record-times {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.record-times small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.record .state {
+  margin: 4px 0;
+}
+.journal-block {
+  margin-top: 6px;
+}
+.journal-block strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+.note {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.record-actions {
+  margin-top: 8px;
+}
+.record-actions button {
+  min-height: 28px;
+  font-size: 12px;
+}
+.empty {
+  padding: 24px 0;
+  text-align: center;
+}
+.empty .hint {
+  margin-top: 4px;
+}
