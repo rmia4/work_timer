@@ -176,6 +176,8 @@ function createCard(memo, { request, collapsible, confirmRemove, onDeleted, onMo
   return {
     id: memo.id,
     el: card,
+    // 서버에 저장된 마지막 내용(팝업을 다시 열 때 먼저 보여 줄 저장본).
+    data: () => ({ ...memo, ...persisted, version }),
     focus: () => title.focus(),
     setMove(canUp, canDown) {
       up.disabled = !canUp;
@@ -192,7 +194,8 @@ function createCard(memo, { request, collapsible, confirmRemove, onDeleted, onMo
 }
 
 // endpoint: /api/memos(메모장) 또는 /api/daily-memos(일일 메모, show(day)로 날짜를 준다).
-export function createMemoBoard(root, { endpoint, collapsible, emptyText, confirmRemove }) {
+// cacheKey를 주면 마지막 메모 목록을 localStorage에 두고, 불러오는 동안 그것을 먼저 보여 준다.
+export function createMemoBoard(root, { endpoint, collapsible, cacheKey, emptyText, confirmRemove }) {
   let shown = false,
     day,
     cards = [],
@@ -248,17 +251,30 @@ export function createMemoBoard(root, { endpoint, collapsible, emptyText, confir
     root.replaceChildren(...parts);
   }
 
+  function cached() {
+    try {
+      const memos = cacheKey && JSON.parse(localStorage.getItem(cacheKey));
+      return Array.isArray(memos) ? memos : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function reload() {
     for (const c of cards) c.flush(false);
     const n = ++seq;
-    cards = [];
-    loading = true;
+    const saved = cached();
+    cards = saved ? saved.map(makeCard) : [];
+    loading = !saved;
     error = "";
     render();
     try {
       const r = await authed(day ? `${endpoint}?day=${day}` : endpoint);
       if (n !== seq || !r) return;
       if (!r.ok) throw Error(r.data.error);
+      if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(r.data.memos));
+      // 먼저 보여 준 저장본과 같으면 카드를 그대로 둔다(다시 그리지 않음).
+      if (JSON.stringify(r.data.memos) === JSON.stringify(saved)) return;
       cards = r.data.memos.map(makeCard);
     } catch (e) {
       if (n !== seq) return;
@@ -320,8 +336,14 @@ export function createMemoBoard(root, { endpoint, collapsible, emptyText, confir
       reload();
     },
     flush: (keepalive) => cards.forEach((c) => c.flush(keepalive)),
+    // 지금 메모 목록을 저장본으로 남긴다(팝업이 닫힐 때).
+    remember() {
+      if (cacheKey && shown && !loading && !error)
+        localStorage.setItem(cacheKey, JSON.stringify(cards.map((c) => c.data())));
+    },
     // 로그아웃: 이전 계정의 메모를 비운다.
     reset() {
+      if (cacheKey) localStorage.removeItem(cacheKey);
       seq++;
       shown = false;
       day = undefined;
