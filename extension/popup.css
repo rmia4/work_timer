@@ -7,18 +7,18 @@
   --line: #d5dbe5;
   --accent: #2f5bd3;
   --danger: #c0392b;
-  color-scheme: light dark;
+  color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121a2a;
-    --page: #0f1419;
-    --fg: #e8edf6;
-    --muted: #9aa7bd;
-    --line: #2c3a55;
-    --accent: #88adff;
-    --danger: #ff8a7a;
-  }
+/* 테마는 theme.js가 <html data-theme>에 정한다(설정 메뉴에서 전환). */
+:root[data-theme="dark"] {
+  --bg: #121a2a;
+  --page: #0f1419;
+  --fg: #e8edf6;
+  --muted: #9aa7bd;
+  --line: #2c3a55;
+  --accent: #88adff;
+  --danger: #ff8a7a;
+  color-scheme: dark;
 }
 body {
   display: flex;
@@ -247,18 +247,16 @@ textarea {
   background: transparent;
   color: #fff;
 }
-@media (prefers-color-scheme: dark) {
-  #active {
-    background: #262b33;
-  }
-  #active #toggle {
-    border-color: #2c3a55;
-    background: #212936;
-    color: #f7f8f9;
-  }
-  #active .outline {
-    border-color: #5d6570;
-  }
+[data-theme="dark"] #active {
+  background: #262b33;
+}
+[data-theme="dark"] #active #toggle {
+  border-color: #2c3a55;
+  background: #212936;
+  color: #f7f8f9;
+}
+[data-theme="dark"] #active .outline {
+  border-color: #5d6570;
 }
 #target:empty,
 .saved:empty,
@@ -327,8 +325,43 @@ dialog {
 nav[hidden] {
   display: none;
 }
-#logout {
+#settings {
+  display: flex;
+  align-items: center;
   margin-left: auto;
+}
+#settings:hover {
+  color: var(--fg);
+}
+/* 설정 버튼 아래에 붙는 메뉴. popover라 바깥을 누르거나 Esc로 닫힌다. */
+#settings-menu {
+  inset: 34px 8px auto auto;
+  min-width: 140px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+#settings-menu button {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+#settings-menu button:hover {
+  background: var(--page);
+}
+#settings-menu hr {
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
 }
 .mode {
   margin-bottom: 8px;

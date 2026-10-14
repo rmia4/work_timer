@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <title>Work Timer</title>
     <link rel="stylesheet" href="popup.css" />
+    <script src="theme.js"></script>
     <script type="module" src="popup.js"></script>
   </head>
   <body>
@@ -12,8 +13,20 @@
       <button data-view="log">일지</button>
       <button data-view="memo">메모</button>
       <button data-view="summary">요약</button>
-      <button id="logout">로그아웃</button>
+      <button id="settings" popovertarget="settings-menu" aria-label="설정" title="설정">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
     </nav>
+    <div id="settings-menu" popover role="menu" aria-label="설정">
+      <button type="button" role="menuitem" id="theme-toggle"></button>
+      <button type="button" role="menuitem" id="web-open">웹페이지 방문</button>
+      <hr role="separator" />
+      <button type="button" role="menuitem" id="password-open">비밀번호 변경</button>
+      <button type="button" role="menuitem" id="logout">로그아웃</button>
+    </div>
     <main>
       <p id="loading">불러오는 중…</p>
 
@@ -175,6 +188,27 @@
           <div class="row">
             <button value="" class="outline">취소</button>
             <button value="remove">삭제</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- 웹앱 설정 대화상자의 "비밀번호 변경"만 옮겼다. -->
+      <dialog id="password-dialog">
+        <form id="password-form">
+          <button type="button" id="password-close" class="dialog-close" aria-label="닫기">×</button>
+          <h2>비밀번호 변경</h2>
+          <p class="hint">비밀번호를 바꾸면 다른 기기는 로그아웃됩니다.</p>
+          <label for="pw-current">현재 비밀번호</label>
+          <input id="pw-current" type="password" required maxlength="128" autocomplete="current-password" />
+          <label for="pw-new">새 비밀번호</label>
+          <input id="pw-new" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
+          <label for="pw-confirm">새 비밀번호 확인</label>
+          <input id="pw-confirm" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
+          <p class="error" id="pw-error" role="alert"></p>
+          <p role="status" class="saved" id="pw-message"></p>
+          <div class="row">
+            <button type="button" id="password-cancel" class="outline">닫기</button>
+            <button id="password-submit">비밀번호 변경</button>
           </div>
         </form>
       </dialog>
