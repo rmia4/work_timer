@@ -27,6 +27,7 @@ const deleteLabels: Record<DeleteKind, { button: string; target: string }> = {
   memos: { button: "전체 메모 삭제", target: "모든 메모가" },
   "daily-memos": { button: "전체 일일메모 삭제", target: "모든 날짜의 일일메모가" },
 };
+const DELETE_ACCOUNT_PHRASE = "계정 삭제";
 
 export default function SettingsDialog({
   disabled,
@@ -47,6 +48,8 @@ export default function SettingsDialog({
     [newPassword, setNewPassword] = useState(""),
     [confirmation, setConfirmation] = useState(""),
     [confirmDelete, setConfirmDelete] = useState<DeleteKind | null>(null),
+    [confirmAccount, setConfirmAccount] = useState(false),
+    [accountPhrase, setAccountPhrase] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -58,6 +61,8 @@ export default function SettingsDialog({
     setNewPassword("");
     setConfirmation("");
     setConfirmDelete(null);
+    setConfirmAccount(false);
+    setAccountPhrase("");
     setError("");
     setMessage("");
   }
@@ -112,6 +117,20 @@ export default function SettingsDialog({
       onDeleted(kind);
       setMessage(`${deleteLabels[kind].button}가 완료되었습니다.`);
     }
+  }
+  async function deleteAccount() {
+    if (
+      await request({
+        action: "delete-account",
+        confirmation: accountPhrase,
+      })
+    ) {
+      // 세션이 사라졌으므로 새로고침해 로그인 화면으로 돌아간다.
+      window.location.reload();
+      return;
+    }
+    setConfirmAccount(false);
+    setAccountPhrase("");
   }
 
   return (
@@ -252,6 +271,14 @@ export default function SettingsDialog({
                         {deleteLabels[kind].button}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={busy}
+                      onClick={() => setConfirmAccount(true)}
+                    >
+                      계정 삭제
+                    </button>
                   </div>
                 </>
               )}
@@ -289,6 +316,47 @@ export default function SettingsDialog({
               }}
             >
               삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={confirmAccount}
+        onOpenChange={(value) => {
+          if (!value && !busy) {
+            setConfirmAccount(false);
+            setAccountPhrase("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle>계정 삭제</AlertDialogTitle>
+          <AlertDialogDescription>
+            계정과 모든 업무일지·메모·일일메모가 영구 삭제되며 되돌릴 수
+            없습니다. 계속하려면 아래에 &lsquo;{DELETE_ACCOUNT_PHRASE}&rsquo;를
+            입력해 주세요.
+          </AlertDialogDescription>
+          <label className="dialog-label">
+            확인 문구
+            <input
+              autoFocus
+              autoComplete="off"
+              maxLength={20}
+              placeholder={DELETE_ACCOUNT_PHRASE}
+              value={accountPhrase}
+              onChange={(e) => setAccountPhrase(e.target.value)}
+            />
+          </label>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy || accountPhrase !== DELETE_ACCOUNT_PHRASE}
+              onClick={(e) => {
+                e.preventDefault();
+                void deleteAccount();
+              }}
+            >
+              {busy ? "삭제 중…" : "계정 영구 삭제"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
