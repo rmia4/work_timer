@@ -1,0 +1,14 @@
+{
+  "scope": "page",
+  "isRedesign": true,
+  "targetPath": "app/_components/login.tsx",
+  "targetName": "LoginLinks",
+  "goal": "로그인 페이지에 GitHub, 크롬 확장(웹스토어 출시), 모바일 앱(준비 중) 소개 추가",
+  "audience": "포트폴리오 방문자와 실사용자 둘 다",
+  "emphasis": "은은하게 - 로그인이 주인공",
+  "brand": { "adjectives": ["minimal", "developer"], "darkMode": true },
+  "constraints": { "technical": ["no new dependencies", "기존 --c-* 토큰과 CSS 클래스 사용"] },
+  "framework": "nextjs-app",
+  "packageManager": "pnpm",
+  "stylingSystem": "plain CSS + CSS variables (--c-*), lucide-react icons"
+}
