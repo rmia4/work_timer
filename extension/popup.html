@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>Work Timer</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script src="theme.js"></script>
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <nav aria-label="화면 이동" hidden>
+      <button data-view="timer">타이머</button>
+      <button data-view="log">일지</button>
+      <button data-view="memo">메모</button>
+      <button data-view="summary">요약</button>
+      <button id="settings" popovertarget="settings-menu" aria-label="설정" title="설정">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+    </nav>
+    <div id="settings-menu" popover role="menu" aria-label="설정">
+      <button type="button" role="menuitem" id="theme-toggle"></button>
+      <button type="button" role="menuitem" id="web-open">웹페이지 방문</button>
+      <hr role="separator" />
+      <button type="button" role="menuitem" id="password-open">비밀번호 변경</button>
+      <button type="button" role="menuitem" id="logout">로그아웃</button>
+    </div>
+    <main>
+      <p id="loading">불러오는 중…</p>
+
+      <section id="login" hidden>
+        <div class="row mode" role="tablist" aria-label="로그인 또는 회원가입">
+          <button type="button" role="tab" data-mode="login">로그인</button>
+          <button type="button" role="tab" data-mode="signup">회원가입</button>
+        </div>
+        <p class="hint" id="login-hint"></p>
+        <form id="login-form">
+          <label for="username">아이디</label>
+          <input id="username" type="text" required autocapitalize="none" spellcheck="false" maxlength="20" autocomplete="username" />
+          <label for="password">비밀번호</label>
+          <input id="password" type="password" required maxlength="128" />
+          <label for="confirmation" class="signup-only">비밀번호 확인</label>
+          <input id="confirmation" class="signup-only" type="password" maxlength="128" autocomplete="new-password" />
+          <button id="login-submit"></button>
+        </form>
+      </section>
+
+      <section id="view-timer" hidden>
+        <section id="active">
+          <p class="state"><span>작업 스톱워치</span> · <span id="state"></span></p>
+          <h1 id="title"></h1>
+          <p class="state" id="target"></p>
+          <p class="clock" id="clock" role="timer">00:00:00</p>
+          <p class="hint" id="active-note"></p>
+          <div class="row">
+            <button id="toggle"></button>
+            <button id="finish" class="outline">종료·저장</button>
+          </div>
+        </section>
+        <div id="active-work" class="journal-block is-note">
+          <strong>업무 내용</strong>
+          <p class="note" id="active-work-text"></p>
+        </div>
+
+        <form id="task-form">
+          <h2 id="form-title">새 기록 추가</h2>
+          <label for="f-title">작업명</label>
+          <input id="f-title" required maxlength="200" placeholder="목표 작업 적기" />
+          <div class="row mode" role="tablist" aria-label="업무 내용 또는 결과">
+            <button type="button" role="tab" data-work="note" aria-selected="true">업무 내용</button>
+            <button type="button" role="tab" data-work="result">업무 결과</button>
+          </div>
+          <textarea id="f-note" aria-label="업무 내용" maxlength="20000" rows="5" placeholder="작업 세부사항, 목표 적기"></textarea>
+          <textarea id="f-result" aria-label="업무 결과" maxlength="20000" rows="5" placeholder="결과, 산출물, 추후 확인 사항 적기" hidden></textarea>
+          <label for="f-target">목표 시간 (분)</label>
+          <input id="f-target" type="number" min="0" max="525600" step="0.01" placeholder="선택 입력" />
+          <p class="hint">입력하지 않으면 목표 시간이 표시되지 않습니다.</p>
+          <details>
+            <summary>소요 시간 직접 입력 (선택)</summary>
+            <label for="f-minutes">소요 시간 (분)</label>
+            <input id="f-minutes" type="number" min="0" max="525600" step="0.01" required value="0" />
+            <p class="hint">직접 기록할 때 입력하세요. 측정 시작 시에는 0부터 시작합니다.</p>
+          </details>
+          <div class="row">
+            <button type="button" id="f-start">측정 시작</button>
+            <button id="f-save" class="outline">기록 저장</button>
+            <button type="button" id="f-cancel" class="outline" hidden>취소</button>
+          </div>
+          <p role="status" class="saved" id="message"></p>
+        </form>
+      </section>
+
+      <dialog id="finish-dialog">
+        <form method="dialog" id="finish-form">
+          <h2>업무 결과 저장</h2>
+          <p class="hint" id="finish-desc"></p>
+          <label for="finish-result">업무 결과</label>
+          <textarea id="finish-result" maxlength="20000" rows="7" placeholder="완료 결과, 산출물, 확인 사항을 입력하세요."></textarea>
+          <p class="hint counter" id="finish-count"></p>
+          <p class="error" id="finish-error" role="alert"></p>
+          <div class="row">
+            <button type="button" id="finish-cancel" class="outline">취소</button>
+            <button id="finish-submit">종료하고 저장</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="remove-dialog">
+        <form method="dialog" id="remove-form">
+          <h2>이 기록을 삭제하시겠습니까?</h2>
+          <p class="hint" id="remove-desc"></p>
+          <div class="row">
+            <button type="button" id="remove-cancel" class="outline">취소</button>
+            <button id="remove-submit">삭제</button>
+          </div>
+        </form>
+      </dialog>
+
+      <section id="view-summary" hidden>
+        <div class="sum-head">
+          <p class="total" id="sum-total">0:00:00</p>
+          <button type="button" id="csv-open" class="outline">CSV</button>
+        </div>
+        <p class="state" id="sum-count"></p>
+        <svg class="day-clock" id="day-clock" viewBox="0 0 240 240" role="img" aria-label="하루 활동 시계"></svg>
+        <div class="clock-tip" id="clock-tip" role="tooltip" hidden></div>
+      </section>
+
+      <!-- 웹앱 통계 대화상자의 "데이터 내보내기"만 옮겼다. -->
+      <dialog id="csv-dialog">
+        <form method="dialog" id="csv-form">
+          <button type="button" id="csv-close" class="dialog-close" aria-label="닫기">×</button>
+          <h2>데이터 내보내기</h2>
+          <p class="hint">선택한 기간의 업무 기록을 CSV 파일로 저장합니다. (최대 366일)</p>
+          <label for="csv-from">시작일</label>
+          <input id="csv-from" type="date" required />
+          <label for="csv-to">종료일</label>
+          <input id="csv-to" type="date" required />
+          <fieldset class="csv-scope">
+            <legend>내보내기 범위</legend>
+            <label><input type="radio" name="csv-scope" value="time" checked />시간 기록만</label>
+            <label><input type="radio" name="csv-scope" value="all" />전체</label>
+            <label><input type="radio" name="csv-scope" value="detail" />세부내용만</label>
+          </fieldset>
+          <p class="hint">세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기와 AI 작업량이 늘어납니다.</p>
+          <p class="hint">CSV를 AI에 첨부할 때 같은 범위로 복사한 프롬프트를 함께 붙여넣으세요.</p>
+          <p class="error" id="csv-range" hidden>기간을 확인해 주세요. (최대 366일)</p>
+          <p class="error" id="csv-error" role="alert"></p>
+          <div class="row">
+            <button type="button" id="csv-cancel" class="outline">취소</button>
+            <button id="csv-submit">CSV 다운로드</button>
+          </div>
+          <button type="button" id="csv-prompt" class="outline">AI 요약 프롬프트 복사</button>
+        </form>
+      </dialog>
+
+      <section id="view-log" hidden>
+        <div class="tabs" role="tablist" aria-label="업무 일지 또는 일일 메모">
+          <button type="button" role="tab" data-log="records">업무 일지</button>
+          <button type="button" role="tab" data-log="memos">일일 메모</button>
+        </div>
+        <div class="date-nav">
+          <button type="button" id="day-prev" class="outline" aria-label="이전 날">‹</button>
+          <span id="day-label"></span>
+          <button type="button" id="day-next" class="outline" aria-label="다음 날">›</button>
+          <button type="button" id="day-today" class="outline">오늘</button>
+          <button type="button" id="day-calendar" class="outline" aria-label="캘린더 열기" aria-haspopup="dialog">캘린더</button>
+        </div>
+        <dialog id="calendar-dialog" aria-label="작업 캘린더">
+          <div id="calendar" class="calendar" hidden></div>
+          <div class="row">
+            <button type="button" id="calendar-close" class="outline">닫기</button>
+          </div>
+        </dialog>
+        <div id="log-list"></div>
+        <div id="daily-memo-board" hidden></div>
+      </section>
+
+      <section id="view-memo" hidden>
+        <div id="memo-board"></div>
+      </section>
+
+      <dialog id="memo-remove-dialog">
+        <form method="dialog">
+          <h2>이 메모를 삭제하시겠습니까?</h2>
+          <div class="row">
+            <button value="" class="outline">취소</button>
+            <button value="remove">삭제</button>
+          </div>
+        </form>
+      </dialog>
+
+      <!-- 웹앱 설정 대화상자의 "비밀번호 변경"만 옮겼다. -->
+      <dialog id="password-dialog">
+        <form id="password-form">
+          <button type="button" id="password-close" class="dialog-close" aria-label="닫기">×</button>
+          <h2>비밀번호 변경</h2>
+          <p class="hint">비밀번호를 바꾸면 다른 기기는 로그아웃됩니다.</p>
+          <label for="pw-current">현재 비밀번호</label>
+          <input id="pw-current" type="password" required maxlength="128" autocomplete="current-password" />
+          <label for="pw-new">새 비밀번호</label>
+          <input id="pw-new" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
+          <label for="pw-confirm">새 비밀번호 확인</label>
+          <input id="pw-confirm" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
+          <p class="error" id="pw-error" role="alert"></p>
+          <p role="status" class="saved" id="pw-message"></p>
+          <div class="row">
+            <button type="button" id="password-cancel" class="outline">닫기</button>
+            <button id="password-submit">비밀번호 변경</button>
+          </div>
+        </form>
+      </dialog>
+
+      <p id="error" role="alert"></p>
+    </main>
+  </body>
+</html>

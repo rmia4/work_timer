@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Work Timer",
+  "version": "0.1.0",
+  "description": "업무 기록 타이머를 팝업에서 보고 조작합니다.",
+  "action": { "default_popup": "popup.html", "default_title": "Work Timer" },
+  "host_permissions": ["https://work-timer-mauve-seven.vercel.app/*"]
+}
