@@ -24,7 +24,7 @@
       <button type="button" role="menuitem" id="theme-toggle"></button>
       <button type="button" role="menuitem" id="web-open">웹페이지 방문</button>
       <hr role="separator" />
-      <button type="button" role="menuitem" id="password-open">비밀번호 변경</button>
+      <button type="button" role="menuitem" id="account-open">계정 설정</button>
       <button type="button" role="menuitem" id="logout">로그아웃</button>
     </div>
     <main>
@@ -192,23 +192,48 @@
         </form>
       </dialog>
 
-      <!-- 웹앱 설정 대화상자의 "비밀번호 변경"만 옮겼다. -->
-      <dialog id="password-dialog">
-        <form id="password-form">
-          <button type="button" id="password-close" class="dialog-close" aria-label="닫기">×</button>
-          <h2>비밀번호 변경</h2>
-          <p class="hint">비밀번호를 바꾸면 다른 기기는 로그아웃됩니다.</p>
+      <!-- 웹앱 설정 대화상자의 "계정" 탭을 옮겼다. 현재 비밀번호를 확인한 뒤 변경·삭제를 한다. -->
+      <dialog id="account-dialog">
+        <button type="button" id="account-close" class="dialog-close" aria-label="닫기">×</button>
+        <h2>계정 설정</h2>
+        <form id="verify-form">
+          <p class="hint">계속하려면 현재 비밀번호를 입력해 주세요.</p>
           <label for="pw-current">현재 비밀번호</label>
           <input id="pw-current" type="password" required maxlength="128" autocomplete="current-password" />
-          <label for="pw-new">새 비밀번호</label>
-          <input id="pw-new" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
-          <label for="pw-confirm">새 비밀번호 확인</label>
-          <input id="pw-confirm" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
-          <p class="error" id="pw-error" role="alert"></p>
-          <p role="status" class="saved" id="pw-message"></p>
-          <div class="row">
-            <button type="button" id="password-cancel" class="outline">닫기</button>
+          <button id="verify-submit">확인</button>
+        </form>
+        <div id="account-actions" class="account-actions" hidden>
+          <form id="password-form">
+            <h3>비밀번호 변경</h3>
+            <p class="hint">비밀번호를 바꾸면 다른 기기는 로그아웃됩니다.</p>
+            <label for="pw-new">새 비밀번호</label>
+            <input id="pw-new" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
+            <label for="pw-confirm">새 비밀번호 확인</label>
+            <input id="pw-confirm" type="password" required minlength="8" maxlength="128" autocomplete="new-password" />
             <button id="password-submit">비밀번호 변경</button>
+          </form>
+          <div class="account-danger">
+            <h3>데이터 삭제</h3>
+            <button type="button" class="danger" data-delete="tasks">업무일지 전체 삭제</button>
+            <button type="button" class="danger" data-delete="memos">전체 메모 삭제</button>
+            <button type="button" class="danger" data-delete="daily-memos">전체 일일메모 삭제</button>
+            <h3>계정 삭제</h3>
+            <button type="button" class="danger" data-delete="account">계정 삭제</button>
+          </div>
+        </div>
+        <p class="error" id="account-error" role="alert"></p>
+        <p role="status" class="saved" id="account-message"></p>
+      </dialog>
+
+      <dialog id="delete-dialog">
+        <form id="delete-form">
+          <h2 id="delete-title"></h2>
+          <p class="hint" id="delete-desc"></p>
+          <label for="delete-phrase" class="account-only">확인 문구</label>
+          <input id="delete-phrase" class="account-only" autocomplete="off" maxlength="20" placeholder="계정 삭제" />
+          <div class="row">
+            <button type="button" id="delete-cancel" class="outline">취소</button>
+            <button id="delete-submit">삭제</button>
           </div>
         </form>
       </dialog>

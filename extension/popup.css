@@ -314,6 +314,29 @@ dialog {
 .counter {
   text-align: right;
 }
+/* 계정 설정: 비밀번호 변경 아래에 삭제 버튼을 세로로 둔다. */
+.account-actions,
+.account-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.account-actions {
+  gap: 16px;
+}
+.account-actions h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.danger {
+  border-color: var(--danger);
+  background: var(--bg);
+  color: var(--danger);
+}
+#delete-submit {
+  border-color: var(--danger);
+  background: var(--danger);
+}
 #error,
 .error {
   margin: 8px 0 0;
