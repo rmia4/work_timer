@@ -203,7 +203,7 @@ function showLogin() {
   if (finishTask) closeFinish();
   if (remove) closeRemove();
   if ($("csv-dialog").open) $("csv-dialog").close();
-  closePassword();
+  closeAccount();
   $("settings-menu").hidePopover();
   toggleCalendar(false);
   render();
@@ -463,51 +463,133 @@ $("theme-toggle").addEventListener("click", () => {
 // 원본 웹앱을 새 탭으로 연다(팝업은 탭으로 포커스가 옮겨 가며 닫힌다).
 $("web-open").addEventListener("click", () => chrome.tabs.create({ url: APP_ORIGIN }));
 
-// 웹앱 settings-dialog.tsx의 changePassword()와 같은 요청이다.
+// 웹앱 settings-dialog.tsx의 계정 탭과 같은 요청이다. 매 요청에 확인한 현재 비밀번호를 함께 보낸다.
 // 비밀번호가 틀려도 401이 오므로 authed() 대신 call()로 보내 오류 문구만 보여 준다.
-let changingPassword = false;
-function closePassword() {
-  $("password-form").reset();
-  $("pw-error").textContent = "";
-  $("pw-message").textContent = "";
-  if ($("password-dialog").open) $("password-dialog").close();
+const DELETE_ACCOUNT_PHRASE = "계정 삭제";
+const DELETE_LABELS = {
+  tasks: { title: "업무일지 전체 삭제", target: "모든 업무일지 기록과 측정 시간이" },
+  memos: { title: "전체 메모 삭제", target: "모든 메모가" },
+  "daily-memos": { title: "전체 일일메모 삭제", target: "모든 날짜의 일일메모가" },
+};
+let accountPassword = ""; // 확인을 마친 현재 비밀번호(대화상자를 닫으면 지운다)
+let accountBusy = false;
+let deleteKind = null; // 확인 중인 삭제: tasks | memos | daily-memos | account
+
+function renderAccount() {
+  $("verify-form").hidden = !!accountPassword;
+  $("account-actions").hidden = !accountPassword;
+  for (const b of $("account-dialog").querySelectorAll("button:not(.dialog-close)")) b.disabled = accountBusy;
 }
-$("password-open").addEventListener("click", () => {
+function closeAccount() {
+  accountPassword = "";
+  $("verify-form").reset();
+  $("password-form").reset();
+  $("account-error").textContent = "";
+  $("account-message").textContent = "";
+  closeDelete();
+  if ($("account-dialog").open) $("account-dialog").close();
+  renderAccount();
+}
+async function accountRequest(body) {
+  if (accountBusy) return false;
+  accountBusy = true;
+  $("account-error").textContent = "";
+  $("account-message").textContent = "";
+  renderAccount();
+  try {
+    const r = await call("/api/account", { method: "POST", body: { ...body, password: accountPassword } });
+    if (!r.ok) throw Error(r.data.error || "처리하지 못했습니다.");
+    return true;
+  } catch (e) {
+    $("account-error").textContent = e instanceof Error && e.message ? e.message : "연결을 확인해 주세요.";
+    return false;
+  } finally {
+    accountBusy = false;
+    renderAccount();
+  }
+}
+$("account-open").addEventListener("click", () => {
   $("settings-menu").hidePopover();
-  closePassword();
-  $("password-dialog").showModal();
+  closeAccount();
+  $("account-dialog").showModal();
 });
-$("password-cancel").addEventListener("click", closePassword);
-$("password-close").addEventListener("click", closePassword);
+$("account-close").addEventListener("click", closeAccount);
+$("account-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  if (!accountBusy) closeAccount();
+});
+$("verify-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  accountPassword = $("pw-current").value;
+  if (!(await accountRequest({ action: "verify" }))) accountPassword = "";
+  $("pw-current").value = "";
+  renderAccount();
+});
 $("password-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (changingPassword) return;
-  $("pw-error").textContent = "";
-  $("pw-message").textContent = "";
   if ($("pw-new").value !== $("pw-confirm").value) {
-    $("pw-error").textContent = "새 비밀번호가 일치하지 않습니다.";
+    $("account-error").textContent = "새 비밀번호가 일치하지 않습니다.";
     return;
   }
-  changingPassword = true;
-  $("password-submit").disabled = true;
-  try {
-    const r = await call("/api/account", {
-      method: "POST",
-      body: {
-        action: "change-password",
-        password: $("pw-current").value,
-        newPassword: $("pw-new").value,
-        confirmation: $("pw-confirm").value,
-      },
-    });
-    if (!r.ok) throw Error(r.data.error || "처리하지 못했습니다.");
+  const newPassword = $("pw-new").value;
+  if (await accountRequest({ action: "change-password", newPassword, confirmation: $("pw-confirm").value })) {
+    accountPassword = newPassword;
     $("password-form").reset();
-    $("pw-message").textContent = "비밀번호가 변경되었습니다. 다른 기기는 로그아웃됩니다.";
-  } catch (e) {
-    $("pw-error").textContent = e instanceof Error && e.message ? e.message : "연결을 확인해 주세요.";
-  } finally {
-    changingPassword = false;
-    $("password-submit").disabled = false;
+    $("account-message").textContent = "비밀번호가 변경되었습니다. 다른 기기는 로그아웃됩니다.";
+  }
+});
+
+// 삭제는 확인 대화상자를 한 번 더 거친다. 계정 삭제는 확인 문구까지 입력해야 한다.
+function closeDelete() {
+  deleteKind = null;
+  $("delete-form").reset();
+  if ($("delete-dialog").open) $("delete-dialog").close();
+}
+function renderDeleteSubmit() {
+  $("delete-submit").disabled = deleteKind === "account" && $("delete-phrase").value !== DELETE_ACCOUNT_PHRASE;
+}
+for (const b of document.querySelectorAll("[data-delete]"))
+  b.addEventListener("click", () => {
+    deleteKind = b.dataset.delete;
+    const account = deleteKind === "account";
+    $("delete-title").textContent = account ? "계정 삭제" : DELETE_LABELS[deleteKind].title;
+    $("delete-desc").textContent = account
+      ? `계정과 모든 업무일지·메모·일일메모가 영구 삭제되며 되돌릴 수 없습니다. 계속하려면 아래에 ‘${DELETE_ACCOUNT_PHRASE}’를 입력해 주세요.`
+      : `${DELETE_LABELS[deleteKind].target} 영구 삭제되며 되돌릴 수 없습니다.`;
+    for (const e of $("delete-dialog").querySelectorAll(".account-only")) e.hidden = !account;
+    $("delete-submit").textContent = account ? "계정 영구 삭제" : "삭제";
+    $("delete-form").reset();
+    renderDeleteSubmit();
+    $("delete-dialog").showModal();
+  });
+$("delete-phrase").addEventListener("input", renderDeleteSubmit);
+$("delete-cancel").addEventListener("click", closeDelete);
+$("delete-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeDelete();
+});
+$("delete-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const kind = deleteKind;
+  const confirmation = $("delete-phrase").value;
+  closeDelete();
+  if (kind === "account") {
+    // 세션 쿠키가 지워졌으므로 로그인 화면으로 돌아간다.
+    if (await accountRequest({ action: "delete-account", confirmation })) showLogin();
+    return;
+  }
+  if (!(await accountRequest({ action: `delete-${kind}` }))) return;
+  $("account-message").textContent = `${DELETE_LABELS[kind].title}가 완료되었습니다.`;
+  // 지운 데이터를 저장본과 화면에서도 비운다.
+  if (kind === "tasks") {
+    localStorage.removeItem(CACHE);
+    invalidateCalendarCache();
+    calendar.refresh();
+    if (edit) clearForm();
+    load();
+  } else {
+    (kind === "memos" ? memoBoard : dailyBoard).reset();
+    render();
   }
 });
 
