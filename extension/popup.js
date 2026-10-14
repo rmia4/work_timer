@@ -19,7 +19,8 @@ import {
 const $ = (id) => document.getElementById(id);
 const VIEWS = ["timer", "summary", "log", "memo"];
 let status = "loading"; // loading | login | ready
-let view = "timer";
+const VIEW = "view"; // 마지막으로 연 화면(팝업을 다시 열면 그대로 보여 주고, 로그아웃하면 지운다)
+let view = VIEWS.includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "timer";
 let day = today(); // 일지에서 보는 날짜
 let loading = false; // 날짜를 바꾼 뒤 그 날짜 기록을 아직 못 받았는지
 let tasks = [];
@@ -144,6 +145,7 @@ function render() {
   document.querySelector("nav").hidden = status !== "ready";
   for (const v of VIEWS) $(`view-${v}`).hidden = status !== "ready" || v !== view;
   for (const b of document.querySelectorAll("nav button[data-view]")) b.setAttribute("aria-current", b.dataset.view === view);
+  if (status === "ready") localStorage.setItem(VIEW, view);
   if (status === "login") renderLogin();
   if (status !== "ready") return;
   if (view === "summary") renderSummary();
@@ -184,6 +186,7 @@ function renderTimer() {
 // 로그아웃되면 이전 계정의 데이터를 비우고 로그인 화면을 보여 준다.
 function showLogin() {
   localStorage.removeItem(CACHE);
+  localStorage.removeItem(VIEW);
   invalidateCalendarCache();
   status = "login";
   tasks = [];
