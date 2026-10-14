@@ -46,6 +46,10 @@
             <button id="finish" class="outline">종료·저장</button>
           </div>
         </section>
+        <div id="active-work" class="journal-block is-note">
+          <strong>업무 내용</strong>
+          <p class="note" id="active-work-text"></p>
+        </div>
 
         <form id="task-form">
           <h2 id="form-title">새 기록 추가</h2>
@@ -108,11 +112,13 @@
         </div>
         <p class="state" id="sum-count"></p>
         <svg class="day-clock" id="day-clock" viewBox="0 0 240 240" role="img" aria-label="하루 활동 시계"></svg>
+        <div class="clock-tip" id="clock-tip" role="tooltip" hidden></div>
       </section>
 
       <!-- 웹앱 통계 대화상자의 "데이터 내보내기"만 옮겼다. -->
       <dialog id="csv-dialog">
         <form method="dialog" id="csv-form">
+          <button type="button" id="csv-close" class="dialog-close" aria-label="닫기">×</button>
           <h2>데이터 내보내기</h2>
           <p class="hint">선택한 기간의 업무 기록을 CSV 파일로 저장합니다. (최대 366일)</p>
           <label for="csv-from">시작일</label>
@@ -160,7 +166,6 @@
       </section>
 
       <section id="view-memo" hidden>
-        <h2>메모장</h2>
         <div id="memo-board"></div>
       </section>
 

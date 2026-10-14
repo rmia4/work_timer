@@ -1,5 +1,7 @@
 :root {
   --bg: #fff;
+  /* 웹앱 globals.css의 --c-page(헤더 아래 본문 배경) */
+  --page: #f3f5f9;
   --fg: #152746;
   --muted: #5d6b82;
   --line: #d5dbe5;
@@ -10,6 +12,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #121a2a;
+    --page: #0f1419;
     --fg: #e8edf6;
     --muted: #9aa7bd;
     --line: #2c3a55;
@@ -32,6 +35,7 @@ main {
   min-height: 0;
   overflow-y: auto;
   padding: 16px;
+  background: var(--page);
 }
 /* 상단 화면 전환은 테두리 없이 글자와 세로 구분선으로만 나눈다. */
 nav {
@@ -87,6 +91,7 @@ h2 {
   stroke-width: 12;
 }
 .clock-track {
+  fill: var(--bg);
   stroke: var(--line);
 }
 .clock-segment {
@@ -96,6 +101,21 @@ h2 {
 }
 .clock-segment:hover {
   stroke-width: 16;
+}
+/* 구간에 커서를 올리면 바로 뜨는 검정 툴팁 */
+.clock-tip {
+  position: fixed;
+  z-index: 10;
+  max-width: 220px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #111;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }
 .clock-guide-track {
   fill: none;
@@ -159,7 +179,7 @@ button:disabled {
   cursor: default;
 }
 .outline {
-  background: transparent;
+  background: var(--bg);
   color: var(--fg);
   border-color: var(--line);
 }
@@ -193,12 +213,52 @@ textarea {
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: var(--bg);
 }
 #task-form h2 {
   margin: 0;
 }
+#active-work {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 0 8px 8px 0;
+  background: var(--bg);
+}
 #active .hint {
   margin-bottom: 12px;
+}
+/* 기록 중 카드는 웹앱 .timer-panel처럼 회색 바탕에 흰 글자로 둔다. */
+#active {
+  border: none;
+  background: #4b5058;
+  color: #f7f8f9;
+}
+#active .state,
+#active .hint {
+  color: #d5d9de;
+}
+#active #toggle {
+  border-color: #d5dce8;
+  background: #fff;
+  color: #24324d;
+}
+#active .outline {
+  border-color: #858c95;
+  background: transparent;
+  color: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  #active {
+    background: #262b33;
+  }
+  #active #toggle {
+    border-color: #2c3a55;
+    background: #212936;
+    color: #f7f8f9;
+  }
+  #active .outline {
+    border-color: #5d6570;
+  }
 }
 #target:empty,
 .saved:empty,
@@ -233,6 +293,24 @@ dialog {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
+  color: var(--fg);
+}
+/* 대화상자 우측 상단의 × 닫기 버튼 */
+.dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  flex: none;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+.dialog-close:hover {
   color: var(--fg);
 }
 .counter {
@@ -381,8 +459,11 @@ nav[hidden] {
   margin: 6px 0 0;
 }
 .record {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
 }
 .record-head {
   display: flex;
@@ -501,6 +582,7 @@ nav[hidden] {
   padding: 6px 10px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  background: var(--bg);
 }
 .memo-card.is-collapsed {
   padding-bottom: 6px;
@@ -574,6 +656,7 @@ nav[hidden] {
 }
 .memo-add {
   display: block;
+  background: var(--bg);
   margin-left: auto;
 }
 .empty .memo-add {
