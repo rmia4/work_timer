@@ -71,9 +71,9 @@ function record(t) {
     t.status === "done" ? timeLabel(t.ended_at) : "진행 중"
   }`);
   card.append(head, range);
-  for (const [label, text] of [["업무 내용", t.note], ["업무 결과", t.result]])
+  for (const [label, text, kind] of [["업무 내용", t.note, "is-note"], ["업무 결과", t.result, "is-result"]])
     if (text) {
-      const block = el("div", "journal-block");
+      const block = el("div", `journal-block ${kind}`);
       block.append(el("strong", "", label), el("p", "note", text));
       card.append(block);
     }
@@ -196,7 +196,7 @@ function showLogin() {
   if (finishTask) closeFinish();
   if (remove) closeRemove();
   if ($("csv-dialog").open) $("csv-dialog").close();
-  $("calendar").hidden = true;
+  toggleCalendar(false);
   render();
   $("username").focus();
 }
@@ -305,10 +305,14 @@ function chooseDay(value) {
   load();
 }
 
+// 캘린더는 CSV처럼 대화상자로 띄운다. Esc로 닫혀도 close 이벤트로 같은 정리를 한다.
 function toggleCalendar(open) {
+  const dialog = $("calendar-dialog");
   $("calendar").hidden = !open;
-  $("day-calendar").setAttribute("aria-expanded", open);
-  if (open) calendar.open(day);
+  if (open) {
+    dialog.showModal();
+    calendar.open(day);
+  } else if (dialog.open) dialog.close();
 }
 
 const calendar = createCalendar($("calendar"), {
@@ -486,7 +490,15 @@ $("f-cancel").addEventListener("click", () => {
 $("day-prev").addEventListener("click", () => chooseDay(shiftDay(day, -1)));
 $("day-next").addEventListener("click", () => chooseDay(shiftDay(day, 1)));
 $("day-today").addEventListener("click", () => chooseDay(today()));
-$("day-calendar").addEventListener("click", () => toggleCalendar($("calendar").hidden));
+$("day-calendar").addEventListener("click", () => toggleCalendar(true));
+$("calendar-close").addEventListener("click", () => toggleCalendar(false));
+$("calendar-dialog").addEventListener("close", () => toggleCalendar(false));
+// 대화상자 바깥(배경)을 누르면 닫는다. 안쪽 여백 클릭도 target이 dialog라 좌표로 가린다.
+$("calendar-dialog").addEventListener("click", (event) => {
+  const r = event.currentTarget.getBoundingClientRect();
+  const inside = event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom;
+  if (event.target === event.currentTarget && !inside) toggleCalendar(false);
+});
 $("remove-cancel").addEventListener("click", closeRemove);
 $("remove-dialog").addEventListener("cancel", (event) => {
   event.preventDefault();
