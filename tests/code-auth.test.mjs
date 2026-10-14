@@ -182,7 +182,7 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  dailyOrder=(await (await dailyMemos.GET(dailyMemoReq('2026-09-10'))).json()).memos;assert.deepEqual(dailyOrder.map(memo=>memo.id),[secondDaily.id,dailyCreated.id]);
  assert.equal((await dailyMemos.GET(dailyMemoReq('invalid'))).status,400);
  }finally{Date.now=originalNow;}
- const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
+ const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,sessionCookie,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const accountPost=(body,sessionCookie,origin=env.APP_ORIGIN)=>account.POST(new Request(env.APP_ORIGIN+'/api/account',{method:'POST',headers:{cookie:sessionCookie,origin,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  await extensionAllowed(account.POST,'/api/account');
  const otherOwner=db.prepare("SELECT id FROM users WHERE username='new_user'").get().id;
@@ -216,7 +216,19 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  for(let attempt=1;attempt<5;attempt++)assert.equal((await accountPost({action:'verify',password:'incorrect'},otherCookie)).status,401);
  const accountBlocked=await accountPost({action:'verify',password:'incorrect'},otherCookie);assert.equal(accountBlocked.status,429);assert.equal(accountBlocked.headers.get('retry-after'),'900');
  assert.equal((await accountPost({action:'verify',password:'changed-password'},otherCookie)).status,429);
- db.prepare("DELETE FROM code_limits WHERE id LIKE 'account:%'").run();db.prepare("DELETE FROM tasks WHERE id='account-task-legacy'").run();
+ db.prepare("DELETE FROM code_limits WHERE id LIKE 'account:%'").run();
+ db.prepare("INSERT INTO memos (id,owner,position,created,updated) VALUES ('account-memo-other2',?,0,0,0)").run(otherOwner);
+ assert.equal((await accountPost({action:'delete-account',password:'changed-password',confirmation:'삭제'},otherCookie)).status,400);
+ assert.equal((await accountPost({action:'delete-account',password:'incorrect',confirmation:'계정 삭제'},otherCookie)).status,401);
+ assert.ok(db.prepare('SELECT id FROM users WHERE id=?').get(otherOwner));
+ const accountDeleted=await accountPost({action:'delete-account',password:'changed-password',confirmation:'계정 삭제'},otherCookie);
+ assert.equal(accountDeleted.status,200);assert.match(accountDeleted.headers.get('set-cookie'),/Max-Age=0/);
+ assert.equal(db.prepare('SELECT id FROM users WHERE id=?').get(otherOwner),undefined);
+ for(const table of ['memos','code_sessions'])assert.equal(countOf(table,otherOwner),0);
+ assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:otherCookie}})),null);
+ assert.equal(countOf('memos','legacy-owner'),1);assert.deepEqual(await user.getCodeUser(req),{userId:'legacy-owner'});
+ assert.equal((await auth.POST(request('changed-password',env.APP_ORIGIN,'192.0.2.34','new_user'))).status,401);
+ db.prepare("DELETE FROM tasks WHERE id='account-task-legacy'").run();
  db.prepare('UPDATE code_sessions SET expires=0').run();assert.equal(await user.getCodeUser(req),null);
  const again=await auth.POST(request(code));const c2=again.headers.get('set-cookie');
  const logout=await auth.DELETE(new Request(env.APP_ORIGIN+'/api/auth',{method:'DELETE',headers:{origin:env.APP_ORIGIN,cookie:c2}}));assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);

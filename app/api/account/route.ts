@@ -1,9 +1,10 @@
 import {getCodeUser} from '../../_auth/code-auth';
 import {database} from '../../../db/raw';
-import {createPasswordHash,hashToken,verifyPassword,sessionToken,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
+import {createPasswordHash,hashToken,verifyPassword,sessionToken,sessionCookie,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
 
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const DELETE_TABLES:Record<string,string>={'delete-tasks':'tasks','delete-memos':'memos','delete-daily-memos':'daily_memos'};
+const DELETE_ACCOUNT_PHRASE='계정 삭제';
 
 // 설정 팝업의 모든 동작은 매 요청마다 현재 비밀번호를 다시 확인한다.
 export async function POST(req:Request){
@@ -15,11 +16,12 @@ export async function POST(req:Request){
   let body;try{body=JSON.parse(input);}catch{return json({error:'요청을 확인해 주세요.'},400);}
   if(typeof body?.password!=='string'||!body.password||body.password.length>MAX_PASSWORD_LENGTH)return json({error:'현재 비밀번호를 입력해 주세요.'},400);
   const action=body.action;
-  if(action!=='verify'&&action!=='change-password'&&!(typeof action==='string'&&Object.hasOwn(DELETE_TABLES,action)))return json({error:'요청을 확인해 주세요.'},400);
+  if(action!=='verify'&&action!=='change-password'&&action!=='delete-account'&&!(typeof action==='string'&&Object.hasOwn(DELETE_TABLES,action)))return json({error:'요청을 확인해 주세요.'},400);
   if(action==='change-password'){
    if(typeof body.newPassword!=='string'||body.newPassword.length<MIN_PASSWORD_LENGTH||body.newPassword.length>MAX_PASSWORD_LENGTH)return json({error:`새 비밀번호는 ${MIN_PASSWORD_LENGTH}자 이상 입력해 주세요.`},400);
    if(typeof body.confirmation!=='string'||body.newPassword!==body.confirmation)return json({error:'새 비밀번호가 일치하지 않습니다.'},400);
   }
+  if(action==='delete-account'&&body.confirmation!==DELETE_ACCOUNT_PHRASE)return json({error:`확인 문구 '${DELETE_ACCOUNT_PHRASE}'를 정확히 입력해 주세요.`},400);
 
   const db=database(),now=Date.now(),owner=user.userId,limitId='account:'+owner;
   const blocked=await blockedUntil(db,[limitId],now);
@@ -41,6 +43,15 @@ export async function POST(req:Request){
     db.prepare('DELETE FROM code_sessions WHERE owner=? AND token_hash<>?').bind(owner,current)
    ]);
    return json({ok:true});
+  }
+  if(action==='delete-account'){
+   // 외래키 CASCADE에 기대지 않고 계정에 딸린 데이터를 직접 지운 뒤 사용자 행을 삭제한다.
+   await db.batch([
+    clearLimit,
+    ...['task_sessions','tasks','memos','daily_memos','code_sessions'].map(table=>db.prepare(`DELETE FROM ${table} WHERE owner=?`).bind(owner)),
+    db.prepare('DELETE FROM users WHERE id=?').bind(owner)
+   ]);
+   return json({ok:true},200,{'Set-Cookie':sessionCookie('',0)});
   }
   await db.batch([clearLimit,db.prepare(`DELETE FROM ${DELETE_TABLES[action]} WHERE owner=?`).bind(owner)]);
   return json({ok:true});
