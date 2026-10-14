@@ -97,6 +97,11 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  await extensionAllowed(auth.POST,'/api/auth',400,'POST',{});
  await extensionAllowed(signup.POST,'/api/auth/signup',400,'POST',{});
  await extensionAllowed(auth.DELETE,'/api/auth',200,'DELETE',{});
+ // 쉼표로 여러 확장 ID(스토어 배포판 + 로컬 개발판)를 함께 허용한다.
+ process.env.EXTENSION_ORIGIN='chrome-extension://storeidstoreidstoreidstoreidstor, '+extensionOrigin;
+ try{assert.equal((await extensionCall(tasks.POST,'/api/tasks')).status,400);}finally{delete process.env.EXTENSION_ORIGIN;}
+ process.env.EXTENSION_ORIGIN='chrome-extension://storeidstoreidstoreidstoreidstor,';
+ try{assert.equal((await extensionCall(tasks.POST,'/api/tasks')).status,403);}finally{delete process.env.EXTENSION_ORIGIN;}
  const memoReq=new Request(env.APP_ORIGIN+'/api/memos',{headers:{cookie}});
  const postMemo=body=>memos.POST(new Request(memoReq.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  const dailyMemoReq=day=>new Request(env.APP_ORIGIN+'/api/daily-memos?day='+day,{headers:{cookie}});
