@@ -1,0 +1,12 @@
+.privacy {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+  color: var(--c-text);
+  line-height: 1.7;
+}
+.privacy h1 { font-size: 1.6rem; font-weight: 700; color: var(--c-text-strong); }
+.privacy h2 { margin-top: 28px; font-size: 1.1rem; font-weight: 700; color: var(--c-text-strong); }
+.privacy p, .privacy ul { margin-top: 8px; }
+.privacy ul { padding-left: 1.2em; list-style: disc; }
+.privacy-date { color: var(--c-muted); font-size: 0.9rem; }
