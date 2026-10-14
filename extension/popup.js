@@ -1,5 +1,5 @@
 import { authed, call, download, onUnauthorized } from "./api.js";
-import { activitySegments, drawClock } from "./activity-clock.js";
+import { activitySegments, bindClockTooltip, drawClock } from "./activity-clock.js";
 import { createCalendar, invalidateCalendarCache } from "./calendar.js";
 import { summaryPrompt } from "./export-prompt.js";
 import { createMemoBoard } from "./memo-board.js";
@@ -162,6 +162,9 @@ function renderTimer() {
   // 기록 중인 작업이 있으면 그 작업만, 없으면 새 기록 추가 폼만 보여 준다. 기록 수정 중에는 폼만 보여 준다.
   $("active").hidden = !task || !!edit;
   $("task-form").hidden = !!task && !edit;
+  // 기록 중일 때 박스 아래 빈 공간에 그 작업의 업무 내용을 보여 준다.
+  $("active-work").hidden = $("active").hidden || !task.note;
+  $("active-work-text").textContent = task?.note || "";
   $("active-note").textContent = task
     ? `${timestampLabel(task.started_at)} 시작 · 브라우저를 닫아도 기록이 유지됩니다.`
     : "";
@@ -555,6 +558,8 @@ $("csv-open").addEventListener("click", () => {
 });
 for (const id of ["csv-from", "csv-to"]) $(id).addEventListener("input", renderCsv);
 $("csv-cancel").addEventListener("click", () => $("csv-dialog").close());
+$("csv-close").addEventListener("click", () => $("csv-dialog").close());
+bindClockTooltip($("day-clock"), $("clock-tip"));
 $("csv-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const from = $("csv-from").value,

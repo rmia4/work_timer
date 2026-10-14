@@ -1,4 +1,4 @@
-// 웹앱 daily-activity-clock.tsx의 하루 활동 시계를 확장용으로 옮긴 것이다(툴팁 대신 <title>).
+// 웹앱 daily-activity-clock.tsx의 하루 활동 시계를 확장용으로 옮긴 것이다.
 const DAY_MS = 24 * 60 * 60 * 1000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const RADIUS = 98;
@@ -89,7 +89,7 @@ export function drawClock(svg, segments, now) {
       "stroke-dasharray": `${s.durationRatio * c} ${c}`,
       "stroke-dashoffset": -s.startRatio * c,
     }, svg);
-    el("title", {}, arc).textContent =
+    arc.dataset.tip =
       `${s.task.title}\n${timeFormatter.format(s.start)}–${timeFormatter.format(s.end)}`;
   }
   const guide = el("g", { class: "clock-guide", "aria-hidden": "true" }, svg);
@@ -103,4 +103,19 @@ export function drawClock(svg, segments, now) {
   const marks = el("g", { class: "clock-marks", "aria-hidden": "true" }, svg);
   for (const { hour, angle: a } of MARKS)
     el("text", { x: 120 + Math.cos(a) * LABEL_RADIUS, y: 120 + Math.sin(a) * LABEL_RADIUS }, marks).textContent = hour;
+}
+
+// 구간에 커서를 올리면 기본 <title> 대신 바로 뜨는 검정 툴팁을 커서 옆에 보여 준다.
+// 시계는 1분마다 다시 그려지므로 svg 자체에 이벤트를 건다.
+export function bindClockTooltip(svg, tip) {
+  svg.addEventListener("pointermove", (e) => {
+    const text = e.target.closest?.(".clock-segment")?.dataset.tip;
+    tip.hidden = !text;
+    if (!text) return;
+    tip.textContent = text;
+    const { innerWidth: w, innerHeight: h } = window;
+    tip.style.left = `${Math.min(e.clientX + 12, w - tip.offsetWidth - 4)}px`;
+    tip.style.top = `${Math.min(e.clientY + 12, h - tip.offsetHeight - 4)}px`;
+  });
+  svg.addEventListener("pointerleave", () => (tip.hidden = true));
 }
