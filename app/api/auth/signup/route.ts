@@ -2,7 +2,6 @@ import {database} from '../../../../db/raw';
 import {clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,trustedOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../../lib/auth';
 
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
-const SIGNUP_WINDOW_MS=24*60*60_000;
 
 async function failedAttempt(db:ReturnType<typeof database>,limitId:string,now:number,error='가입 정보를 확인해 주세요.'){
  const until=await recordFailure(db,limitId,now);
@@ -28,26 +27,16 @@ export async function POST(req:Request){
   const existing=await db.prepare('SELECT id FROM users WHERE username=? LIMIT 1').bind(username).first<{id:string}>();
   if(existing)return failedAttempt(db,limitId,now,'이미 사용 중인 아이디입니다.');
 
-  const rateId='signup-ip:'+await hashToken(clientAddress(req));
-  const claim=await db.prepare('INSERT INTO signup_limits (id,registered_at) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET registered_at=excluded.registered_at WHERE signup_limits.registered_at<=? RETURNING registered_at').bind(rateId,now,now-SIGNUP_WINDOW_MS).first<{registered_at:number}>();
-  if(!claim){
-   const limit=await db.prepare('SELECT registered_at FROM signup_limits WHERE id=?').bind(rateId).first<{registered_at:number}>();
-   const retry=Math.max(1,Math.ceil(((limit?.registered_at||now)+SIGNUP_WINDOW_MS-now)/1000));
-   return json({error:'같은 네트워크에서는 24시간에 한 번만 가입할 수 있습니다.'},429,{'Retry-After':String(retry)});
-  }
-
   const owner=crypto.randomUUID(),token=hexToken();
   try{
    await db.prepare("INSERT INTO users (id,email,username,password_hash,display_name,role,status,created,updated) VALUES (?,NULL,?,?,?,'user','active',?,?)").bind(owner,username,await createPasswordHash(body.password),'',now,now).run();
   }catch(error){
-   await db.prepare('DELETE FROM signup_limits WHERE id=? AND registered_at=?').bind(rateId,now).run();
    const duplicate=await db.prepare('SELECT id FROM users WHERE username=? LIMIT 1').bind(username).first<{id:string}>();
    if(duplicate)return failedAttempt(db,limitId,now,'이미 사용 중인 아이디입니다.');
    throw error;
   }
   await db.batch([
    db.prepare('DELETE FROM code_limits WHERE id=?').bind(limitId),
-   db.prepare('DELETE FROM signup_limits WHERE registered_at<=?').bind(now-SIGNUP_WINDOW_MS),
    db.prepare('DELETE FROM code_sessions WHERE expires<=?').bind(now),
    db.prepare('INSERT INTO code_sessions (token_hash,owner,expires) VALUES (?,?,?)').bind(await hashToken(token),owner,now+SESSION_SECONDS*1000)
   ]);
