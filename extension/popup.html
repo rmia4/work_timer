@@ -138,7 +138,7 @@
       </dialog>
 
       <section id="view-log" hidden>
-        <div class="row mode" role="tablist" aria-label="업무 일지 또는 일일 메모">
+        <div class="tabs" role="tablist" aria-label="업무 일지 또는 일일 메모">
           <button type="button" role="tab" data-log="records">업무 일지</button>
           <button type="button" role="tab" data-log="memos">일일 메모</button>
         </div>
@@ -147,9 +147,14 @@
           <span id="day-label"></span>
           <button type="button" id="day-next" class="outline" aria-label="다음 날">›</button>
           <button type="button" id="day-today" class="outline">오늘</button>
-          <button type="button" id="day-calendar" class="outline" aria-label="캘린더 열기 또는 닫기" aria-expanded="false">캘린더</button>
+          <button type="button" id="day-calendar" class="outline" aria-label="캘린더 열기" aria-haspopup="dialog">캘린더</button>
         </div>
-        <div id="calendar" class="calendar" hidden></div>
+        <dialog id="calendar-dialog" aria-label="작업 캘린더">
+          <div id="calendar" class="calendar" hidden></div>
+          <div class="row">
+            <button type="button" id="calendar-close" class="outline">닫기</button>
+          </div>
+        </dialog>
         <div id="log-list"></div>
         <div id="daily-memo-board" hidden></div>
       </section>
