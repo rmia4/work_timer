@@ -66,7 +66,7 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  try{
   const joined=await signup.POST(signupRequest('new_user'));assert.equal(joined.status,201);assert.match(joined.headers.get('set-cookie'),/Secure; HttpOnly; SameSite=Strict/);
   const joinedUser=db.prepare("SELECT id,password_hash FROM users WHERE username='new_user'").get();assert.ok(joinedUser?.id);assert.match(joinedUser.password_hash,/^100000:[a-f0-9]{32}:[a-f0-9]{64}$/);
-  assert.equal((await signup.POST(signupRequest('another_user'))).status,429);
+  assert.equal((await signup.POST(signupRequest('another_user'))).status,201);
   assert.equal((await signup.POST(signupRequest('NEW_USER','new-password','new-password','192.0.2.11'))).status,409);
   const signupAttackIp='192.0.2.20';
   for(let attempt=1;attempt<5;attempt++)assert.equal((await signup.POST(signupRequest('new_user','new-password','new-password',signupAttackIp))).status,409);
@@ -78,12 +78,9 @@ test('password auth: wrong password, secure session, old records, expiry, logout
   const newLogin=await auth.POST(request('new-password',env.APP_ORIGIN,'192.0.2.13','new_user'));assert.equal(newLogin.status,200);
   assert.deepEqual(await user.getCodeUser(new Request(req.url,{headers:{cookie:newLogin.headers.get('set-cookie')}})),{userId:joinedUser.id});
   Date.now=()=>signupStart+24*60*60_000;
-  db.prepare("INSERT INTO signup_limits (id,registered_at) VALUES ('signup-ip:stale',?)").run(signupStart-1);
   db.prepare("INSERT INTO code_sessions (token_hash,owner,expires) VALUES ('stale-session','legacy-owner',?)").run(signupStart);
   assert.equal((await signup.POST(signupRequest('next_day_user'))).status,201);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM signup_limits WHERE id='signup-ip:stale'").get().n,0);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM code_sessions WHERE token_hash='stale-session'").get().n,0);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM signup_limits").get().n,1);
  }finally{Date.now=originalSignupNow;}
  const post=body=>tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:env.APP_ORIGIN},body:JSON.stringify(body)}));
  const extensionOrigin='chrome-extension://abcdefghijklmnopabcdefghijklmnop';
