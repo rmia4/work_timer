@@ -1,4 +1,5 @@
 import { authed, call, download, onUnauthorized } from "./api.js";
+import { APP_ORIGIN } from "./config.js";
 import { activitySegments, bindClockTooltip, drawClock } from "./activity-clock.js";
 import { createCalendar, invalidateCalendarCache } from "./calendar.js";
 import { summaryPrompt } from "./export-prompt.js";
@@ -199,6 +200,8 @@ function showLogin() {
   if (finishTask) closeFinish();
   if (remove) closeRemove();
   if ($("csv-dialog").open) $("csv-dialog").close();
+  closePassword();
+  $("settings-menu").hidePopover();
   toggleCalendar(false);
   render();
   $("username").focus();
@@ -435,7 +438,74 @@ $("login-form").addEventListener("submit", async (event) => {
     $("login-submit").disabled = false;
   }
 });
+// 웹앱 theme-toggle.tsx와 같다. 메뉴를 열 때 지금 테마의 반대 문구를 보여 준다(OS 모드가 바뀌었을 수 있다).
+const nextTheme = () => (document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+$("settings-menu").addEventListener("beforetoggle", (event) => {
+  if (event.newState === "open")
+    $("theme-toggle").textContent = `${nextTheme() === "dark" ? "다크 모드" : "라이트 모드"}로 전환`;
+});
+$("theme-toggle").addEventListener("click", () => {
+  const next = nextTheme();
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem("theme", next);
+  } catch {}
+  $("settings-menu").hidePopover();
+});
+
+// 원본 웹앱을 새 탭으로 연다(팝업은 탭으로 포커스가 옮겨 가며 닫힌다).
+$("web-open").addEventListener("click", () => chrome.tabs.create({ url: APP_ORIGIN }));
+
+// 웹앱 settings-dialog.tsx의 changePassword()와 같은 요청이다.
+// 비밀번호가 틀려도 401이 오므로 authed() 대신 call()로 보내 오류 문구만 보여 준다.
+let changingPassword = false;
+function closePassword() {
+  $("password-form").reset();
+  $("pw-error").textContent = "";
+  $("pw-message").textContent = "";
+  if ($("password-dialog").open) $("password-dialog").close();
+}
+$("password-open").addEventListener("click", () => {
+  $("settings-menu").hidePopover();
+  closePassword();
+  $("password-dialog").showModal();
+});
+$("password-cancel").addEventListener("click", closePassword);
+$("password-close").addEventListener("click", closePassword);
+$("password-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (changingPassword) return;
+  $("pw-error").textContent = "";
+  $("pw-message").textContent = "";
+  if ($("pw-new").value !== $("pw-confirm").value) {
+    $("pw-error").textContent = "새 비밀번호가 일치하지 않습니다.";
+    return;
+  }
+  changingPassword = true;
+  $("password-submit").disabled = true;
+  try {
+    const r = await call("/api/account", {
+      method: "POST",
+      body: {
+        action: "change-password",
+        password: $("pw-current").value,
+        newPassword: $("pw-new").value,
+        confirmation: $("pw-confirm").value,
+      },
+    });
+    if (!r.ok) throw Error(r.data.error || "처리하지 못했습니다.");
+    $("password-form").reset();
+    $("pw-message").textContent = "비밀번호가 변경되었습니다. 다른 기기는 로그아웃됩니다.";
+  } catch (e) {
+    $("pw-error").textContent = e instanceof Error && e.message ? e.message : "연결을 확인해 주세요.";
+  } finally {
+    changingPassword = false;
+    $("password-submit").disabled = false;
+  }
+});
+
 $("logout").addEventListener("click", async () => {
+  $("settings-menu").hidePopover();
   $("error").textContent = "";
   try {
     const r = await call("/api/auth", { method: "DELETE" });
