@@ -226,6 +226,8 @@ async function load() {
   try {
     const data = await get(`/api/tasks?day=${day}`);
     if (seq !== request || !data) return;
+    // 이미 보여 주고 있는 기록과 같으면 다시 그리지 않는다(팝업을 열 때·10초 갱신 때 화면을 새로 만들지 않도록).
+    const changed = status !== "ready" || loading || JSON.stringify(data.tasks) !== JSON.stringify(tasks);
     tasks = data.tasks;
     task = tasks.find((t) => t.status !== "done") || null;
     offset = data.now - Date.now();
@@ -233,7 +235,7 @@ async function load() {
     if (day === today()) localStorage.setItem(CACHE, JSON.stringify({ day, tasks, offset }));
     status = "ready";
     $("error").textContent = "";
-    render();
+    if (changed) render();
   } catch (e) {
     if (seq === request) showError(e);
   }
@@ -345,6 +347,7 @@ function confirmMemoRemove() {
 const memoBoard = createMemoBoard($("memo-board"), {
   endpoint: "/api/memos",
   collapsible: true,
+  cacheKey: "memos-cache",
   emptyText: "항상 표시할 메모를 남겨보세요.",
   confirmRemove: confirmMemoRemove,
 });
@@ -354,8 +357,9 @@ const dailyBoard = createMemoBoard($("daily-memo-board"), {
   emptyText: "선택한 날짜에 메모를 남겨보세요.",
   confirmRemove: confirmMemoRemove,
 });
-// 팝업이 닫힐 때 디바운스 중인 메모 입력을 바로 저장한다.
+// 팝업이 닫힐 때 디바운스 중인 메모 입력을 바로 저장하고, 다음에 열 때 먼저 보여 줄 메모 목록을 남긴다.
 addEventListener("pagehide", () => {
+  memoBoard.remember();
   memoBoard.flush(true);
   dailyBoard.flush(true);
 });
