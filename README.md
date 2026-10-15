@@ -51,6 +51,72 @@
 - 상태 변경 API는 요청 Origin과 `APP_ORIGIN`이 일치하는지 확인
 - 인증되지 않은 사용자의 업무·메모 API 접근 차단
 
+## AI 앱 연결 (MCP)
+
+Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Claude 같은 AI 앱이 업무 기록을 조회하고 타이머를 조작할 수 있습니다. 설계와 보안 결정은 `docs/mcp-integration.md`에 정리했습니다.
+
+- **인증:** OAuth 2.1(PKCE S256 필수)입니다. Work Timer가 인가 서버를 겸하며, 처음 연결할 때 Work Timer 로그인과 동의 화면이 열립니다. 클라이언트 식별은 Client ID Metadata Document와 동적 등록(DCR)을 모두 지원합니다.
+- **권한:** `tasks:read`(업무 기록·메모·통계 보기), `tasks:write`(타이머 시작·종료와 업무 기록 수정). 삭제 도구와 계정 관련 기능은 제공하지 않습니다.
+- **도구:** 조회 `get_current_work`, `list_tasks`, `get_stats`, `get_memos` / 작업 단위 `start_work`, `finish_work` / 세부 조작 `pause_work`, `resume_work`, `update_task`, `update_daily_memo`
+- **연결 관리:** 설정 > 연결된 앱에서 연결한 앱을 확인하고 해제합니다. 비밀번호를 바꾸면 모든 연결이 해제됩니다.
+
+### 연결 방법
+
+- **claude.ai·Claude Desktop·모바일:** 설정 > 커넥터 > 커스텀 커넥터 추가에서 URL에 `https://<도메인>/api/mcp`를 입력합니다.
+- **Claude Code:**
+
+  ```powershell
+  claude mcp add --transport http worktimer https://<도메인>/api/mcp
+  ```
+
+  추가한 뒤 Claude Code에서 `/mcp`를 열어 인증을 진행합니다.
+
+### 자동 시작·종료
+
+서버는 연결할 때 AI에게 다음 규칙을 전달합니다(`lib/mcp.ts`의 `INSTRUCTIONS`).
+
+- 코드 작성·문서 작성·조사 같은 작업 요청을 받으면 작업 전에 `start_work`로 타이머를 시작합니다. 단순 질문에는 시작하지 않습니다.
+- 진행 중인 작업이 있으면 종료할지 사용자에게 묻습니다.
+- PR 생성, 커밋 완료, 사용자의 완료 선언으로 작업이 끝나면 `finish_work`로 종료하고 결과를 요약합니다.
+
+AI가 이 규칙을 항상 지키지는 않으므로 보강 수단을 둡니다.
+
+- **claude.ai·Claude Desktop:** 프로젝트 지침이나 사용자 선호 설정에 위 규칙을 같은 문장으로 넣습니다.
+- **Claude Code:** 아래 훅을 `~/.claude/settings.json`(모든 프로젝트) 또는 프로젝트의 `.claude/settings.json`에 추가합니다. 훅은 MCP 도구를 직접 부르지 않고, Claude에게 지금 도구를 부를 차례라고 알리는 문장만 덧붙입니다. 그래서 훅에 토큰을 넣을 필요가 없습니다.
+  - `UserPromptSubmit`: 요청마다 작업이면 타이머를 시작하라고 알립니다. 이미 진행 중인 작업이 있으면 `start_work`가 오류를 돌려주므로 중복으로 시작되지 않습니다.
+  - `PostToolUse`: `gh pr create`가 실행된 뒤에만(`if` 조건) PR 링크를 넣어 작업을 종료하라고 알립니다.
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Work Timer: 이 요청이 코드 작성·문서 작성·조사 같은 작업이면, 작업 전에 worktimer의 start_work로 타이머를 시작한다. 단순 질문이면 시작하지 않는다.'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(gh pr create*)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Work Timer: PR이 생성되었다. 작업이 끝났으면 worktimer의 finish_work를 호출하고 summary에 무엇을, 왜, 결과(PR 링크·검증 결과)를 3~6줄로 적는다.\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+훅 명령은 Windows에서 Git Bash로 실행됩니다(Git Bash가 없으면 PowerShell). 위 `echo` 명령은 두 셸에서 모두 동작합니다.
+
 ## 로컬 실행
 
 Node.js 22.13 이상과 `package.json`에 선언된 pnpm 버전을 사용합니다.
