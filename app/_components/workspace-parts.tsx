@@ -11,6 +11,7 @@ import {
   ChevronRight,
   NotebookPen,
   Clock3,
+  Plug,
 } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -51,9 +52,53 @@ export type LayoutProps = {
   onLayoutChange: (layout: LayoutId) => Promise<boolean>;
 };
 
+// TODO: Codex 연결 링크 확정 후 채운다. 비어 있으면 메뉴 항목이 비활성으로 보인다.
+const CODEX_CONNECT_URL = "";
+
+function openClaudeConnect() {
+  // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
+  const params = new URLSearchParams({
+    modal: "add-custom-connector",
+    connectorName: "Work Timer",
+    connectorUrl: `${window.location.origin}/api/mcp`,
+  });
+  window.open(
+    `https://claude.ai/customize/connectors?${params}`,
+    "_blank",
+    "noopener",
+  );
+}
+
+function ConnectMenu() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="connect-trigger">
+          <Plug size={16} />
+          AI 연결
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="connect-menu">
+        <button type="button" onClick={openClaudeConnect}>
+          Claude에 연결
+        </button>
+        <button
+          type="button"
+          disabled={!CODEX_CONNECT_URL}
+          title={CODEX_CONNECT_URL ? undefined : "준비 중"}
+          onClick={() => window.open(CODEX_CONNECT_URL, "_blank", "noopener")}
+        >
+          Codex에 연결{!CODEX_CONNECT_URL && " (준비 중)"}
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function HeaderActions({ ws, layout, onLayoutChange }: LayoutProps) {
   return (
     <div className="top-actions">
+      <ConnectMenu />
       <SettingsDialog
         disabled={ws.busy}
         onDeleted={ws.resetDeleted}
