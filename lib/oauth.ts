@@ -26,8 +26,8 @@ export function authorizationServerMetadata(){
   client_id_metadata_document_supported:true};
 }
 
-// OAuth 엔드포인트는 쿠키를 받지 않으므로 브라우저 기반 클라이언트를 위해 모든 출처를 허용한다(credentials 불허).
-const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, MCP-Protocol-Version'};
+// OAuth·MCP 엔드포인트는 쿠키를 받지 않으므로 브라우저 기반 클라이언트를 위해 모든 출처를 허용한다(credentials 불허).
+export const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, MCP-Protocol-Version','Access-Control-Expose-Headers':'WWW-Authenticate'};
 export const oauthJson=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store',Pragma:'no-cache',...CORS}});
 export const oauthError=(error:string,description:string,status=400)=>oauthJson({error,error_description:description},status);
 export const corsPreflight=()=>new Response(null,{status:204,headers:CORS});
@@ -211,6 +211,6 @@ export async function revokeToken(db:Db,token:string,clientId:string,now:number)
 }
 // MCP 요청의 Bearer 토큰을 확인한다. 만료·폐기된 토큰이면 null.
 export async function verifyAccessToken(db:Db,token:string,now:number){
- const row=await db.prepare("SELECT g.id,g.owner,g.scope FROM oauth_tokens t JOIN oauth_grants g ON g.id=t.grant_id WHERE t.token_hash=? AND t.kind='access' AND t.expires>? AND g.revoked IS NULL").bind(await hashToken(token),now).first<{id:string;owner:string;scope:string}>();
- return row?{grantId:row.id,owner:row.owner,scopes:row.scope.split(' ')}:null;
+ const row=await db.prepare("SELECT g.id,g.owner,g.client_id,g.scope FROM oauth_tokens t JOIN oauth_grants g ON g.id=t.grant_id WHERE t.token_hash=? AND t.kind='access' AND t.expires>? AND g.revoked IS NULL").bind(await hashToken(token),now).first<{id:string;owner:string;client_id:string;scope:string}>();
+ return row?{grantId:row.id,owner:row.owner,clientId:row.client_id,scopes:row.scope.split(' ')}:null;
 }

@@ -22,6 +22,11 @@ export async function listTasks(db:Db,owner:string,day:string){
  const spans=await db.prepare("SELECT task_id,start_at,end_at FROM task_sessions WHERE owner=? AND task_id IN (SELECT id FROM tasks WHERE owner=? AND (day=? OR status!='done')) ORDER BY start_at").bind(owner,owner,day).all();
  return result.results.map(t=>({...t,sessions:spans.results.filter(s=>s.task_id===t.id).map(s=>({start_at:s.start_at,end_at:s.end_at}))}));
 }
+// 기간의 날짜별 작업 수와 합계 시간(ms). 측정 중인 작업은 now까지 센다. 기간은 호출하는 쪽에서 검증한다.
+export async function dayTotals(db:Db,owner:string,from:string,to:string,now:number){
+ const result=await db.prepare("SELECT day,COUNT(*) AS count,SUM(elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END) AS total FROM tasks WHERE owner=? AND day>=? AND day<=? GROUP BY day").bind(now,owner,from,to).all<{day:string;count:number;total:number}>();
+ return result.results;
+}
 // 업무 생성·수정·삭제·상태 전이를 처리한다. 성공하면 null, 사용자에게 보일 실패는 TaskFailure를 돌려준다.
 // 그 밖의 DB 오류는 그대로 던진다.
 export async function applyTaskAction(db:Db,owner:string,b:TaskBody,now=Date.now()):Promise<TaskFailure|null>{

@@ -1,6 +1,6 @@
 # MCP 연동 설계
 
-> 상태: **1단계(공통 로직 분리)·2단계(OAuth 기반) 구현 완료** (2026-10-14 작성, 2026-10-15 갱신)
+> 상태: **1단계(공통 로직 분리)·2단계(OAuth 기반)·3단계(MCP 엔드포인트와 조회 도구) 구현 완료** (2026-10-14 작성, 2026-10-15 갱신)
 > 이 문서만 읽고 다른 세션에서 바로 구현을 시작할 수 있도록 배경 지식, 결정 사항, 구현 순서를 모두 적는다.
 > 구현할 때 MCP·OAuth 사양과 SDK API는 버전에 따라 바뀌므로 **최신 공식 문서를 먼저 확인**하고, 이 문서와 다르면 이 문서를 고친다.
 
@@ -138,8 +138,13 @@ oauth_tokens
 
 ### 5.1 라우트
 
-- `app/api/mcp/route.ts`: `POST`(JSON-RPC), stateless. `GET`(SSE 스트림)은 405로 응답한다.
-- 라이브러리: 공식 `@modelcontextprotocol/sdk` + `zod`. Next.js용 어댑터 `mcp-handler`(Vercel)를 쓸지는 구현할 때 비교해서 정한다.
+- `app/api/mcp/route.ts`: `POST`(JSON-RPC), stateless. `GET`(SSE 스트림)·`DELETE`(세션 종료)는 405로 응답한다.
+- 라이브러리(3단계 결정): 공식 SDK v2 `@modelcontextprotocol/server` + `zod`(v4). v1 단일 패키지 `@modelcontextprotocol/sdk`는 v2로 대체되었고, `mcp-handler`도 v2 SDK 위의 어댑터라 따로 쓰지 않는다.
+  - `createMcpHandler(factory)`가 웹 표준 `Request → Response` 핸들러를 만든다. 요청마다 `factory`가 `McpServer`를 새로 만든다(stateless).
+  - 2026-07-28 사양(요청마다 `_meta` 봉투, `server/discover`)과 2025년 사양(`initialize` 핸드셰이크)을 **둘 다** 받는다(`legacy: 'stateless'` 기본값). 어느 쪽인지는 SDK가 요청마다 판별한다.
+  - 핸들러는 토큰을 검사하지 않는다. 라우트가 먼저 Bearer 토큰을 확인하고 결과를 `fetch(req, {authInfo})`로 넘긴다. 사용자 id는 `authInfo.extra.owner`에 담는다(`lib/mcp.ts`의 `authenticate`).
+  - 토큰에 `tasks:read`가 없으면 조회 도구를 등록하지 않는다(`tools/list`가 비고, 호출은 알 수 없는 도구 오류).
+  - 401 응답의 `WWW-Authenticate`에는 `resource_metadata`와 `scope`를 넣고, 토큰이 있었지만 유효하지 않으면 `error="invalid_token"`을 더한다.
 - 요청마다: Bearer 토큰 해시 조회 → 만료·폐기·audience 확인 → `owner`, `scope` 확보 → grant `last_used` 갱신(분 단위로만 갱신해 쓰기 줄이기) → 도구 실행.
 - 요청 크기 제한은 기존 API와 같이 256KB.
 
