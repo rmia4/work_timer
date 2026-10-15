@@ -256,14 +256,14 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  task.run('kw1','owner','2026-08-01','키워드 정리','짧은 내용','',0,60000,null,'done',day-75*DAY,null,null);
  let found=await data(writer,'list_tasks',{query:'키워드'});
  assert.deepEqual(found.tasks.map(t=>t.id),['long1','kw1']);assert.equal(found.has_more,false);
- assert.equal(found.tasks[0].note,long+'키워드','small results come in full');
+ assert.equal(found.tasks[0].note,long+'키워드','small results come in full');assert.equal(found.truncated,false);
  assert.deepEqual((await data(writer,'list_tasks',{query:'키워드',day:'2026-08-01'})).tasks.map(t=>t.id),['kw1']);
  assert.equal((await data(writer,'list_tasks',{query:'비밀'})).tasks.length,0,'not other users');
  // 본문 합계가 10000자를 넘으면 미리보기와 검색어 주변 발췌
  task.run('big1','owner','2026-08-02','큰 기록','나'.repeat(6000)+'키워드'+'다'.repeat(6000),'',0,60000,null,'done',day-74*DAY,null,null);
  found=await data(writer,'list_tasks',{query:'키워드'});
  const big=found.tasks.find(t=>t.id==='big1');
- assert.equal(big.note.length,200);assert.equal(big.note_truncated,true);assert.match(big.match_excerpt,/^나{150}키워드다{150}$/);
+ assert.equal(found.truncated,true);assert.equal(big.note.length,200);assert.equal(big.note_truncated,true);assert.match(big.match_excerpt,/^나{150}키워드다{150}$/);
  assert.equal((await data(writer,'list_tasks',{query:'키워드',include_details:true})).tasks.find(t=>t.id==='big1').note.length,12003);
 
  // 메모: 목록은 미리보기, memo_id면 전문, query는 제목·본문 검색(%·_는 글자 그대로)
@@ -274,7 +274,8 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await writer.callTool({name:'get_global_memos',arguments:{memo_id:'m2'}})).isError,true,'not my memo');
  await data(writer,'save_global_memo',{title:'진행률',body:'100% 완료'});
  assert.deepEqual((await data(writer,'get_global_memos',{query:'%'})).memos.map(m=>m.title),['진행률'],'% is literal');
- assert.deepEqual((await data(writer,'get_global_memos',{query:'회의'})).memos.map(m=>[m.title,m.body.length]),[['회의록',300]]);
+ const meetingFound=await data(writer,'get_global_memos',{query:'회의'});
+ assert.deepEqual(meetingFound.memos.map(m=>[m.title,m.body.length]),[['회의록',300]]);assert.equal(meetingFound.truncated,false);
  assert.equal((await data(writer,'get_global_memos',{query:'비밀'})).memos.length,0);
  db.prepare('INSERT INTO daily_memos (id,owner,day,title,body,position,version,created,updated) VALUES (?,?,?,?,?,?,?,?,?)').run('d9','other','2026-10-16','남의 할 일','할 일',1,0,now,now);
  await data(writer,'save_daily_memo',{day:'2026-09-01',title:'지난 할 일',body:'할 일 목록'});

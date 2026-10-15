@@ -45,11 +45,11 @@ function excerpt(texts:string[],query:string){
  return null;
 }
 // 검색 결과는 AI가 사용자가 말한 대상을 고를 수 있게 본문을 최대한 넣는다.
-// 본문 합계가 작으면 모두 전문, 크면 미리보기와 검색어 주변 발췌를 준다. rows는 MATCH_LIMIT+1건까지 받는다.
+// 본문 합계가 작으면 모두 전문, 크면 미리보기와 검색어 주변 발췌를 준다(truncated: true). rows는 MATCH_LIMIT+1건까지 받는다.
 function searchResults<T>(rows:T[],query:string,texts:(row:T)=>string[],full:(row:T)=>object,short:(row:T)=>object){
  const items=rows.slice(0,MATCH_LIMIT);
  const fits=items.reduce((n,row)=>n+texts(row).reduce((m,text)=>m+text.length,0),0)<=SEARCH_FULL_CHARS;
- return {items:items.map(row=>fits?full(row):{...short(row),match_excerpt:excerpt(texts(row),query)}),has_more:rows.length>MATCH_LIMIT};
+ return {items:items.map(row=>fits?full(row):{...short(row),match_excerpt:excerpt(texts(row),query)}),has_more:rows.length>MATCH_LIMIT,truncated:!fits};
 }
 // 사용자 입력 텍스트는 데이터 필드에만 담는다. 텍스트 결과에는 한 줄 요약과 같은 JSON을 함께 넣는다.
 const ok=(summary:string,data:Record<string,unknown>)=>({content:[{type:'text' as const,text:summary+'\n'+JSON.stringify(data)}],structuredContent:data});
@@ -90,7 +90,7 @@ function readTools(server:McpServer,ctx:Ctx){
   const task=t&&taskView(t,now(),include_details?'full':'preview');
   return ok(task?`${task.status==='running'?'진행 중':'일시정지'}: ${task.minutes}분 경과`:'진행 중인 작업이 없습니다.',{task});
  });
- server.registerTool('list_tasks',{title:'작업 목록·검색',description:'한 날짜의 작업 목록(제목, 상태, 소요 분, 시작·종료 시각, 내용, 결과)을 만든 순서의 역순으로 돌려준다. day를 생략하면 오늘이다. 내용·결과는 앞 200자만 오고, 전문은 include_details: true. query를 주면 제목·내용·결과에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 결과가 잘렸으면 match_excerpt로 대상을 고른 뒤 include_details로 다시 조회한다.',
+ server.registerTool('list_tasks',{title:'작업 목록·검색',description:'한 날짜의 작업 목록(제목, 상태, 소요 분, 시작·종료 시각, 내용, 결과)을 만든 순서의 역순으로 돌려준다. day를 생략하면 오늘이다. 내용·결과는 앞 200자만 오고(잘린 항목은 note_truncated·result_truncated: true), 전문은 include_details: true. query를 주면 제목·내용·결과에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 검색 결과는 truncated: false면 전문이고, true면 match_excerpt로 대상을 고른 뒤 include_details로 다시 조회한다.',
   inputSchema:z.object({day:dayInput.optional(),query:queryInput.optional(),include_details:detailsInput}),annotations:readOnly},async({day,query,include_details})=>{
   if(day!==undefined&&!validDay(day))return toolError(badDay);
   const at=now(),mode=include_details?'full':'preview';
@@ -98,8 +98,8 @@ function readTools(server:McpServer,ctx:Ctx){
    const pattern=likePattern(query);
    const rows=(await db.prepare(`SELECT * FROM tasks WHERE owner=?${day?' AND day=?':''} AND ${likeAny(['title','note','result'])} ORDER BY day DESC,created DESC LIMIT ?`)
     .bind(...[owner,...(day?[day]:[]),pattern,pattern,pattern,MATCH_LIMIT+1]).all<TaskRow>()).results;
-   const {items,has_more}=searchResults(rows,query,t=>[t.note,t.result],t=>taskView(t,at,'full'),t=>taskView(t,at,mode));
-   return ok(`"${query}" 일치 작업 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,tasks:items,has_more});
+   const {items,has_more,truncated}=searchResults(rows,query,t=>[t.note,t.result],t=>taskView(t,at,'full'),t=>taskView(t,at,mode));
+   return ok(`"${query}" 일치 작업 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,tasks:items,has_more,truncated});
   }
   const target=day??kstToday(at);
   const tasks=(await listTasks(db,owner,target) as unknown as TaskRow[]).filter(t=>t.day===target).map(t=>taskView(t,at,mode));
@@ -119,7 +119,7 @@ function readTools(server:McpServer,ctx:Ctx){
   }
   return ok(summary,{from,to,group,total_minutes:total,task_count:count,periods:[...periods.values()]});
  });
- server.registerTool('get_daily_memos',{title:'날짜별 메모 조회·검색',description:'한 날짜의 메모를 돌려준다(day 생략 시 오늘). 본문은 앞 200자만 온다. memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 잘린 결과는 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜와 상관없는 메모는 get_global_memos.',
+ server.registerTool('get_daily_memos',{title:'날짜별 메모 조회·검색',description:'한 날짜의 메모를 돌려준다(day 생략 시 오늘). 본문은 앞 200자만 온다(잘린 항목은 body_truncated: true). memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 검색 결과는 truncated: false면 전문이고, true면 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜와 상관없는 메모는 get_global_memos.',
   inputSchema:z.object({day:dayInput.optional(),memo_id:z.string().optional(),query:queryInput.optional()}),annotations:readOnly},async({day,memo_id,query})=>{
   if(day!==undefined&&!validDay(day))return toolError(badDay);
   if(memo_id!==undefined){
@@ -130,14 +130,14 @@ function readTools(server:McpServer,ctx:Ctx){
    const pattern=likePattern(query);
    const rows=(await db.prepare(`SELECT id,day,title,body,version FROM daily_memos WHERE owner=?${day?' AND day=?':''} AND ${likeAny(['title','body'])} ORDER BY day DESC,position,created LIMIT ?`)
     .bind(...[owner,...(day?[day]:[]),pattern,pattern,MATCH_LIMIT+1]).all<MemoRow>()).results;
-   const {items,has_more}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
-   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,daily_memos:items,has_more});
+   const {items,has_more,truncated}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
+   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,daily_memos:items,has_more,truncated});
   }
   const target=day??kstToday(now());
   const daily=await db.prepare('SELECT id,title,body,version FROM daily_memos WHERE owner=? AND day=? ORDER BY position,created').bind(owner,target).all<MemoRow>();
   return ok(`${target} 메모 ${daily.results.length}건`,{day:target,daily_memos:daily.results.map(m=>memoView(m,false))});
  });
- server.registerTool('get_global_memos',{title:'전역 메모 조회·검색',description:'날짜와 상관없는 전역 메모를 돌려준다. 본문은 앞 200자만 온다. memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(최대 20건). 잘린 결과는 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜별 메모는 get_daily_memos.',
+ server.registerTool('get_global_memos',{title:'전역 메모 조회·검색',description:'날짜와 상관없는 전역 메모를 돌려준다. 본문은 앞 200자만 온다(잘린 항목은 body_truncated: true). memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(최대 20건). 검색 결과는 truncated: false면 전문이고, true면 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜별 메모는 get_daily_memos.',
   inputSchema:z.object({memo_id:z.string().optional(),query:queryInput.optional()}),annotations:readOnly},async({memo_id,query})=>{
   if(memo_id!==undefined){
    const memo=await db.prepare('SELECT id,title,body,version FROM memos WHERE id=? AND owner=?').bind(memo_id,owner).first<MemoRow>();
@@ -146,8 +146,8 @@ function readTools(server:McpServer,ctx:Ctx){
   if(query!==undefined){
    const pattern=likePattern(query);
    const rows=(await db.prepare(`SELECT id,title,body,version FROM memos WHERE owner=? AND ${likeAny(['title','body'])} ORDER BY position,created LIMIT ?`).bind(owner,pattern,pattern,MATCH_LIMIT+1).all<MemoRow>()).results;
-   const {items,has_more}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
-   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,memos:items,has_more});
+   const {items,has_more,truncated}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
+   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,memos:items,has_more,truncated});
   }
   const memos=await db.prepare('SELECT id,title,body,version FROM memos WHERE owner=? ORDER BY position,created').bind(owner).all<MemoRow>();
   return ok(`전역 메모 ${memos.results.length}건`,{memos:memos.results.map(m=>memoView(m,false))});
