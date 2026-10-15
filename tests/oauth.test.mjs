@@ -184,3 +184,43 @@ test('CIMD fetch refuses non-public addresses at connect time',async()=>{
  await assert.rejects(cimd.fetchClientDocument('https://localhost/client.json'),{code:'EBLOCKED'});
  await assert.rejects(cimd.fetchClientDocument('https://127.0.0.1/client.json'),{code:'EBLOCKED'});
 });
+
+test('connections API lists and disconnects only the signed-in user\'s apps',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
+ db.exec("CREATE TABLE users (id TEXT PRIMARY KEY)");
+ db.exec(read('drizzle-neon/0007_oauth.sql'));
+ db.exec("INSERT INTO users (id) VALUES ('owner'),('other')");
+ db.exec("INSERT INTO oauth_clients (id,name,redirect_uris,created) VALUES ('dcr','My App','[]',0),('https://claude.ai/oauth/meta','Claude','[]',0)");
+ db.exec("INSERT INTO oauth_grants (id,owner,client_id,scope,created,last_used,revoked) VALUES ('g1','owner','dcr','tasks:read',1,NULL,NULL),('g2','owner','https://claude.ai/oauth/meta','tasks:read tasks:write',2,5,NULL),('g3','owner','dcr','tasks:read',0,NULL,9),('g4','other','dcr','tasks:read',3,NULL,NULL)");
+ db.exec("INSERT INTO oauth_tokens (token_hash,grant_id,kind,expires) VALUES ('t1','g1','access',9e15),('t2','g2','refresh',9e15),('t4','g4','access',9e15)");
+ const adapter={prepare(sql){return {bind(...args){return {
+  async first(){return db.prepare(sql).get(...args)||null;},
+  async all(){return {results:db.prepare(sql).all(...args)};},
+  async run(){return {meta:db.prepare(sql).run(...args)};},
+ };}};},async batch(items){const results=[];for(const item of items)results.push(await item.run());return results;}};
+ process.env.APP_ORIGIN=ORIGIN;
+ const auth=await load('lib/auth.ts');
+ globalThis.oauthFixture={...auth,database:()=>adapter,getCodeUser:async req=>{const m=/user=(\w+)/.exec(req.headers.get('cookie')||'');return m?{userId:m[1]}:null;}};
+ Object.assign(globalThis.oauthFixture,await load('lib/oauth.ts','const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.oauthFixture;'));
+ const route=await load('app/api/connections/route.ts','const {getCodeUser,trustedOrigin,database,listConnections,disconnect}=globalThis.oauthFixture;');
+ delete globalThis.oauthFixture;
+ const get=(user='owner')=>route.GET(new Request(ORIGIN+'/api/connections',{headers:{cookie:user?'user='+user:''}}));
+ const post=(body,{user='owner',origin=ORIGIN}={})=>route.POST(new Request(ORIGIN+'/api/connections',{method:'POST',headers:{origin,cookie:user?'user='+user:''},body:JSON.stringify(body)}));
+ try{
+  assert.equal((await get(null)).status,401);
+  const list=(await (await get()).json()).connections;
+  assert.deepEqual(list.map(c=>c.id),['g2','g1'],'revoked and other users\' grants are hidden, newest first');
+  assert.deepEqual(list[0],{id:'g2',name:'Claude',host:'claude.ai',scopes:['업무 기록·메모·통계 보기','타이머 시작·종료와 업무 기록 수정'],created:2,lastUsed:5});
+  assert.equal(list[1].host,null);
+  assert.equal((await post({action:'disconnect',id:'g1'},{user:null})).status,401);
+  assert.equal((await post({action:'disconnect',id:'g1'},{origin:'https://evil.test'})).status,403);
+  assert.equal((await post({action:'remove',id:'g1'})).status,400);
+  assert.equal((await post({action:'disconnect',id:'g4'})).status,404,'another user\'s grant cannot be revoked');
+  assert.equal(db.prepare("SELECT revoked FROM oauth_grants WHERE id='g4'").get().revoked,null);
+  assert.equal((await post({action:'disconnect',id:'g2'})).status,200);
+  assert.ok(db.prepare("SELECT revoked FROM oauth_grants WHERE id='g2'").get().revoked);
+  assert.deepEqual(db.prepare('SELECT token_hash FROM oauth_tokens ORDER BY token_hash').all().map(r=>r.token_hash),['t1','t4']);
+  assert.equal((await post({action:'disconnect',id:'g2'})).status,404,'already disconnected');
+  assert.deepEqual((await (await get()).json()).connections.map(c=>c.id),['g1']);
+ }finally{db.close();}
+});
