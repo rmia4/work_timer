@@ -24,7 +24,8 @@ test('task batches guard stale writes and data APIs bound bodies before parsing'
  };}};},async batch(items){batches.push(items.length);if(beforeBatch){const hook=beforeBatch;beforeBatch=null;hook();}const results=[];for(const item of items)results.push(await item.run());return results;}};
  const dates=await load('lib/work-dates.ts');
  globalThis.dataApiFixture={...dates,getCodeUser:async()=>({userId:'owner'}),trustedOrigin:()=>true,database:()=>adapter};
- const imports='const {getCodeUser,trustedOrigin,database,validDay,validTimes}=globalThis.dataApiFixture;';
+ const imports='const {getCodeUser,trustedOrigin,database,validDay,validTimes,listTasks,applyTaskAction}=globalThis.dataApiFixture;';
+ Object.assign(globalThis.dataApiFixture,await load('lib/task-service.ts','const {validDay,validTimes}=globalThis.dataApiFixture;'));
  const tasks=await load('app/api/tasks/route.ts',imports);
  const memos=await load('app/api/memos/route.ts',imports);
  const daily=await load('app/api/daily-memos/route.ts',imports);
