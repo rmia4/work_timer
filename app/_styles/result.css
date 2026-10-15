@@ -133,10 +133,6 @@
 .connect-menu button {
   justify-content: flex-start;
 }
-.connect-menu .hint {
-  max-width: 220px;
-  margin: 0 4px 4px;
-}
 .connections {
   display: grid;
   gap: 10px;

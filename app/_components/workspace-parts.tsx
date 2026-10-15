@@ -82,9 +82,6 @@ function ConnectMenu() {
         <button type="button" onClick={openClaudeConnect}>
           Claude에 연결
         </button>
-        <p className="hint">
-          웹에서 추가한 뒤 Claude 데스크톱 앱을 재시작해야 커넥터가 보입니다.
-        </p>
         <button
           type="button"
           disabled={!CODEX_CONNECT_URL}
