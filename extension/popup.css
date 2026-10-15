@@ -99,7 +99,7 @@ h2 {
   transform-origin: 120px 120px;
   stroke-linecap: round;
 }
-.clock-segment:hover {
+.clock-segment.is-active {
   stroke-width: 16;
 }
 /* 구간에 커서를 올리면 바로 뜨는 검정 툴팁 */

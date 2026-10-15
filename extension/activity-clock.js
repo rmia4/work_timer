@@ -89,6 +89,7 @@ export function drawClock(svg, segments, now) {
       "stroke-dasharray": `${s.durationRatio * c} ${c}`,
       "stroke-dashoffset": -s.startRatio * c,
     }, svg);
+    arc.dataset.task = s.task.id;
     arc.dataset.tip =
       `${s.task.title}\n${timeFormatter.format(s.start)}–${timeFormatter.format(s.end)}`;
   }
@@ -106,10 +107,16 @@ export function drawClock(svg, segments, now) {
 }
 
 // 구간에 커서를 올리면 기본 <title> 대신 바로 뜨는 검정 툴팁을 커서 옆에 보여 준다.
+// 일시정지로 나뉜 같은 작업의 구간도 함께 강조한다.
 // 시계는 1분마다 다시 그려지므로 svg 자체에 이벤트를 건다.
 export function bindClockTooltip(svg, tip) {
+  const highlight = (id) => {
+    for (const arc of svg.querySelectorAll(".clock-segment")) arc.classList.toggle("is-active", arc.dataset.task === id);
+  };
   svg.addEventListener("pointermove", (e) => {
-    const text = e.target.closest?.(".clock-segment")?.dataset.tip;
+    const arc = e.target.closest?.(".clock-segment");
+    highlight(arc?.dataset.task);
+    const text = arc?.dataset.tip;
     tip.hidden = !text;
     if (!text) return;
     tip.textContent = text;
@@ -117,5 +124,8 @@ export function bindClockTooltip(svg, tip) {
     tip.style.left = `${Math.min(e.clientX + 12, w - tip.offsetWidth - 4)}px`;
     tip.style.top = `${Math.min(e.clientY + 12, h - tip.offsetHeight - 4)}px`;
   });
-  svg.addEventListener("pointerleave", () => (tip.hidden = true));
+  svg.addEventListener("pointerleave", () => {
+    tip.hidden = true;
+    highlight(null);
+  });
 }
