@@ -63,20 +63,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 ### 연결 방법
 
 - **claude.ai·Claude Desktop·모바일:** 설정 > 커넥터 > 커스텀 커넥터 추가에서 URL에 `https://<도메인>/api/mcp`를 입력합니다.
-- **Claude Code (플러그인, 권장):** 이 저장소가 플러그인 marketplace를 겸합니다. 플러그인 하나로 MCP 서버 연결과 아래 [자동 시작·종료](#자동-시작종료) 훅이 함께 설정됩니다.
-
-  ```powershell
-  claude plugin marketplace add rmia4/work_timer
-  claude plugin install work-timer@work-timer
-  ```
-
-  설치한 뒤 Claude Code에서 `/mcp`를 열어 `plugin:work-timer:worktimer` 인증을 진행합니다. 서버 주소는 운영 주소가 기본값입니다. 직접 배포했다면 `/plugin configure work-timer@work-timer`에서 `server_url`을 `https://<도메인>/api/mcp`로 바꿉니다.
-
-  - 플러그인을 쓰면 아래 `claude mcp add` 연결과 직접 넣은 훅은 지웁니다. 그대로 두면 도구와 훅 문장이 두 번씩 들어갑니다.
-  - claude.ai에 Work Timer 커넥터를 연결해 두었다면 Claude Code에서도 `claude.ai worktimer`로 보입니다. 이 경우 같은 도구가 두 벌이 되므로 Claude Code의 `/mcp`에서 한쪽을 끕니다.
-  - 타이머를 쓰지 않는 프로젝트에서는 그 프로젝트 폴더에서 `claude plugin disable work-timer@work-timer --scope local`로 끕니다.
-
-- **Claude Code (직접 설정):**
+- **Claude Code:**
 
   ```powershell
   claude mcp add --transport http worktimer https://<도메인>/api/mcp
@@ -95,7 +82,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 AI가 이 규칙을 항상 지키지는 않으므로 보강 수단을 둡니다.
 
 - **claude.ai·Claude Desktop:** 프로젝트 지침이나 사용자 선호 설정에 위 규칙을 같은 문장으로 넣습니다.
-- **Claude Code:** 플러그인을 설치했다면 아래 훅이 이미 들어 있습니다(`plugins/work-timer/hooks/hooks.json`). 직접 설정하는 경우에만 아래 훅을 `~/.claude/settings.json`(모든 프로젝트) 또는 프로젝트의 `.claude/settings.json`에 추가합니다. 훅은 MCP 도구를 직접 부르지 않고, Claude에게 지금 도구를 부를 차례라고 알리는 문장만 덧붙입니다. 그래서 훅에 토큰을 넣을 필요가 없습니다.
+- **Claude Code:** 아래 훅을 `~/.claude/settings.json`(모든 프로젝트) 또는 프로젝트의 `.claude/settings.json`에 추가합니다. 훅은 MCP 도구를 직접 부르지 않고, Claude에게 지금 도구를 부를 차례라고 알리는 문장만 덧붙입니다. 그래서 훅에 토큰을 넣을 필요가 없습니다.
   - `UserPromptSubmit`: 요청마다 작업이면 타이머를 시작하라고 알립니다. 이미 진행 중인 작업이 있으면 `start_work`가 오류를 돌려주므로 중복으로 시작되지 않습니다.
   - `PostToolUse`: `gh pr create`가 실행된 뒤에만(`if` 조건) PR 링크를 넣어 작업을 종료하라고 알립니다.
 
