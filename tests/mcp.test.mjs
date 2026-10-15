@@ -33,7 +33,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  Object.assign(f,await load('lib/oauth.ts','const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/task-service.ts','const {validDay,validTimes}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/stats.ts','const {validDay}=globalThis.mcpFixture;'));
- Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,applyTaskAction,validRange,validDay}=globalThis.mcpFixture;'));
+ Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,exportRows,applyTaskAction,validRange,validScope,tasksCsv,summaryPrompt,weekStart,validDay}=globalThis.mcpFixture;'));
  const route=await load('app/api/mcp/route.ts','const {createMcpHandler,database,appOrigin,oauthJson,corsPreflight,CORS,SCOPES,authenticate,createMcpServer}=globalThis.mcpFixture;');
  delete globalThis.mcpFixture;
 
@@ -97,7 +97,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   assert.equal(client.getProtocolEra(),mode==='legacy'?'legacy':'modern');
   assert.match(client.getInstructions(),/start_work/);
   const tools=(await client.listTools()).tools;
-  assert.deepEqual(tools.map(t=>t.name).sort(),['finish_work','get_current_work','get_memos','get_stats','list_tasks','pause_work','resume_work','start_work','update_daily_memo','update_task']);
+  assert.deepEqual(tools.map(t=>t.name).sort(),['export_tasks','finish_work','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks','pause_work','resume_work','save_daily_memo','save_global_memo','start_work','update_task']);
   assert.ok(tools.filter(t=>t.name.startsWith('get_')||t.name==='list_tasks').every(t=>t.annotations?.readOnlyHint===true));
   assert.ok(tools.every(t=>t.annotations?.destructiveHint!==true),'no destructive tools');
 
@@ -116,13 +116,49 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   const stats=await data(client,'get_stats',{from:'2026-10-14',to:'2026-10-15'});
   assert.deepEqual(stats.days.map(d=>[d.day,d.tasks]),[['2026-10-14',1],['2026-10-15',2]]);
   assert.equal(stats.task_count,3);assert.equal(stats.total_minutes,90+30+stats.days[1].minutes-30);
+  // 긴 기간은 주(월요일 시작)·월 단위로 묶는다. 2026-10-14(수)·15(목)는 같은 주.
+  const weekly=await data(client,'get_stats',{from:'2026-10-14',to:'2026-10-15',group:'week'});
+  assert.equal(weekly.days,undefined);assert.deepEqual(weekly.periods,[{period:'2026-10-12',minutes:stats.total_minutes,tasks:3}]);
+  const monthly=await data(client,'get_stats',{from:'2026-10-01',to:'2026-10-31',group:'month'});
+  assert.deepEqual(monthly.periods.map(p=>[p.period,p.tasks]),[['2026-10',3]]);assert.equal(monthly.periods[0].minutes,monthly.total_minutes);
   let error=await client.callTool({name:'get_stats',arguments:{from:'2026-10-15',to:'2026-10-14'}});
   assert.equal(error.isError,true,'reversed range is a tool error');
   error=await client.callTool({name:'list_tasks',arguments:{day:'2026-02-30'}});
   assert.equal(error.isError,true,'invalid date is a tool error');
 
-  const memos=await data(client,'get_memos',{day:'2026-10-15'});
-  assert.deepEqual(memos.memos.map(m=>m.id),['m1']);assert.deepEqual(memos.daily_memos.map(m=>[m.id,m.body,m.version]),[['d1','회의 3시',2]]);
+  assert.deepEqual((await data(client,'get_global_memos',{})).memos.map(m=>m.id),['m1']);
+  const daily=await data(client,'get_daily_memos',{day:'2026-10-15'});
+  assert.equal(daily.memos,undefined);assert.deepEqual(daily.daily_memos.map(m=>[m.id,m.body,m.version]),[['d1','회의 3시',2]]);
+
+  // CSV 내보내기: 웹과 같은 CSV를 텍스트로, 요약 지침은 요청할 때만 앞에 붙는다.
+  const exported=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-14',to:'2026-10-15',scope:'all'}});
+  assert.equal(exported.structuredContent.task_count,3);assert.equal(exported.structuredContent.scope,'all');
+  const lines=exported.content[0].text.split('\r\n');
+  assert.equal(lines[0],'2026-10-14 ~ 2026-10-15: 작업 3건\n날짜,제목,업무 내용,결과,목표(분),소요(분),시작 시각,종료 시각,상태');
+  assert.deepEqual(lines.slice(1,4).map(l=>l.split(',')[1]),['어제 일','설계 검토','MCP 구현'],'date order, only my tasks');
+  assert.doesNotMatch(exported.content[0].text,/남의 일|\uFEFF/);
+  const timeOnly=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15'}});
+  assert.equal(timeOnly.structuredContent.scope,'time','defaults to time scope');
+  assert.doesNotMatch(timeOnly.content[0].text,/업무 내용/);assert.doesNotMatch(timeOnly.content[0].text,/\[출력 형식\]/);
+  const guided=(await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15',with_summary_guide:true}})).content[0].text;
+  assert.match(guided,/\n\n아래 CSV는 2026-10-15부터/);assert.match(guided,/\[출력 형식\][\s\S]*\n날짜,제목,/);
+  assert.equal((await client.callTool({name:'export_tasks',arguments:{from:'2026-01-01',to:'2027-01-02'}})).isError,true,'over 366 days');
+  // 업무 내용 열을 포함하면 31일까지만
+  assert.equal((await client.callTool({name:'export_tasks',arguments:{from:'2026-01-01',to:'2026-12-31'}})).isError,undefined,'time allows 366 days');
+  for(const scope of ['all','detail']){
+   const tooWide=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-01',to:'2026-11-01',scope}});
+   assert.equal(tooWide.isError,true,`${scope} over 31 days`);assert.match(tooWide.content[0].text,/최대 31일/);
+  }
+  assert.equal((await client.callTool({name:'export_tasks',arguments:{from:'2026-10-01',to:'2026-10-31',scope:'all'}})).isError,undefined);
+  await assert.rejects(client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-01',to:'2026-11-01',scope:'detail'}}),/최대 31일/);
+
+  // 슬래시 프롬프트: 요약 지침과 CSV를 한 메시지로 넣는다.
+  assert.deepEqual((await client.listPrompts()).prompts.map(p=>p.name),['summarize_work']);
+  const prompt=await client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-15',to:'2026-10-15'}});
+  const text=prompt.messages[0].content.text;
+  assert.match(text,/^아래 CSV는 2026-10-15부터/);assert.match(text,/\n날짜,제목,목표\(분\)/,'defaults to time scope');assert.match(text,/설계 검토/);
+  await assert.rejects(client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-15',to:'2026-10-14'}}));
+  await assert.rejects(client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-15',to:'2026-10-15',scope:'x'}}));
   await client.close();
  }
 
@@ -139,7 +175,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(denied.isError,true);
  await limited.close();
  const readOnlyClient=await connect(otherToken,'legacy');
- assert.deepEqual((await readOnlyClient.listTools()).tools.map(t=>t.name).sort(),['get_current_work','get_memos','get_stats','list_tasks']);
+ assert.deepEqual((await readOnlyClient.listTools()).tools.map(t=>t.name).sort(),['export_tasks','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks']);
  const noWrite=await readOnlyClient.callTool({name:'start_work',arguments:{title:'몰래'}}).catch(e=>({isError:true,message:e.message}));
  assert.equal(noWrite.isError,true);
  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE owner='other'").get().n,1);
@@ -152,7 +188,8 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,'running','fail leaves the running task alone');
  const started=await data(writer,'start_work',{title:'쓰기 도구',note:'계획',target_minutes:90,if_running:'finish_previous'});
  assert.equal(started.finished_task_id,'run1');
- assert.equal(started.task.status,'running');assert.equal(started.task.target_minutes,90);assert.equal(started.task.note,'계획');
+ assert.equal(started.task.status,'running');assert.equal(started.task.target_minutes,90);assert.equal('note' in started.task,false,'write results are compact');
+ assert.equal(db.prepare('SELECT note FROM tasks WHERE id=?').get(started.task.id).note,'계획');
  assert.equal(started.task.day,new Date(Date.now()+9*HOUR).toISOString().slice(0,10),'today in KST');
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,'done');
  assert.equal((await data(writer,'get_current_work')).task.id,started.task.id);
@@ -160,7 +197,9 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await data(writer,'pause_work')).task.status,'paused');
  assert.equal((await data(writer,'resume_work')).task.status,'running');
  const finished=await data(writer,'finish_work',{summary:'도구 추가함',append_note:'추가 메모'});
- assert.equal(finished.task.status,'done');assert.equal(finished.task.result,'도구 추가함');assert.equal(finished.task.note,'계획\n\n추가 메모');
+ assert.equal(finished.task.status,'done');assert.equal('result' in finished.task,false);
+ const saved=(await data(writer,'list_tasks',{day:finished.task.day,include_details:true})).tasks.find(t=>t.id===finished.task.id);
+ assert.equal(saved.result,'도구 추가함');assert.equal(saved.note,'계획\n\n추가 메모');
  assert.ok(finished.task.ended_at);
  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM task_sessions WHERE task_id=? AND end_at IS NULL').get(finished.task.id).n,0,'sessions closed');
  assert.equal((await writer.callTool({name:'finish_work',arguments:{summary:'또'}})).isError,true,'nothing running');
@@ -168,26 +207,87 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  // 결과가 이미 있는 작업을 종료하면 이어 붙인다.
  const second=await data(writer,'start_work',{title:'두 번째'});
  db.prepare("UPDATE tasks SET result='기존 결과' WHERE id=?").run(second.task.id);
- assert.equal((await data(writer,'finish_work',{task_id:second.task.id,summary:'새 요약'})).task.result,'기존 결과\n\n---\n\n새 요약');
+ await data(writer,'finish_work',{task_id:second.task.id,summary:'새 요약'});
+ assert.equal(db.prepare('SELECT result FROM tasks WHERE id=?').get(second.task.id).result,'기존 결과\n\n---\n\n새 요약');
  assert.equal((await writer.callTool({name:'finish_work',arguments:{task_id:'x1',summary:'남의 것'}})).isError,true,'not my task');
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='x1'").get().status,'done');
 
  const edited=await data(writer,'update_task',{task_id:finished.task.id,version:finished.task.version,title:'고친 제목',minutes:45});
- assert.equal(edited.task.title,'고친 제목');assert.equal(edited.task.minutes,45);assert.equal(edited.task.result,'도구 추가함');assert.equal(edited.task.version,finished.task.version+1);
+ assert.equal(edited.task.title,'고친 제목');assert.equal(edited.task.minutes,45);assert.equal(db.prepare('SELECT result FROM tasks WHERE id=?').get(edited.task.id).result,'도구 추가함');assert.equal(edited.task.version,finished.task.version+1);
  result=await writer.callTool({name:'update_task',arguments:{task_id:finished.task.id,version:finished.task.version,title:'옛 버전'}});
  assert.equal(result.isError,true,'stale version');assert.match(result.content[0].text,/다시 조회/);
  assert.equal((await writer.callTool({name:'update_task',arguments:{task_id:'x1',version:0,title:'남의 것'}})).isError,true);
  assert.equal(db.prepare("SELECT title FROM tasks WHERE id='x1'").get().title,'남의 일');
 
  // 날짜별 메모 생성·수정과 버전 충돌
- const created=await data(writer,'update_daily_memo',{day:'2026-10-16',title:'내일',body:'할 일'});
+ const created=await data(writer,'save_daily_memo',{day:'2026-10-16',title:'내일',body:'할 일'});
  assert.equal(created.memo.version,0);
- const updated=await data(writer,'update_daily_memo',{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'바뀐 할 일'});
- assert.deepEqual(updated.memo,{id:created.memo.id,title:'내일',body:'바뀐 할 일',version:1});
- assert.deepEqual((await data(writer,'get_memos',{day:'2026-10-16'})).daily_memos.map(m=>[m.title,m.body,m.version]),[['내일','바뀐 할 일',1]]);
- assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'옛 버전'}})).isError,true);
- assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,body:'버전 없음'}})).isError,true);
- assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-15',memo_id:'d1',version:2,body:'x'}})).isError,undefined);
+ const updated=await data(writer,'save_daily_memo',{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'바뀐 할 일'});
+ assert.deepEqual(updated.memo,{id:created.memo.id,title:'내일',version:1},'no body in write results');
+ assert.deepEqual((await data(writer,'get_daily_memos',{day:'2026-10-16'})).daily_memos.map(m=>[m.title,m.body,m.version]),[['내일','바뀐 할 일',1]]);
+ assert.equal((await writer.callTool({name:'save_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'옛 버전'}})).isError,true);
+ assert.equal((await writer.callTool({name:'save_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,body:'버전 없음'}})).isError,true);
+ assert.equal((await writer.callTool({name:'save_daily_memo',arguments:{day:'2026-10-15',memo_id:'d1',version:2,body:'x'}})).isError,undefined);
+
+ // 전역 메모 생성·수정과 버전 충돌, 남의 메모 보호
+ const global=await data(writer,'save_global_memo',{title:'전역',body:'처음'});
+ assert.equal(global.memo.version,0);
+ assert.deepEqual((await data(writer,'save_global_memo',{memo_id:global.memo.id,version:0,body:'고침'})).memo,{id:global.memo.id,title:'전역',version:1});
+ assert.deepEqual((await data(writer,'get_global_memos',{})).memos.map(m=>[m.id,m.body,m.version]),[['m1','목록',0],[global.memo.id,'고침',1]]);
+ assert.equal((await writer.callTool({name:'save_global_memo',arguments:{memo_id:global.memo.id,version:0,body:'옛 버전'}})).isError,true);
+ assert.equal((await writer.callTool({name:'save_global_memo',arguments:{memo_id:global.memo.id,body:'버전 없음'}})).isError,true);
+ assert.equal((await writer.callTool({name:'save_global_memo',arguments:{memo_id:'m2',version:0,body:'남의 것'}})).isError,true);
+ assert.equal(db.prepare("SELECT body FROM memos WHERE id='m2'").get().body,'비밀');
+
+ // 긴 본문은 기본으로 앞 200자만, include_details로 전문을 받는다.
+ const long='가'.repeat(250),DAY=86400000;
+ task.run('long1','owner','2026-09-01','긴 기록',long+'키워드',long,0,60000,null,'done',day-40*DAY,null,null);
+ let longTask=(await data(writer,'list_tasks',{day:'2026-09-01'})).tasks[0];
+ assert.equal(longTask.note.length,200);assert.equal(longTask.note_truncated,true);assert.equal(longTask.result_truncated,true);
+ longTask=(await data(writer,'list_tasks',{day:'2026-09-01',include_details:true})).tasks[0];
+ assert.equal(longTask.note,long+'키워드');assert.equal(longTask.note_truncated,undefined);
+ await data(writer,'start_work',{title:'긴 작업',note:long});
+ const current2=(await data(writer,'get_current_work')).task;
+ assert.equal(current2.note.length,200);assert.equal(current2.note_truncated,true);
+ assert.equal((await data(writer,'get_current_work',{include_details:true})).task.note,long);
+ await data(writer,'finish_work',{summary:'끝'});
+
+ // 작업 검색: day를 생략하면 모든 날짜에서 최근 순, 본문이 작으면 여러 건 모두 전문
+ task.run('kw1','owner','2026-08-01','키워드 정리','짧은 내용','',0,60000,null,'done',day-75*DAY,null,null);
+ let found=await data(writer,'list_tasks',{query:'키워드'});
+ assert.deepEqual(found.tasks.map(t=>t.id),['long1','kw1']);assert.equal(found.has_more,false);
+ assert.equal(found.tasks[0].note,long+'키워드','small results come in full');
+ assert.deepEqual((await data(writer,'list_tasks',{query:'키워드',day:'2026-08-01'})).tasks.map(t=>t.id),['kw1']);
+ assert.equal((await data(writer,'list_tasks',{query:'비밀'})).tasks.length,0,'not other users');
+ // 본문 합계가 10000자를 넘으면 미리보기와 검색어 주변 발췌
+ task.run('big1','owner','2026-08-02','큰 기록','나'.repeat(6000)+'키워드'+'다'.repeat(6000),'',0,60000,null,'done',day-74*DAY,null,null);
+ found=await data(writer,'list_tasks',{query:'키워드'});
+ const big=found.tasks.find(t=>t.id==='big1');
+ assert.equal(big.note.length,200);assert.equal(big.note_truncated,true);assert.match(big.match_excerpt,/^나{150}키워드다{150}$/);
+ assert.equal((await data(writer,'list_tasks',{query:'키워드',include_details:true})).tasks.find(t=>t.id==='big1').note.length,12003);
+
+ // 메모: 목록은 미리보기, memo_id면 전문, query는 제목·본문 검색(%·_는 글자 그대로)
+ const longMemo=await data(writer,'save_global_memo',{title:'회의록',body:'라'.repeat(300)});
+ const listedMemo=(await data(writer,'get_global_memos')).memos.find(m=>m.id===longMemo.memo.id);
+ assert.equal(listedMemo.body.length,200);assert.equal(listedMemo.body_truncated,true);
+ assert.equal((await data(writer,'get_global_memos',{memo_id:longMemo.memo.id})).memo.body.length,300);
+ assert.equal((await writer.callTool({name:'get_global_memos',arguments:{memo_id:'m2'}})).isError,true,'not my memo');
+ await data(writer,'save_global_memo',{title:'진행률',body:'100% 완료'});
+ assert.deepEqual((await data(writer,'get_global_memos',{query:'%'})).memos.map(m=>m.title),['진행률'],'% is literal');
+ assert.deepEqual((await data(writer,'get_global_memos',{query:'회의'})).memos.map(m=>[m.title,m.body.length]),[['회의록',300]]);
+ assert.equal((await data(writer,'get_global_memos',{query:'비밀'})).memos.length,0);
+ db.prepare('INSERT INTO daily_memos (id,owner,day,title,body,position,version,created,updated) VALUES (?,?,?,?,?,?,?,?,?)').run('d9','other','2026-10-16','남의 할 일','할 일',1,0,now,now);
+ await data(writer,'save_daily_memo',{day:'2026-09-01',title:'지난 할 일',body:'할 일 목록'});
+ assert.deepEqual((await data(writer,'get_daily_memos',{query:'할 일'})).daily_memos.map(m=>[m.day,m.title]),[['2026-10-16','내일'],['2026-09-01','지난 할 일']],'all days, only mine');
+ assert.equal((await data(writer,'get_daily_memos',{memo_id:'d1'})).memo.day,'2026-10-15');
+ assert.equal((await writer.callTool({name:'get_daily_memos',arguments:{memo_id:'d9'}})).isError,true,'not my daily memo');
+
+ // 기간 안이어도 내용이 50000자를 넘으면 내보내지 않는다.
+ for(const i of [1,2,3])task.run('huge'+i,'owner','2026-07-01','긴 내용 '+i,'마'.repeat(20000),'',0,60000,null,'done',day-100*DAY+i,null,null);
+ const huge=await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'detail'}});
+ assert.equal(huge.isError,true);assert.match(huge.content[0].text,/너무 깁니다/);
+ assert.equal((await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01'}})).isError,undefined,'time scope stays small');
+ await assert.rejects(writer.getPrompt({name:'summarize_work',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'all'}}),/너무 깁니다/);
  await writer.close();
 
  // 폐기된 연결의 토큰은 거절한다.
