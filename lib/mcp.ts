@@ -309,4 +309,15 @@ function writeTools(server:McpServer,ctx:Ctx){
   if(!result.meta.changes)return toolError('다른 기기에서 변경되었습니다. get_global_memos로 다시 조회한 뒤 시도하세요.');
   return ok('전역 메모를 고쳤습니다.',{memo:{id:memo.id,title:memo.title,version:memo.version}});
  });
+ // 지난 작업을 완료 상태로 바로 기록한다. 웹의 "기록 추가"와 같이 타이머 없이 만들고 시작·종료 시각은 비워 둔다.
+ server.registerTool('add_task',{title:'지난 작업 기록',description:'이미 끝난 작업을 지정한 날짜에 완료 상태로 기록한다. 타이머는 켜지 않고 시작·종료 시각은 비워 둔다. 지금 시작하는 작업은 start_work를 쓴다.',
+  inputSchema:z.object({day:dayInput,title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),minutes:minutesInput.describe('소요 시간(분)'),note:z.string().max(20000).optional().describe('할 일·내용'),result:z.string().max(20000).optional().describe('결과'),target_minutes:minutesInput.optional().describe('목표 시간(분)')}),annotations:write},
+  async({day,title,minutes:spent,note,result,target_minutes})=>{
+  if(!validDay(day))return toolError(badDay);
+  const at=now();
+  const failure=await applyTaskAction(db,owner,{action:'create',title,day,note:note??'',result:result??'',target:(target_minutes??0)*60000,elapsed:spent*60000,run:false},at);
+  if(failure)return failed(failure);
+  const t=await db.prepare('SELECT * FROM tasks WHERE owner=? AND day=? AND created=? ORDER BY id LIMIT 1').bind(owner,day,at).first<TaskRow>();
+  return ok(`${day}에 작업을 기록했습니다: ${spent}분`,{task:t&&taskView(t,at,'compact')});
+ });
 }
