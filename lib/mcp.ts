@@ -161,18 +161,51 @@ function readTools(server:McpServer,ctx:Ctx){
   return null;
  };
  const tooLong=(size:number)=>`내보낼 내용이 ${size}자로 너무 깁니다(최대 ${EXPORT_MAX_CHARS}자). 기간을 줄이거나 scope: "time"으로 다시 호출하세요.`;
- const exportCsv=async(from:string,to:string,scope:ExportScope)=>{
-  const rows=await exportRows(db,owner,from,to,now());
-  return {count:rows.length,csv:tasksCsv(rows,scope).replace(/^\uFEFF/,'')};
+ const CUT_MARK='…(잘림)';
+ const cutText=(text:string,size:number)=>text.length<=size?text:text.slice(0,Math.max(0,size-CUT_MARK.length)).replace(/[\uD800-\uDBFF]$/,'')+CUT_MARK;
+ // 작업별 업무 내용+결과 길이 상한. 상한보다 짧은 작업은 그대로 두고 남는 몫을 긴 작업에 나눈다.
+ const fairCap=(sizes:number[],budget:number)=>{
+  const sorted=[...sizes].sort((a,b)=>a-b);
+  for(let i=0,rest=budget;i<sorted.length;rest-=sorted[i],i++){
+   const share=Math.floor(Math.max(0,rest)/(sorted.length-i));
+   if(sorted[i]>share)return share;
+  }
+  return Infinity;
  };
- server.registerTool('export_tasks',{title:'CSV 내보내기',description:`업무 기록을 웹의 내보내기와 같은 CSV 텍스트로 돌려준다. scope는 time(시간 기록 열, 기본값, 최대 366일), detail(업무 내용·결과 열)·all(전부)은 최대 ${DETAIL_EXPORT_DAYS}일. 업무 내용까지 봐야 할 때만 all·detail을 쓴다. 사용자가 기간 업무 요약·분석을 원하면 with_summary_guide: true로 호출하고, CSV 앞에 붙는 지침대로 요약한다.`,
+ // 상한을 넘으면 업무 내용·결과를 작업별로 잘라 맞춘다. CSV 이스케이프로 길이가 달라지니 다시 재서 예산을 고치고, 상한 안에서 가장 긴 결과를 고른다.
+ // compose는 CSV, 잘린 작업 수, 전체 작업 수로 최종 텍스트를 만든다. 다 잘라도 넘으면 상한을 넘는 텍스트를 그대로 돌려준다.
+ const exportText=async(from:string,to:string,scope:ExportScope,compose:(csv:string,cut:number,count:number)=>string)=>{
+  const rows=await exportRows(db,owner,from,to,now());
+  const build=(list:typeof rows,cut:number)=>compose(tasksCsv(list,scope).replace(/^\uFEFF/,''),cut,rows.length);
+  let text=build(rows,0);
+  if(text.length<=EXPORT_MAX_CHARS||scope==='time')return text;
+  const sizes=rows.map(r=>r.note.length+r.result.length);
+  let budget=sizes.reduce((a,b)=>a+b,0);
+  let best:string|null=null;
+  for(let i=0;i<5&&text.length!==EXPORT_MAX_CHARS;i++){
+   budget-=text.length-EXPORT_MAX_CHARS;
+   const cap=fairCap(sizes,budget);
+   let cut=0;
+   const fitted=rows.map((r,j)=>{
+    if(sizes[j]<=cap)return r;
+    cut++;
+    const noteSize=Math.floor(cap*r.note.length/sizes[j]);
+    return {...r,note:cutText(r.note,noteSize),result:cutText(r.result,cap-noteSize)};
+   });
+   text=build(fitted,cut);
+   if(text.length<=EXPORT_MAX_CHARS&&text.length>(best?.length??-1))best=text;
+  }
+  return best??text;
+ };
+ server.registerTool('export_tasks',{title:'CSV 내보내기',description:`업무 기록을 웹의 내보내기와 같은 CSV 텍스트로 돌려준다. scope는 time(시간 기록 열, 기본값, 최대 366일), detail(업무 내용·결과 열)·all(전부)은 최대 ${DETAIL_EXPORT_DAYS}일. 업무 내용까지 봐야 할 때만 all·detail을 쓴다. 전체가 ${EXPORT_MAX_CHARS}자를 넘으면 긴 작업의 업무 내용·결과 뒷부분을 잘라 "${CUT_MARK}"을 붙인다. 사용자가 기간 업무 요약·분석을 원하면 with_summary_guide: true로 호출하고, CSV 앞에 붙는 지침대로 요약한다.`,
   inputSchema:z.object({from:dayInput,to:dayInput,scope:z.enum(['time','all','detail']).optional(),with_summary_guide:z.boolean().optional().describe('웹의 "AI 요약 프롬프트"를 CSV 앞에 붙인다')}),annotations:readOnly},
   async({from,to,scope='time',with_summary_guide})=>{
   const rangeError=exportRangeError(from,to,scope);
   if(rangeError)return toolError(rangeError);
-  const {count,csv}=await exportCsv(from,to,scope);
-  const summary=`${from} ~ ${to}: 작업 ${count}건`;
-  const text=with_summary_guide?`${summary}\n\n${summaryPrompt(from,to,scope,'below')}\n\n${csv}`:`${summary}\n${csv}`;
+  const text=await exportText(from,to,scope,(csv,cut,count)=>{
+   const summary=`${from} ~ ${to}: 작업 ${count}건`+(cut?`. 글자 수 상한 때문에 ${cut}건의 업무 내용·결과 뒷부분을 잘랐습니다(칸 끝 "${CUT_MARK}"). 전문은 list_tasks에 day와 include_details: true로 조회합니다.`:'');
+   return with_summary_guide?`${summary}\n\n${summaryPrompt(from,to,scope,'below')}\n\n${csv}`:`${summary}\n${csv}`;
+  });
   if(text.length>EXPORT_MAX_CHARS)return toolError(tooLong(text.length));
   // structuredContent를 두면 그것만 모델에 넘기는 클라이언트(Claude Code 등)에서 CSV가 빠진다. 텍스트로만 돌려준다.
   return {content:[{type:'text' as const,text}]};
@@ -183,8 +216,7 @@ function readTools(server:McpServer,ctx:Ctx){
   if(!validScope(scope))throw new Error('scope는 time, all, detail 중 하나여야 합니다.');
   const rangeError=exportRangeError(from,to,scope);
   if(rangeError)throw new Error(rangeError);
-  const {csv}=await exportCsv(from,to,scope);
-  const text=`${summaryPrompt(from,to,scope,'below')}\n\n${csv}`;
+  const text=await exportText(from,to,scope,(csv,cut)=>`${summaryPrompt(from,to,scope,'below')}\n\n${cut?`글자 수 상한 때문에 ${cut}건의 업무 내용·결과 뒷부분을 잘랐습니다(칸 끝 "${CUT_MARK}").\n\n`:''}${csv}`);
   if(text.length>EXPORT_MAX_CHARS)throw new Error(tooLong(text.length));
   return {messages:[{role:'user' as const,content:{type:'text' as const,text}}]};
  });

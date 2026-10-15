@@ -283,12 +283,22 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await data(writer,'get_daily_memos',{memo_id:'d1'})).memo.day,'2026-10-15');
  assert.equal((await writer.callTool({name:'get_daily_memos',arguments:{memo_id:'d9'}})).isError,true,'not my daily memo');
 
- // 기간 안이어도 내용이 50000자를 넘으면 내보내지 않는다.
- for(const i of [1,2,3])task.run('huge'+i,'owner','2026-07-01','긴 내용 '+i,'마'.repeat(20000),'',0,60000,null,'done',day-100*DAY+i,null,null);
- const huge=await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'detail'}});
- assert.equal(huge.isError,true);assert.match(huge.content[0].text,/너무 깁니다/);
+ // 기간 안이어도 내용이 50000자를 넘으면 긴 작업의 업무 내용·결과만 잘라 상한에 맞춘다. 따옴표는 CSV에서 두 배가 된다.
+ task.run('huge1','owner','2026-07-01','긴 내용 1','마'.repeat(40000),'',0,60000,null,'done',day-100*DAY+1,null,null);
+ task.run('huge2','owner','2026-07-01','긴 내용 2','바'.repeat(15000),'"'.repeat(15000),0,60000,null,'done',day-100*DAY+2,null,null);
+ task.run('huge3','owner','2026-07-01','짧은 일','짧은 내용','짧은 결과',0,60000,null,'done',day-100*DAY+3,null,null);
+ const huge=(await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'detail',with_summary_guide:true}}));
+ assert.equal(huge.isError,undefined,huge.content[0].text.slice(0,200));
+ const hugeText=huge.content[0].text;
+ assert.ok(hugeText.length<=50000&&hugeText.length>49000,`fits the limit: ${hugeText.length}`);
+ assert.match(hugeText,/^2026-07-01 ~ 2026-07-01: 작업 3건\. 글자 수 상한 때문에 2건의/);
+ assert.equal(hugeText.match(/…\(잘림\)/g).length-1,3,'note of huge1, note and result of huge2 (one mark is in the summary)');
+ assert.match(hugeText,/,짧은 일,짧은 내용,짧은 결과\r\n/,'short task untouched');
+ const kept=hugeText.split('\r\n').slice(1).map(line=>line.replace(/""/g,'"').length);
+ assert.ok(Math.abs(kept[0]-kept[1])<kept[0]*0.2,`long tasks share the budget: ${kept}`);
  assert.equal((await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01'}})).isError,undefined,'time scope stays small');
- await assert.rejects(writer.getPrompt({name:'summarize_work',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'all'}}),/너무 깁니다/);
+ const hugePrompt=(await writer.getPrompt({name:'summarize_work',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'all'}})).messages[0].content.text;
+ assert.ok(hugePrompt.length<=50000);assert.match(hugePrompt,/2건의 업무 내용·결과 뒷부분을 잘랐습니다/);
  await writer.close();
 
  // 폐기된 연결의 토큰은 거절한다.
