@@ -171,18 +171,25 @@ oauth_tokens
 
 | 도구 | 입력 | 출력 |
 |---|---|---|
-| `get_current_work` | 없음 | 진행 중/일시정지 작업 1건 또는 없음, 경과 분 |
-| `list_tasks` | `day?` (기본 오늘) | 그날 작업 목록(제목, 상태, 소요 분, 시작·종료 시각, 결과) |
-| `get_stats` | `from`, `to` | 기간 총 시간, 작업 수, 일별 합계 |
-| `get_daily_memos` | `day?` | 해당 날짜 메모 |
-| `get_global_memos` | - | 전역 메모 |
-| `export_tasks` | `from`, `to`(최대 366일), `scope?`(`time`·`all`·`detail`, 기본 `all`), `with_summary_guide?` | 웹 "CSV 다운로드"와 같은 CSV 텍스트. `with_summary_guide`이면 앞에 웹의 "AI 요약 프롬프트"를 붙인다 |
+| `get_current_work` | `include_details?` | 진행 중/일시정지 작업 1건 또는 없음, 경과 분 |
+| `list_tasks` | `day?` (기본 오늘), `query?`, `include_details?` | 그날 작업 목록(제목, 상태, 소요 분, 시작·종료 시각, 내용, 결과). `query`가 있으면 제목·내용·결과 검색(`day` 생략 시 모든 날짜) |
+| `get_stats` | `from`, `to`, `group?`(`day`·`week`·`month`) | 기간 총 시간, 작업 수, 일별(`days`) 또는 주·월별(`periods`) 합계 |
+| `get_daily_memos` | `day?`, `memo_id?`, `query?` | 해당 날짜 메모. `memo_id`면 1건 전문, `query`면 제목·본문 검색(`day` 생략 시 모든 날짜) |
+| `get_global_memos` | `memo_id?`, `query?` | 전역 메모. `memo_id`면 1건 전문, `query`면 제목·본문 검색 |
+| `export_tasks` | `from`, `to`, `scope?`(`time`·`all`·`detail`, 기본 `time`), `with_summary_guide?` | 웹 "CSV 다운로드"와 같은 CSV 텍스트. `with_summary_guide`이면 앞에 웹의 "AI 요약 프롬프트"를 붙인다. 기간은 `time` 366일, `all`·`detail` 31일까지 |
+
+**응답 크기(토큰) 규칙**
+- 작업 내용·결과와 메모 본문은 각각 최대 20000자라 목록·쓰기 결과에 반복되면 토큰이 크다. 그래서 조회 목록은 앞 200자와 `*_truncated`만 주고, 전문은 `include_details: true`(작업)나 `memo_id`(메모)로 받는다.
+- 검색(`query`)은 대소문자 구분 없는 부분 일치이며 `%`·`_`는 글자 그대로 찾는다. 최근 순 최대 20건(`has_more`). 일치 결과들의 본문 합계가 10000자 이하이면 여러 건이어도 모두 전문을 준다. AI가 사용자가 말한 대상을 고를 수 있게 하기 위해서다. 넘으면 미리보기와 검색어 주변 발췌(`match_excerpt`)를 준다.
+- 쓰기 도구(`start_work`·`finish_work`·`pause_work`·`resume_work`·`update_task`)는 내용·결과를 빼고 돌려주고, 메모 저장 도구는 `id`·`title`·`version`만 돌려준다.
+- `export_tasks`·`summarize_work`는 기간 한도와 별도로 전체 50000자를 넘으면 오류를 돌려주고 기간을 줄이거나 `scope: "time"`을 쓰라고 안내한다.
+- 결과 텍스트와 `structuredContent`에 같은 JSON을 넣는 구조는 클라이언트 호환을 위해 유지한다. 응답 자체를 줄여 대응한다.
 
 **프롬프트 (`tasks:read`)**: 호스트의 프롬프트 메뉴(슬래시 명령)에서 고른다.
 
 | 프롬프트 | 인자 | 내용 |
 |---|---|---|
-| `summarize_work` | `from`, `to`, `scope?`(기본 `time`, 웹과 같음) | AI 요약 프롬프트 + 그 기간 CSV를 사용자 메시지 하나로 넣는다 |
+| `summarize_work` | `from`, `to`, `scope?`(기본 `time`, 웹과 같음) | AI 요약 프롬프트 + 그 기간 CSV를 사용자 메시지 하나로 넣는다. 기간·크기 한도는 `export_tasks`와 같다 |
 
 - 내보내기 SQL은 웹 API(`app/api/export`)와 같은 `exportRows`(`lib/task-service.ts`)를 쓴다. CSV와 프롬프트도 `lib/stats.ts`의 `tasksCsv`·`summaryPrompt`를 그대로 쓰고, MCP에서는 첫 문장만 "첨부한 CSV"가 아니라 "아래 CSV"로 바꾼다. 파일·다운로드 링크는 만들지 않는다.
 - CSV는 자르지 않는다. 기간이 길고 업무 내용이 많으면 호스트가 결과를 자를 수 있으므로, 그럴 때는 기간을 줄이거나 `scope: "time"`으로 부르게 한다.
@@ -203,8 +210,8 @@ oauth_tokens
 |---|---|
 | `pause_work`, `resume_work` | 현재 작업 일시정지·재개 |
 | `update_task` | 완료된 작업의 제목·내용·결과·소요 분 수정(`version` 필요 → 조회 결과에 포함) |
-| `update_daily_memo` | 날짜별 메모 생성·수정 |
-| `update_global_memo` | 전역 메모 생성·수정 |
+| `save_daily_memo` | 날짜별 메모 생성(`memo_id` 생략)·수정 |
+| `save_global_memo` | 전역 메모 생성(`memo_id` 생략)·수정 |
 
 - 동시성: 모든 쓰기는 기존과 같이 `version` 비교를 거친다. 409 상황은 "다른 기기에서 바뀌었으니 다시 조회하라"는 오류 텍스트로 돌려줘 AI가 재조회하게 한다.
 - 오류는 도구 결과의 `isError: true` + 한국어 사유로 돌려준다(프로토콜 오류로 던지지 않는다).
@@ -212,8 +219,9 @@ oauth_tokens
   - 쓰기 도구는 모두 웹 API와 같은 `applyTaskAction`을 거친다. `finish_work`의 `append_note`를 같은 UPDATE에 담으려고 `finish` 동작에 선택 항목 `note`를 추가했다(웹 화면은 보내지 않으므로 동작 변화 없음).
   - `start_work`의 `finish_previous`는 기존 작업을 결과 그대로 종료한 뒤 새 작업을 만든다(두 단계). 그 사이 다른 기기에서 시작하면 `tasks_one_active` 충돌로 409가 난다.
   - `update_task`는 날짜·시작·종료 시각을 바꾸지 않는다. 생략한 항목은 기존 값을 쓴다.
-  - `update_daily_memo`는 `memo_id`가 없으면 새로 만들고, 있으면 `version`이 필수다. 날짜별 메모 SQL은 웹 API(`app/api/daily-memos`)와 같은 조건(`owner`, `day`, `version`)으로 `lib/mcp.ts`에 직접 둔다.
-  - `update_global_memo`도 같은 방식이다. 전역 메모 SQL은 웹 API(`app/api/memos`)와 같은 조건(`owner`, `version`)을 쓰고, 접힘 상태(`collapsed`)는 건드리지 않는다.
+  - `save_daily_memo`는 `memo_id`가 없으면 새로 만들고, 있으면 `version`이 필수다. 날짜별 메모 SQL은 웹 API(`app/api/daily-memos`)와 같은 조건(`owner`, `day`, `version`)으로 `lib/mcp.ts`에 직접 둔다.
+  - `save_global_memo`도 같은 방식이다. 전역 메모 SQL은 웹 API(`app/api/memos`)와 같은 조건(`owner`, `version`)을 쓰고, 접힘 상태(`collapsed`)는 건드리지 않는다.
+  - 메모 저장 도구는 처음에 `update_daily_memo`·`update_global_memo`였으나, 새로 만들기도 한다는 점이 이름에 드러나도록 2026-10-15에 `save_*`로 바꿨다.
   - `tasks:write`가 없으면 쓰기 도구를 등록하지 않는다. 서버 instructions(§5.4)는 scope와 관계없이 보낸다.
 
 ### 5.4 서버 instructions (initialize 응답)

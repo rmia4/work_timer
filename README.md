@@ -57,7 +57,8 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 
 - **인증:** OAuth 2.1(PKCE S256 필수)입니다. Work Timer가 인가 서버를 겸하며, 처음 연결할 때 Work Timer 로그인과 동의 화면이 열립니다. 클라이언트 식별은 Client ID Metadata Document와 동적 등록(DCR)을 모두 지원합니다.
 - **권한:** `tasks:read`(업무 기록·메모·통계 보기), `tasks:write`(타이머 시작·종료와 업무 기록 수정). 삭제 도구와 계정 관련 기능은 제공하지 않습니다.
-- **도구:** 조회 `get_current_work`, `list_tasks`, `get_stats`, `get_daily_memos`, `get_global_memos`, `export_tasks`(CSV, 요약 지침 선택) / 작업 단위 `start_work`, `finish_work` / 세부 조작 `pause_work`, `resume_work`, `update_task`, `update_daily_memo`, `update_global_memo`
+- **도구:** 조회 `get_current_work`, `list_tasks`, `get_stats`, `get_daily_memos`, `get_global_memos`(작업·메모는 키워드 검색 가능), `export_tasks`(CSV, 요약 지침 선택) / 작업 단위 `start_work`, `finish_work` / 세부 조작 `pause_work`, `resume_work`, `update_task`, `save_daily_memo`, `save_global_memo`(새로 만들기·수정)
+- **응답 크기:** 목록은 작업 내용·메모 본문의 앞 200자만 보내고, 필요할 때 전문을 따로 받습니다. CSV는 업무 내용 열을 포함하면 31일까지 내보냅니다.
 - **프롬프트:** `summarize_work`(기간의 CSV와 AI 요약 프롬프트를 한 번에 넣기). Claude Desktop·Claude Code 등 프롬프트를 지원하는 앱의 프롬프트 메뉴(슬래시 명령)에서 고릅니다.
 - **연결 관리:** 설정 > 연결된 앱에서 연결한 앱을 확인하고 해제합니다. 비밀번호를 바꾸면 모든 연결이 해제됩니다.
 
