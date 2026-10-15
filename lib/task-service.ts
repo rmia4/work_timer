@@ -2,7 +2,7 @@ import type {database} from '../db/raw';
 import {validDay,validTimes} from './work-dates';
 // 업무 기록의 검증·SQL·상태 전이. 웹 API(/api/tasks)와 MCP가 같은 규칙을 쓰도록 여기에 모은다.
 type Db=ReturnType<typeof database>;
-type TaskRow=Record<string,unknown>&{id:string;version:number;status:string;elapsed:number;started:number|null;started_at:number|null;ended_at:number|null;result:string};
+type TaskRow=Record<string,unknown>&{id:string;version:number;status:string;elapsed:number;started:number|null;started_at:number|null;ended_at:number|null;note:string;result:string};
 export type TaskBody=Record<string,unknown>;
 export type TaskFailure={status:number;error:string};
 const fail=(error:string,status:number):TaskFailure=>({error,status});
@@ -69,9 +69,10 @@ async function apply(db:Db,owner:string,b:TaskBody,now:number):Promise<TaskFailu
  }else{
  const transitions:Record<string,string>={pause:'paused',resume:'running',finish:'done'};
  if(typeof b.action!=='string'||!transitions[b.action]||(b.action==='pause'&&t.status!=='running')||(b.action==='resume'&&t.status!=='paused')||(b.action==='finish'&&t.status==='done'))return fail('타이머 상태를 다시 확인해 주세요.',409);
- if(b.action==='finish'&&(typeof b.result!=='string'||b.result.length>20000))return fail('업무 결과를 확인해 주세요.',400);
+ if(b.action==='finish'&&(typeof b.result!=='string'||b.result.length>20000||(b.note!==undefined&&(typeof b.note!=='string'||b.note.length>20000))))return fail('업무 결과를 확인해 주세요.',400);
  const elapsed=t.elapsed+(t.started===null?0:Math.max(0,now-t.started));
- q=db.prepare('UPDATE tasks SET elapsed=?,started=?,status=?,ended_at=?,result=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(elapsed,b.action==='resume'?now:null,transitions[b.action],b.action==='finish'?now:t.ended_at,b.action==='finish'?b.result:t.result,t.id,owner,t.version);
+ // 종료할 때 note를 함께 보내면 결과와 같은 UPDATE로 내용도 바꾼다(MCP finish_work).
+ q=db.prepare('UPDATE tasks SET elapsed=?,started=?,status=?,ended_at=?,result=?,note=?,version=version+1 WHERE id=? AND owner=? AND version=?').bind(elapsed,b.action==='resume'?now:null,transitions[b.action],b.action==='finish'?now:t.ended_at,b.action==='finish'?b.result:t.result,b.action==='finish'&&typeof b.note==='string'?b.note:t.note,t.id,owner,t.version);
  if(b.action==='resume')sessions.push(...seedLegacy(db,t.id,owner,t.started_at,t.ended_at??(t.started_at===null?null:t.started_at+t.elapsed),version),addSession(db,t.id,owner,now,null,version));
  else sessions.push(closeSession(db,t.id,owner,now,version));
  }
