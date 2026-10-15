@@ -2,7 +2,7 @@ import {McpServer,type AuthInfo} from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 import type {database} from '../db/raw';
 import {verifyAccessToken,resourceUrl} from './oauth';
-import {listTasks,dayTotals,exportRows,applyTaskAction,type TaskFailure} from './task-service';
+import {dayTotals,exportRows,applyTaskAction,type TaskFailure} from './task-service';
 import {validRange,validScope,tasksCsv,summaryPrompt,weekStart,type ExportScope} from './stats';
 import {validDay} from './work-dates';
 // MCP 서버(/api/mcp)의 인증과 도구. 요청마다 서버를 새로 만들고(stateless), 토큰 주인의 기록만 다룬다.
@@ -15,10 +15,11 @@ const kstToday=(now:number)=>new Date(now+KST_MS).toISOString().slice(0,10);
 const minutes=(ms:number)=>Math.floor(Math.max(0,ms)/60000);
 
 // Bearer 토큰을 확인하고 연결의 마지막 사용 시각을 분 단위로만 갱신한다. 유효하지 않으면 null.
+// 갱신할 때가 아니면 UPDATE를 보내지 않아 요청마다 DB 왕복을 1번으로 줄인다.
 export async function authenticate(db:Db,header:string|null,now:number):Promise<AuthInfo|null>{
  const match=/^Bearer ([A-Za-z0-9]+)$/i.exec(header||'');if(!match)return null;
  const grant=await verifyAccessToken(db,match[1],now);if(!grant)return null;
- await db.prepare('UPDATE oauth_grants SET last_used=? WHERE id=? AND (last_used IS NULL OR last_used<=?)').bind(now,grant.grantId,now-60000).run();
+ if(grant.lastUsed===null||grant.lastUsed<=now-60000)await db.prepare('UPDATE oauth_grants SET last_used=? WHERE id=? AND (last_used IS NULL OR last_used<=?)').bind(now,grant.grantId,now-60000).run();
  return {token:match[1],clientId:grant.clientId,scopes:grant.scopes,resource:new URL(resourceUrl()),extra:{owner:grant.owner}};
 }
 
@@ -102,7 +103,8 @@ function readTools(server:McpServer,ctx:Ctx){
    return ok(`"${query}" 일치 작업 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,tasks:items,has_more,truncated});
   }
   const target=day??kstToday(at);
-  const tasks=(await listTasks(db,owner,target) as unknown as TaskRow[]).filter(t=>t.day===target).map(t=>taskView(t,at,mode));
+  // 웹용 listTasks는 측정 구간과 다른 날의 미완료 작업까지 가져온다. MCP는 그날 작업만 한 번에 조회한다.
+  const tasks=(await db.prepare('SELECT * FROM tasks WHERE owner=? AND day=? ORDER BY created DESC').bind(owner,target).all<TaskRow>()).results.map(t=>taskView(t,at,mode));
   return ok(`${target} 작업 ${tasks.length}건, 합계 ${tasks.reduce((sum,t)=>sum+t.minutes,0)}분`,{day:target,tasks});
  });
  server.registerTool('get_stats',{title:'기간 통계',description:'기간(최대 371일)의 총 작업 시간(분), 작업 수와 기간별 합계를 돌려준다. group이 day(기본)면 days에 일별, week·month면 periods에 주별(월요일 시작일)·월별 합계가 온다. 기간이 길면 week나 month를 쓴다. 기록이 없는 날·기간은 빠진다.',
@@ -225,7 +227,9 @@ function readTools(server:McpServer,ctx:Ctx){
 // 쓰기 도구. 검증과 상태 전이는 웹 API와 같은 applyTaskAction을 거친다. 삭제 도구는 두지 않는다.
 function writeTools(server:McpServer,ctx:Ctx){
  const {db,owner,now}=ctx;
- const view=async(id:string)=>taskView((await taskById(ctx,id))!,now(),'compact');
+ // 쓰기 결과는 저장한 값으로 만들어 다시 조회하지 않는다. 성공하면 버전이 1 오른다.
+ const after=(t:TaskRow,change:Partial<TaskRow>,at:number)=>taskView({...t,version:t.version+1,...change},at,'compact');
+ const spent=(t:TaskRow,at:number)=>t.elapsed+(t.started===null?0:Math.max(0,at-t.started));
  server.registerTool('start_work',{title:'작업 시작',description:'오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 시작만 하며 결과는 넣지 않는다(결과는 finish_work). 진행 중이거나 일시정지된 작업이 있으면 기본값(if_running: "fail")으로는 그 작업 정보와 함께 오류를 돌려준다. 사용자가 동의하면 "finish_previous"로 기존 작업을 종료하고 시작한다.',
   inputSchema:z.object({title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),note:z.string().max(20000).optional().describe('할 일·목표. 이미 한 일과 결과는 적지 않는다'),target_minutes:minutesInput.optional().describe('목표 시간(분)'),if_running:z.enum(['fail','finish_previous']).optional()}),annotations:write},
   async({title,note,target_minutes,if_running})=>{
@@ -250,29 +254,32 @@ function writeTools(server:McpServer,ctx:Ctx){
   const result=t.result.trim()?`${t.result}\n\n---\n\n${summary}`:summary;
   const note=append_note===undefined?undefined:t.note.trim()?`${t.note}\n\n${append_note}`:append_note;
   if(result.length>20000||(note?.length??0)>20000)return toolError('결과나 내용이 20000자를 넘습니다. 요약을 줄여 주세요.');
-  const failure=await applyTaskAction(db,owner,{action:'finish',id:t.id,version:t.version,result,note},now());
+  const at=now();
+  const failure=await applyTaskAction(db,owner,{action:'finish',id:t.id,version:t.version,result,note},at);
   if(failure)return failed(failure);
-  const task=await view(t.id);
+  const task=after(t,{elapsed:spent(t,at),started:null,status:'done',ended_at:at},at);
   return ok(`작업을 종료했습니다: ${task.minutes}분`,{task});
  });
  for(const [name,action,from,title] of [['pause_work','pause','running','작업 일시정지'],['resume_work','resume','paused','작업 재개']] as const){
   server.registerTool(name,{title,description:action==='pause'?'진행 중인 작업의 타이머를 일시정지한다.':'일시정지된 작업의 타이머를 다시 시작한다.',annotations:write},async()=>{
    const t=await currentTask(ctx);
    if(t?.status!==from)return toolError(action==='pause'?'진행 중인 작업이 없습니다.':'일시정지된 작업이 없습니다.');
-   const failure=await applyTaskAction(db,owner,{action,id:t.id,version:t.version},now());
+   const at=now();
+   const failure=await applyTaskAction(db,owner,{action,id:t.id,version:t.version},at);
    if(failure)return failed(failure);
-   const task=await view(t.id);
+   const task=after(t,{elapsed:spent(t,at),started:action==='resume'?at:null,status:action==='pause'?'paused':'running'},at);
    return ok(action==='pause'?`일시정지했습니다: ${task.minutes}분 경과`:'타이머를 다시 시작했습니다.',{task});
   });
  }
  server.registerTool('update_task',{title:'완료된 작업 수정',description:'이미 종료된 작업의 제목·내용·결과·소요 시간(분)을 고친다. 진행 중이거나 일시정지된 작업에는 쓸 수 없다(결과 저장은 finish_work). 생략한 항목은 그대로 둔다. version은 list_tasks 결과의 값을 넣는다. 날짜와 시작·종료 시각은 바꾸지 않는다.',
   inputSchema:z.object({task_id:z.string(),version:z.number().int(),title:z.string().min(1).max(200).optional(),note:z.string().max(20000).optional(),result:z.string().max(20000).optional(),minutes:minutesInput.optional()}),annotations:write},
-  async({task_id,version,title,note,result,minutes:spent})=>{
+  async({task_id,version,title,note,result,minutes:spentMinutes})=>{
   const t=await taskById(ctx,task_id);
   if(!t)return toolError('작업이 없습니다.');
-  const failure=await applyTaskAction(db,owner,{action:'edit',id:t.id,version,title:title??t.title,note:note??t.note,result:result??t.result,day:t.day,target:t.target,elapsed:spent===undefined?t.elapsed:spent*60000},now());
+  const at=now(),elapsed=spentMinutes===undefined?t.elapsed:spentMinutes*60000;
+  const failure=await applyTaskAction(db,owner,{action:'edit',id:t.id,version,title:title??t.title,note:note??t.note,result:result??t.result,day:t.day,target:t.target,elapsed},at);
   if(failure)return failed(failure);
-  return ok('작업을 수정했습니다.',{task:await view(t.id)});
+  return ok('작업을 수정했습니다.',{task:after(t,{title:(title??t.title).trim(),elapsed,version:version+1},at)});
  });
  server.registerTool('save_daily_memo',{title:'날짜별 메모 저장',description:'날짜별 메모를 새로 만들거나(memo_id 생략) 기존 메모를 고친다(get_daily_memos 결과의 memo_id와 version). 고칠 때 생략한 title·body는 그대로 둔다. 결과에는 본문 없이 id·title·version만 온다.',
   inputSchema:z.object({day:dayInput,memo_id:z.string().optional(),version:z.number().int().optional(),title:z.string().max(200).optional(),body:z.string().max(20000).optional()}),annotations:write},

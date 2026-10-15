@@ -21,7 +21,8 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  for(const name of readdirSync(new URL('../drizzle',import.meta.url)).filter(name=>/^000[0-7]_.*\.sql$/.test(name)).sort())db.exec(read('drizzle/'+name));
  db.exec('CREATE TABLE task_sessions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, owner TEXT NOT NULL, start_at INTEGER NOT NULL, end_at INTEGER)');
  db.exec(read('drizzle-neon/0007_oauth.sql'));
- const adapter={prepare(sql){return {bind(...args){args=args.map(value=>typeof value==='boolean'?Number(value):value);return {
+ const sqlLog=[];
+ const adapter={prepare(sql){sqlLog.push(sql);return {bind(...args){args=args.map(value=>typeof value==='boolean'?Number(value):value);return {
   async first(){return db.prepare(sql).get(...args)||null;},
   async all(){return {results:db.prepare(sql).all(...args)};},
   async run(){return {meta:db.prepare(sql).run(...args)};},
@@ -81,8 +82,10 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  res=await jsonRpc(ownerToken,{jsonrpc:'2.0',id:1,method:'tools/list'});
  assert.equal(res.status,200);assert.equal(res.headers.get('access-control-allow-origin'),'*');
  const used=db.prepare("SELECT last_used FROM oauth_grants WHERE id='g-owner'").get().last_used;assert.ok(used>=now);
+ sqlLog.length=0;
  await jsonRpc(ownerToken,{jsonrpc:'2.0',id:2,method:'tools/list'});
  assert.equal(db.prepare("SELECT last_used FROM oauth_grants WHERE id='g-owner'").get().last_used,used,'no write within a minute');
+ assert.equal(sqlLog.filter(q=>/UPDATE oauth_grants/.test(q)).length,0,'no UPDATE query within a minute');
 
  // 실제 SDK 클라이언트로 2025(initialize) 방식과 2026-07-28 방식 모두 연결한다.
  const fetchRoute=bearer=>async(url,init)=>{const req=new Request(url,init);req.headers.set('authorization','Bearer '+bearer);return route[req.method](req);};
@@ -194,9 +197,13 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,'done');
  assert.equal((await data(writer,'get_current_work')).task.id,started.task.id);
  assert.equal((await writer.callTool({name:'resume_work',arguments:{}})).isError,true,'not paused');
- assert.equal((await data(writer,'pause_work')).task.status,'paused');
- assert.equal((await data(writer,'resume_work')).task.status,'running');
+ // 쓰기 결과는 다시 조회하지 않고 만든다. DB에 저장된 값과 같아야 한다.
+ const matchesDb=task=>{const row=db.prepare('SELECT status,version,elapsed,started FROM tasks WHERE id=?').get(task.id);
+  assert.equal(task.status,row.status);assert.equal(task.version,row.version);assert.equal(task.minutes,Math.floor((row.elapsed+(row.started===null?0:Date.now()-row.started))/60000));return task;};
+ assert.equal(matchesDb((await data(writer,'pause_work')).task).status,'paused');
+ assert.equal(matchesDb((await data(writer,'resume_work')).task).status,'running');
  const finished=await data(writer,'finish_work',{summary:'도구 추가함',append_note:'추가 메모'});
+ matchesDb(finished.task);assert.equal(finished.task.ended_at,(await data(writer,'list_tasks',{day:finished.task.day})).tasks.find(t=>t.id===finished.task.id).ended_at);
  assert.equal(finished.task.status,'done');assert.equal('result' in finished.task,false);
  const saved=(await data(writer,'list_tasks',{day:finished.task.day,include_details:true})).tasks.find(t=>t.id===finished.task.id);
  assert.equal(saved.result,'도구 추가함');assert.equal(saved.note,'계획\n\n추가 메모');
@@ -212,7 +219,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await writer.callTool({name:'finish_work',arguments:{task_id:'x1',summary:'남의 것'}})).isError,true,'not my task');
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='x1'").get().status,'done');
 
- const edited=await data(writer,'update_task',{task_id:finished.task.id,version:finished.task.version,title:'고친 제목',minutes:45});
+ const edited=await data(writer,'update_task',{task_id:finished.task.id,version:finished.task.version,title:' 고친 제목 ',minutes:45});matchesDb(edited.task);
  assert.equal(edited.task.title,'고친 제목');assert.equal(edited.task.minutes,45);assert.equal(db.prepare('SELECT result FROM tasks WHERE id=?').get(edited.task.id).result,'도구 추가함');assert.equal(edited.task.version,finished.task.version+1);
  result=await writer.callTool({name:'update_task',arguments:{task_id:finished.task.id,version:finished.task.version,title:'옛 버전'}});
  assert.equal(result.isError,true,'stale version');assert.match(result.content[0].text,/다시 조회/);
