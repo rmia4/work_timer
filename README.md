@@ -95,7 +95,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 AI가 이 규칙을 항상 지키지는 않으므로 보강 수단을 둡니다.
 
 - **claude.ai·Claude Desktop:** 프로젝트 지침이나 사용자 선호 설정에 위 규칙을 같은 문장으로 넣습니다.
-- **Claude Code:** 플러그인을 설치했다면 아래 훅이 이미 들어 있습니다(`plugins/work-timer/hooks/hooks.json`). 직접 설정하는 경우에만 아래 훅을 `~/.claude/settings.json`(모든 프로젝트) 또는 프로젝트의 `.claude/settings.json`에 추가합니다. 훅은 MCP 도구를 직접 부르지 않고, Claude에게 지금 도구를 부를 차례라고 알리는 문장만 덧붙입니다. 그래서 훅에 토큰을 넣을 필요가 없습니다.
+- **Claude Code:** 아래 훅을 `~/.claude/settings.json`(모든 프로젝트) 또는 프로젝트의 `.claude/settings.json`에 추가합니다. 훅은 MCP 도구를 직접 부르지 않고, Claude에게 지금 도구를 부를 차례라고 알리는 문장만 덧붙입니다. 그래서 훅에 토큰을 넣을 필요가 없습니다.
   - `UserPromptSubmit`: 요청마다 작업이면 타이머를 시작하라고 알립니다. 이미 진행 중인 작업이 있으면 `start_work`가 오류를 돌려주므로 중복으로 시작되지 않습니다.
   - `PostToolUse`: `gh pr create`가 실행된 뒤에만(`if` 조건) PR 링크를 넣어 작업을 종료하라고 알립니다.
 
