@@ -1,0 +1,14 @@
+{
+  "name": "work-timer",
+  "description": "Work Timer를 Claude Code에 연결하는 플러그인",
+  "owner": {
+    "name": "rmia4"
+  },
+  "plugins": [
+    {
+      "name": "work-timer",
+      "source": "./plugins/work-timer",
+      "description": "Work Timer MCP 서버 연결과 작업 자동 시작·종료 훅"
+    }
+  ]
+}
