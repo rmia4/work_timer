@@ -74,10 +74,12 @@
 }
 .top-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
-.settings-trigger {
+.settings-trigger,
+.connect-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -120,6 +122,16 @@
   margin: 0;
   font-size: 14px;
   color: var(--c-danger);
+}
+.connect-menu {
+  display: grid;
+  gap: 6px;
+  width: auto;
+  min-width: 180px;
+  padding: 8px;
+}
+.connect-menu button {
+  justify-content: flex-start;
 }
 .connections {
   display: grid;
