@@ -17,6 +17,7 @@
     "db:neon:import": "node --env-file-if-exists=.env.local scripts/import-d1-export.mjs"
   },
   "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
     "@neondatabase/serverless": "^1.1.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
@@ -28,9 +29,11 @@
     "react": "19.2.6",
     "react-day-picker": "^10.0.1",
     "react-dom": "19.2.6",
-    "tailwind-merge": "3.6.0"
+    "tailwind-merge": "3.6.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

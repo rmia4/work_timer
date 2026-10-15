@@ -22,6 +22,7 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  db.exec("CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, username TEXT UNIQUE, password_hash TEXT, display_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL)");
  db.exec("CREATE TABLE signup_limits (id TEXT PRIMARY KEY, registered_at INTEGER NOT NULL)");
  db.exec("CREATE TABLE task_sessions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, owner TEXT NOT NULL, start_at INTEGER NOT NULL, end_at INTEGER)");
+ db.exec(read('drizzle-neon/0007_oauth.sql'));
  const spans=id=>db.prepare("SELECT start_at,end_at FROM task_sessions WHERE task_id=? ORDER BY start_at").all(id).map(s=>[s.start_at,s.end_at]);
  const adapter={prepare(sql){return {bind(...args){args=args.map(value=>typeof value==='boolean'?Number(value):value);return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){return {meta:db.prepare(sql).run(...args)};}}},async all(){return {results:db.prepare(sql).all()};}};},async batch(items){return Promise.all(items.map(x=>x.run()));}};
  const salt=randomBytes(16),code='test-only-password';
@@ -37,7 +38,9 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  const signup=await moduleFrom('app/api/auth/signup/route.ts','const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,trustedOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
  const user=await moduleFrom('app/_auth/code-auth.ts','const {database,hashToken,sessionToken}=globalThis.authFixture;');
  globalThis.authFixture.getCodeUser=user.getCodeUser;
- const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,trustedOrigin,database,validDay,validTimes}=globalThis.authFixture;');
+ Object.assign(globalThis.authFixture,await moduleFrom('lib/task-service.ts','const {validDay,validTimes}=globalThis.authFixture;'));
+ Object.assign(globalThis.authFixture,await moduleFrom('lib/oauth.ts','const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.authFixture;'));
+ const tasks=await moduleFrom('app/api/tasks/route.ts','const {getCodeUser,env,trustedOrigin,database,validDay,listTasks,applyTaskAction}=globalThis.authFixture;');
  const calendar=await moduleFrom('app/api/calendar/route.ts','const {getCodeUser,database}=globalThis.authFixture;');
  let memos=null;try{memos=await moduleFrom('app/api/memos/route.ts','const {getCodeUser,env,trustedOrigin,database}=globalThis.authFixture;');}catch{}
  assert.ok(memos?.GET&&memos?.POST,'memo API is missing');
@@ -184,7 +187,7 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  dailyOrder=(await (await dailyMemos.GET(dailyMemoReq('2026-09-10'))).json()).memos;assert.deepEqual(dailyOrder.map(memo=>memo.id),[secondDaily.id,dailyCreated.id]);
  assert.equal((await dailyMemos.GET(dailyMemoReq('invalid'))).status,400);
  }finally{Date.now=originalNow;}
- const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,sessionCookie,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;');
+ const account=await moduleFrom('app/api/account/route.ts','const {getCodeUser,database,createPasswordHash,hashToken,verifyPassword,sessionToken,sessionCookie,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter,revokeOwnerGrants}=globalThis.authFixture;');
  const accountPost=(body,sessionCookie,origin=env.APP_ORIGIN)=>account.POST(new Request(env.APP_ORIGIN+'/api/account',{method:'POST',headers:{cookie:sessionCookie,origin,'Content-Type':'application/json'},body:JSON.stringify(body)}));
  await extensionAllowed(account.POST,'/api/account');
  const otherOwner=db.prepare("SELECT id FROM users WHERE username='new_user'").get().id;
@@ -209,7 +212,16 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  }
  assert.equal((await accountPost({action:'change-password',password:'new-password',newPassword:'short',confirmation:'short'},otherCookie)).status,400);
  assert.equal((await accountPost({action:'change-password',password:'new-password',newPassword:'changed-password',confirmation:'different'},otherCookie)).status,400);
+ // 비밀번호를 바꾸면 그 사용자의 연결된 앱(OAuth grant)만 모두 폐기된다.
+ db.exec("INSERT INTO oauth_clients (id,name,redirect_uris,created) VALUES ('app','App','[]',0)");
+ db.prepare("INSERT INTO oauth_grants (id,owner,client_id,scope,created) VALUES ('grant-other',?,'app','tasks:read',0),('grant-legacy','legacy-owner','app','tasks:read',0)").run(otherOwner);
+ db.exec("INSERT INTO oauth_tokens (token_hash,grant_id,kind,expires) VALUES ('t-other','grant-other','access',9e15),('t-legacy','grant-legacy','access',9e15)");
+ db.exec("INSERT INTO oauth_codes (code_hash,grant_id,code_challenge,redirect_uri,resource,expires) VALUES ('c-other','grant-other','x','x','x',9e15)");
  assert.equal((await accountPost({action:'change-password',password:'new-password',newPassword:'changed-password',confirmation:'changed-password'},otherCookie)).status,200);
+ assert.ok(db.prepare("SELECT revoked FROM oauth_grants WHERE id='grant-other'").get().revoked);
+ assert.equal(db.prepare("SELECT revoked FROM oauth_grants WHERE id='grant-legacy'").get().revoked,null);
+ assert.deepEqual(db.prepare('SELECT token_hash FROM oauth_tokens').all().map(r=>r.token_hash),['t-legacy']);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM oauth_codes').get().n,0);
  assert.deepEqual(await user.getCodeUser(new Request(req.url,{headers:{cookie:otherCookie}})),{userId:otherOwner});
  assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:otherDevice}})),null);
  assert.deepEqual(await user.getCodeUser(req),{userId:'legacy-owner'});

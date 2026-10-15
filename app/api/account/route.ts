@@ -1,6 +1,7 @@
 import {getCodeUser} from '../../_auth/code-auth';
 import {database} from '../../../db/raw';
 import {createPasswordHash,hashToken,verifyPassword,sessionToken,sessionCookie,trustedOrigin,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter} from '../../../lib/auth';
+import {revokeOwnerGrants} from '../../../lib/oauth';
 
 const json=(data:unknown,status=200,headers:Record<string,string>={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 const DELETE_TABLES:Record<string,string>={'delete-tasks':'tasks','delete-memos':'memos','delete-daily-memos':'daily_memos'};
@@ -35,12 +36,13 @@ export async function POST(req:Request){
   const clearLimit=db.prepare('DELETE FROM code_limits WHERE id=?').bind(limitId);
   if(action==='verify'){await clearLimit.run();return json({ok:true});}
   if(action==='change-password'){
-   // 비밀번호를 바꾸면 현재 기기를 제외한 다른 세션은 모두 로그아웃시킨다.
+   // 비밀번호를 바꾸면 현재 기기를 제외한 다른 세션과 연결된 앱(MCP)을 모두 끊는다.
    const current=await hashToken(sessionToken(req)||'');
    await db.batch([
     clearLimit,
     db.prepare('UPDATE users SET password_hash=?,updated=? WHERE id=?').bind(await createPasswordHash(body.newPassword),now,owner),
-    db.prepare('DELETE FROM code_sessions WHERE owner=? AND token_hash<>?').bind(owner,current)
+    db.prepare('DELETE FROM code_sessions WHERE owner=? AND token_hash<>?').bind(owner,current),
+    ...revokeOwnerGrants(db,owner,now)
    ]);
    return json({ok:true});
   }

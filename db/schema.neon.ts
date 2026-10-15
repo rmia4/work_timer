@@ -127,3 +127,56 @@ export const dailyMemos = pgTable(
     index("daily_memos_owner_day_position").on(table.owner, table.day, table.position),
   ],
 );
+
+// MCP 연동용 OAuth 2.1. 토큰과 인가 코드는 SHA-256 해시만 저장한다.
+export const oauthClients = pgTable("oauth_clients", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  redirectUris: text("redirect_uris").notNull(),
+  // CIMD 클라이언트의 문서 캐시 만료 시각. DCR 클라이언트는 null.
+  refreshAfter: epoch("refresh_after"),
+  created: epoch("created").notNull(),
+});
+
+export const oauthGrants = pgTable(
+  "oauth_grants",
+  {
+    id: text("id").primaryKey(),
+    owner: text("owner")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: "cascade" }),
+    scope: text("scope").notNull(),
+    created: epoch("created").notNull(),
+    lastUsed: epoch("last_used"),
+    revoked: epoch("revoked"),
+  },
+  (table) => [index("oauth_grants_owner").on(table.owner)],
+);
+
+export const oauthCodes = pgTable("oauth_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  grantId: text("grant_id")
+    .notNull()
+    .references(() => oauthGrants.id, { onDelete: "cascade" }),
+  codeChallenge: text("code_challenge").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  resource: text("resource").notNull(),
+  expires: epoch("expires").notNull(),
+});
+
+export const oauthTokens = pgTable(
+  "oauth_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => oauthGrants.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    expires: epoch("expires").notNull(),
+    used: epoch("used"),
+  },
+  (table) => [index("oauth_tokens_grant").on(table.grantId)],
+);

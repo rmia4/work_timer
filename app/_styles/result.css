@@ -121,3 +121,37 @@
   font-size: 14px;
   color: var(--c-danger);
 }
+.connections {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.connections li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+}
+.connections li div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.connections li span {
+  font-size: 13px;
+  color: var(--c-muted);
+  overflow-wrap: anywhere;
+}
+.connections li button {
+  flex-shrink: 0;
+}
+.connections-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--c-muted);
+}
