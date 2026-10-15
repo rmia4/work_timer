@@ -62,7 +62,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 
 ### 연결 방법
 
-- **claude.ai·Claude Desktop·모바일:** 설정 > 커넥터 > 커스텀 커넥터 추가에서 URL에 `https://<도메인>/api/mcp`를 입력합니다.
+- **claude.ai·Claude Desktop·모바일:** 설정 > 커넥터 > 커스텀 커넥터 추가에서 URL에 `https://<도메인>/api/mcp`를 입력합니다. Work Timer 상단의 **AI 연결 > Claude에 연결**을 누르면 이름과 URL이 채워진 추가 화면이 바로 열립니다.
 - **Claude Code (플러그인, 권장):** 이 저장소가 플러그인 marketplace를 겸합니다. 플러그인 하나로 MCP 서버 연결과 아래 [자동 시작·종료](#자동-시작종료) 훅이 함께 설정됩니다.
 
   ```powershell
