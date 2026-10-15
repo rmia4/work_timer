@@ -1,5 +1,6 @@
 import type {database} from '../db/raw';
 import {validDay,validTimes} from './work-dates';
+import type {ExportRow} from './stats';
 // 업무 기록의 검증·SQL·상태 전이. 웹 API(/api/tasks)와 MCP가 같은 규칙을 쓰도록 여기에 모은다.
 type Db=ReturnType<typeof database>;
 type TaskRow=Record<string,unknown>&{id:string;version:number;status:string;elapsed:number;started:number|null;started_at:number|null;ended_at:number|null;note:string;result:string};
@@ -25,6 +26,11 @@ export async function listTasks(db:Db,owner:string,day:string){
 // 기간의 날짜별 작업 수와 합계 시간(ms). 측정 중인 작업은 now까지 센다. 기간은 호출하는 쪽에서 검증한다.
 export async function dayTotals(db:Db,owner:string,from:string,to:string,now:number){
  const result=await db.prepare("SELECT day,COUNT(*) AS count,SUM(elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END) AS total FROM tasks WHERE owner=? AND day>=? AND day<=? GROUP BY day").bind(now,owner,from,to).all<{day:string;count:number;total:number}>();
+ return result.results;
+}
+// CSV 내보내기용 기간 업무. 날짜·생성 순서로 정렬하고 측정 중인 작업은 now까지 센다. 기간은 호출하는 쪽에서 검증한다.
+export async function exportRows(db:Db,owner:string,from:string,to:string,now:number){
+ const result=await db.prepare("SELECT day,title,note,result,target,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed,started_at,ended_at,status FROM tasks WHERE owner=? AND day>=? AND day<=? ORDER BY day,created").bind(now,owner,from,to).all<ExportRow>();
  return result.results;
 }
 // 업무 생성·수정·삭제·상태 전이를 처리한다. 성공하면 null, 사용자에게 보일 실패는 TaskFailure를 돌려준다.

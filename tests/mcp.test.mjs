@@ -33,7 +33,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  Object.assign(f,await load('lib/oauth.ts','const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/task-service.ts','const {validDay,validTimes}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/stats.ts','const {validDay}=globalThis.mcpFixture;'));
- Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,applyTaskAction,validRange,validDay}=globalThis.mcpFixture;'));
+ Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,exportRows,applyTaskAction,validRange,validScope,tasksCsv,summaryPrompt,validDay}=globalThis.mcpFixture;'));
  const route=await load('app/api/mcp/route.ts','const {createMcpHandler,database,appOrigin,oauthJson,corsPreflight,CORS,SCOPES,authenticate,createMcpServer}=globalThis.mcpFixture;');
  delete globalThis.mcpFixture;
 
@@ -97,7 +97,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   assert.equal(client.getProtocolEra(),mode==='legacy'?'legacy':'modern');
   assert.match(client.getInstructions(),/start_work/);
   const tools=(await client.listTools()).tools;
-  assert.deepEqual(tools.map(t=>t.name).sort(),['finish_work','get_current_work','get_memos','get_stats','list_tasks','pause_work','resume_work','start_work','update_daily_memo','update_task']);
+  assert.deepEqual(tools.map(t=>t.name).sort(),['export_tasks','finish_work','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks','pause_work','resume_work','start_work','update_daily_memo','update_global_memo','update_task']);
   assert.ok(tools.filter(t=>t.name.startsWith('get_')||t.name==='list_tasks').every(t=>t.annotations?.readOnlyHint===true));
   assert.ok(tools.every(t=>t.annotations?.destructiveHint!==true),'no destructive tools');
 
@@ -121,8 +121,30 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   error=await client.callTool({name:'list_tasks',arguments:{day:'2026-02-30'}});
   assert.equal(error.isError,true,'invalid date is a tool error');
 
-  const memos=await data(client,'get_memos',{day:'2026-10-15'});
-  assert.deepEqual(memos.memos.map(m=>m.id),['m1']);assert.deepEqual(memos.daily_memos.map(m=>[m.id,m.body,m.version]),[['d1','회의 3시',2]]);
+  assert.deepEqual((await data(client,'get_global_memos',{})).memos.map(m=>m.id),['m1']);
+  const daily=await data(client,'get_daily_memos',{day:'2026-10-15'});
+  assert.equal(daily.memos,undefined);assert.deepEqual(daily.daily_memos.map(m=>[m.id,m.body,m.version]),[['d1','회의 3시',2]]);
+
+  // CSV 내보내기: 웹과 같은 CSV를 텍스트로, 요약 지침은 요청할 때만 앞에 붙는다.
+  const exported=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-14',to:'2026-10-15'}});
+  assert.equal(exported.structuredContent.task_count,3);assert.equal(exported.structuredContent.scope,'all');
+  const lines=exported.content[0].text.split('\r\n');
+  assert.equal(lines[0],'2026-10-14 ~ 2026-10-15: 작업 3건\n날짜,제목,업무 내용,결과,목표(분),소요(분),시작 시각,종료 시각,상태');
+  assert.deepEqual(lines.slice(1,4).map(l=>l.split(',')[1]),['어제 일','설계 검토','MCP 구현'],'date order, only my tasks');
+  assert.doesNotMatch(exported.content[0].text,/남의 일|﻿/);
+  const timeOnly=(await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15',scope:'time'}})).content[0].text;
+  assert.doesNotMatch(timeOnly,/업무 내용/);assert.doesNotMatch(timeOnly,/\[출력 형식\]/);
+  const guided=(await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15',with_summary_guide:true}})).content[0].text;
+  assert.match(guided,/\n\n아래 CSV는 2026-10-15부터/);assert.match(guided,/\[출력 형식\][\s\S]*\n날짜,제목,/);
+  assert.equal((await client.callTool({name:'export_tasks',arguments:{from:'2026-01-01',to:'2027-01-02'}})).isError,true,'over 366 days');
+
+  // 슬래시 프롬프트: 요약 지침과 CSV를 한 메시지로 넣는다.
+  assert.deepEqual((await client.listPrompts()).prompts.map(p=>p.name),['summarize_work']);
+  const prompt=await client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-15',to:'2026-10-15'}});
+  const text=prompt.messages[0].content.text;
+  assert.match(text,/^아래 CSV는 2026-10-15부터/);assert.match(text,/\n날짜,제목,목표\(분\)/,'defaults to time scope');assert.match(text,/설계 검토/);
+  await assert.rejects(client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-15',to:'2026-10-14'}}));
+  await assert.rejects(client.getPrompt({name:'summarize_work',arguments:{from:'2026-10-15',to:'2026-10-15',scope:'x'}}));
   await client.close();
  }
 
@@ -139,7 +161,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(denied.isError,true);
  await limited.close();
  const readOnlyClient=await connect(otherToken,'legacy');
- assert.deepEqual((await readOnlyClient.listTools()).tools.map(t=>t.name).sort(),['get_current_work','get_memos','get_stats','list_tasks']);
+ assert.deepEqual((await readOnlyClient.listTools()).tools.map(t=>t.name).sort(),['export_tasks','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks']);
  const noWrite=await readOnlyClient.callTool({name:'start_work',arguments:{title:'몰래'}}).catch(e=>({isError:true,message:e.message}));
  assert.equal(noWrite.isError,true);
  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE owner='other'").get().n,1);
@@ -184,10 +206,20 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(created.memo.version,0);
  const updated=await data(writer,'update_daily_memo',{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'바뀐 할 일'});
  assert.deepEqual(updated.memo,{id:created.memo.id,title:'내일',body:'바뀐 할 일',version:1});
- assert.deepEqual((await data(writer,'get_memos',{day:'2026-10-16'})).daily_memos.map(m=>[m.title,m.body,m.version]),[['내일','바뀐 할 일',1]]);
+ assert.deepEqual((await data(writer,'get_daily_memos',{day:'2026-10-16'})).daily_memos.map(m=>[m.title,m.body,m.version]),[['내일','바뀐 할 일',1]]);
  assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'옛 버전'}})).isError,true);
  assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,body:'버전 없음'}})).isError,true);
  assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-15',memo_id:'d1',version:2,body:'x'}})).isError,undefined);
+
+ // 전역 메모 생성·수정과 버전 충돌, 남의 메모 보호
+ const global=await data(writer,'update_global_memo',{title:'전역',body:'처음'});
+ assert.equal(global.memo.version,0);
+ assert.deepEqual((await data(writer,'update_global_memo',{memo_id:global.memo.id,version:0,body:'고침'})).memo,{id:global.memo.id,title:'전역',body:'고침',version:1});
+ assert.deepEqual((await data(writer,'get_global_memos',{})).memos.map(m=>[m.id,m.body,m.version]),[['m1','목록',0],[global.memo.id,'고침',1]]);
+ assert.equal((await writer.callTool({name:'update_global_memo',arguments:{memo_id:global.memo.id,version:0,body:'옛 버전'}})).isError,true);
+ assert.equal((await writer.callTool({name:'update_global_memo',arguments:{memo_id:global.memo.id,body:'버전 없음'}})).isError,true);
+ assert.equal((await writer.callTool({name:'update_global_memo',arguments:{memo_id:'m2',version:0,body:'남의 것'}})).isError,true);
+ assert.equal(db.prepare("SELECT body FROM memos WHERE id='m2'").get().body,'비밀');
  await writer.close();
 
  // 폐기된 연결의 토큰은 거절한다.

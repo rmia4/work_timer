@@ -159,7 +159,8 @@ function promptSection(title: string, lines: string[]) {
   return [`[${title}]`, ...lines.map((line) => `- ${line}`)];
 }
 
-export function summaryPrompt(from: string, to: string, scope: ExportScope) {
+// csvPlacement: 웹은 CSV를 첨부하고, MCP는 프롬프트 바로 아래에 CSV를 붙인다.
+export function summaryPrompt(from: string, to: string, scope: ExportScope, csvPlacement: "attached" | "below" = "attached") {
   const hasTime = scope !== "detail",
     hasDetail = scope !== "time",
     multiMonth = from.slice(0, 7) !== to.slice(0, 7);
@@ -270,7 +271,7 @@ export function summaryPrompt(from: string, to: string, scope: ExportScope) {
   ];
 
   return [
-    `첨부한 CSV는 ${from}부터 ${to}까지의 업무 타이머 기록입니다. 한국어로 요약해 주세요. 한 행은 작업 기록 하나입니다.`,
+    `${csvPlacement === "below" ? "아래" : "첨부한"} CSV는 ${from}부터 ${to}까지의 업무 타이머 기록입니다. 한국어로 요약해 주세요. 한 행은 작업 기록 하나입니다.`,
     "",
     "[열 설명]",
     ...columns,
