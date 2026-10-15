@@ -193,8 +193,8 @@ function readTools(server:McpServer,ctx:Ctx){
 function writeTools(server:McpServer,ctx:Ctx){
  const {db,owner,now}=ctx;
  const view=async(id:string)=>taskView((await taskById(ctx,id))!,now(),'compact');
- server.registerTool('start_work',{title:'작업 시작',description:'오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 진행 중이거나 일시정지된 작업이 있으면 기본값(if_running: "fail")으로는 그 작업 정보와 함께 오류를 돌려준다. 사용자가 동의하면 "finish_previous"로 기존 작업을 종료하고 시작한다.',
-  inputSchema:z.object({title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),note:z.string().max(20000).optional().describe('작업 내용'),target_minutes:minutesInput.optional().describe('목표 시간(분)'),if_running:z.enum(['fail','finish_previous']).optional()}),annotations:write},
+ server.registerTool('start_work',{title:'작업 시작',description:'오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 시작만 하며 결과는 넣지 않는다(결과는 finish_work). 진행 중이거나 일시정지된 작업이 있으면 기본값(if_running: "fail")으로는 그 작업 정보와 함께 오류를 돌려준다. 사용자가 동의하면 "finish_previous"로 기존 작업을 종료하고 시작한다.',
+  inputSchema:z.object({title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),note:z.string().max(20000).optional().describe('할 일·목표. 이미 한 일과 결과는 적지 않는다'),target_minutes:minutesInput.optional().describe('목표 시간(분)'),if_running:z.enum(['fail','finish_previous']).optional()}),annotations:write},
   async({title,note,target_minutes,if_running})=>{
   const previous=await currentTask(ctx);
   if(previous){
@@ -208,7 +208,7 @@ function writeTools(server:McpServer,ctx:Ctx){
   const task=taskView((await currentTask(ctx))!,now(),'compact');
   return ok(previous?'이전 작업을 종료하고 타이머를 시작했습니다.':'타이머를 시작했습니다.',{task,finished_task_id:previous?.id??null});
  });
- server.registerTool('finish_work',{title:'작업 종료',description:'작업의 타이머를 종료하고 결과 요약을 저장한다. task_id를 생략하면 진행 중이거나 일시정지된 작업이다. 결과가 이미 있으면 덮어쓰지 않고 구분선 뒤에 이어 붙인다.',
+ server.registerTool('finish_work',{title:'작업 종료',description:'작업의 타이머를 종료하고 결과 요약을 저장한다. 사용자가 작업을 마치라고 하거나 진행 중인 작업에 결과를 넣으라고 하면 이 도구를 쓴다. task_id를 생략하면 진행 중이거나 일시정지된 작업이다. 결과가 이미 있으면 덮어쓰지 않고 구분선 뒤에 이어 붙인다.',
   inputSchema:z.object({task_id:z.string().optional(),summary:z.string().min(1).max(20000).describe('무엇을, 왜, 결과(PR 링크·검증 결과)를 3~6줄로'),append_note:z.string().max(20000).optional().describe('작업 내용 뒤에 덧붙일 글')}),annotations:write},
   async({task_id,summary,append_note})=>{
   const t=task_id===undefined?await currentTask(ctx):await taskById(ctx,task_id);
@@ -232,7 +232,7 @@ function writeTools(server:McpServer,ctx:Ctx){
    return ok(action==='pause'?`일시정지했습니다: ${task.minutes}분 경과`:'타이머를 다시 시작했습니다.',{task});
   });
  }
- server.registerTool('update_task',{title:'완료된 작업 수정',description:'종료된 작업의 제목·내용·결과·소요 시간(분)을 고친다. 생략한 항목은 그대로 둔다. version은 list_tasks 결과의 값을 넣는다. 날짜와 시작·종료 시각은 바꾸지 않는다.',
+ server.registerTool('update_task',{title:'완료된 작업 수정',description:'이미 종료된 작업의 제목·내용·결과·소요 시간(분)을 고친다. 진행 중이거나 일시정지된 작업에는 쓸 수 없다(결과 저장은 finish_work). 생략한 항목은 그대로 둔다. version은 list_tasks 결과의 값을 넣는다. 날짜와 시작·종료 시각은 바꾸지 않는다.',
   inputSchema:z.object({task_id:z.string(),version:z.number().int(),title:z.string().min(1).max(200).optional(),note:z.string().max(20000).optional(),result:z.string().max(20000).optional(),minutes:minutesInput.optional()}),annotations:write},
   async({task_id,version,title,note,result,minutes:spent})=>{
   const t=await taskById(ctx,task_id);
