@@ -132,13 +132,13 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
 
   // CSV 내보내기: 웹과 같은 CSV를 텍스트로, 요약 지침은 요청할 때만 앞에 붙는다.
   const exported=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-14',to:'2026-10-15',scope:'all'}});
-  assert.equal(exported.structuredContent.task_count,3);assert.equal(exported.structuredContent.scope,'all');
+  assert.equal(exported.structuredContent,undefined,'CSV must reach clients that prefer structuredContent');
   const lines=exported.content[0].text.split('\r\n');
   assert.equal(lines[0],'2026-10-14 ~ 2026-10-15: 작업 3건\n날짜,제목,업무 내용,결과,목표(분),소요(분),시작 시각,종료 시각,상태');
   assert.deepEqual(lines.slice(1,4).map(l=>l.split(',')[1]),['어제 일','설계 검토','MCP 구현'],'date order, only my tasks');
   assert.doesNotMatch(exported.content[0].text,/남의 일|\uFEFF/);
   const timeOnly=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15'}});
-  assert.equal(timeOnly.structuredContent.scope,'time','defaults to time scope');
+  assert.match(timeOnly.content[0].text,/\n날짜,제목,목표\(분\)/,'defaults to time scope');
   assert.doesNotMatch(timeOnly.content[0].text,/업무 내용/);assert.doesNotMatch(timeOnly.content[0].text,/\[출력 형식\]/);
   const guided=(await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15',with_summary_guide:true}})).content[0].text;
   assert.match(guided,/\n\n아래 CSV는 2026-10-15부터/);assert.match(guided,/\[출력 형식\][\s\S]*\n날짜,제목,/);

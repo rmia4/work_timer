@@ -174,7 +174,8 @@ function readTools(server:McpServer,ctx:Ctx){
   const summary=`${from} ~ ${to}: 작업 ${count}건`;
   const text=with_summary_guide?`${summary}\n\n${summaryPrompt(from,to,scope,'below')}\n\n${csv}`:`${summary}\n${csv}`;
   if(text.length>EXPORT_MAX_CHARS)return toolError(tooLong(text.length));
-  return {content:[{type:'text' as const,text}],structuredContent:{from,to,scope,task_count:count}};
+  // structuredContent를 두면 그것만 모델에 넘기는 클라이언트(Claude Code 등)에서 CSV가 빠진다. 텍스트로만 돌려준다.
+  return {content:[{type:'text' as const,text}]};
  });
  server.registerPrompt('summarize_work',{title:'업무 기록 요약',description:`기간의 업무 기록 CSV와 웹의 AI 요약 프롬프트를 함께 넣는다. scope는 time(기본, 최대 366일), all·detail(최대 ${DETAIL_EXPORT_DAYS}일).`,
   argsSchema:z.object({from:dayInput,to:dayInput,scope:z.string().optional().describe('time(기본) / all / detail')})},
