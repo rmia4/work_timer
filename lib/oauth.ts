@@ -232,6 +232,6 @@ export async function revokeToken(db:Db,token:string,clientId:string,now:number)
 }
 // MCP 요청의 Bearer 토큰을 확인한다. 만료·폐기된 토큰이면 null.
 export async function verifyAccessToken(db:Db,token:string,now:number){
- const row=await db.prepare("SELECT g.id,g.owner,g.client_id,g.scope FROM oauth_tokens t JOIN oauth_grants g ON g.id=t.grant_id WHERE t.token_hash=? AND t.kind='access' AND t.expires>? AND g.revoked IS NULL").bind(await hashToken(token),now).first<{id:string;owner:string;client_id:string;scope:string}>();
- return row?{grantId:row.id,owner:row.owner,clientId:row.client_id,scopes:row.scope.split(' ')}:null;
+ const row=await db.prepare("SELECT g.id,g.owner,g.client_id,g.scope,g.last_used FROM oauth_tokens t JOIN oauth_grants g ON g.id=t.grant_id WHERE t.token_hash=? AND t.kind='access' AND t.expires>? AND g.revoked IS NULL").bind(await hashToken(token),now).first<{id:string;owner:string;client_id:string;scope:string;last_used:number|null}>();
+ return row?{grantId:row.id,owner:row.owner,clientId:row.client_id,scopes:row.scope.split(' '),lastUsed:row.last_used}:null;
 }
