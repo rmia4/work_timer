@@ -218,7 +218,7 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 
 | 호스트 | 시작 | 종료 | 보강 수단 |
 |---|---|---|---|
-| Claude Code | instructions + **훅** | instructions + **훅** | 아래 훅 설정을 문서로 배포 |
+| Claude Code | instructions + **훅** | instructions + **훅** | 훅과 MCP 연결을 플러그인으로 배포(§6.3), 직접 설정 예시는 README |
 | Claude Desktop / claude.ai | instructions | instructions | 프로젝트 지침 또는 사용자 선호 설정에 같은 문장을 넣도록 안내 |
 
 ### 6.1 Claude Code 훅 (사용자 설정에 추가하는 예시, 실제 설정은 README의 "자동 시작·종료")
@@ -231,7 +231,7 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
   - `UserPromptSubmit`은 종료 코드 0의 일반 stdout이 그대로 맥락에 들어간다. 그래서 `echo` 한 줄로 충분하다. "세션의 첫 요청"은 판별하지 않고 매 요청에 덧붙인다(진행 중 작업이 있으면 `start_work`가 충돌 오류를 내므로 중복 시작되지 않는다).
   - `PostToolUse`는 `hookSpecificOutput.additionalContext` JSON을 출력한다. 핸들러의 `if: "Bash(gh pr create*)"`(권한 규칙 문법)로 PR 생성 명령에만 실행되므로 stdin을 파싱하는 스크립트가 필요 없다.
   - Windows에서 훅 명령은 Git Bash(없으면 PowerShell)로 실행된다. README 예시의 `echo` 명령은 두 셸에서 같은 출력을 내는 것을 확인했다.
-- 나중에 이 훅과 MCP 연결 설정을 묶어 **Claude Code 플러그인**으로 배포하는 방안도 있다(§12).
+- 이 훅과 MCP 연결 설정을 **Claude Code 플러그인**(`plugins/work-timer`)으로 묶어 배포한다. 아래 §6.3을 본다.
 
 ### 6.2 경계 상황
 
@@ -239,6 +239,21 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 - **PR 없이 끝나는 작업**: 사용자가 "끝났어"라고 하거나 커밋이 끝나면 종료하도록 instructions에 적었다. 종료 누락은 웹 화면에서 직접 종료한다.
 - **세션이 비정상 종료**: 타이머가 계속 돈다. 자동 종료는 하지 않는다(사용자가 다른 일을 계속하고 있을 수 있음). 다음 `start_work` 충돌 시 처리된다.
 - **중복 호출(재시도)**: `start_work`가 연달아 두 번 오면 두 번째는 충돌 오류가 나므로 중복 생성되지 않는다.
+
+
+### 6.3 Claude Code 플러그인 (`plugins/work-timer`)
+
+Claude Code 사용자가 `claude mcp add`와 훅 설정을 따로 하지 않도록 둘을 플러그인 하나로 묶었다. claude.ai 웹·모바일·Desktop 채팅은 플러그인과 관계없이 커스텀 커넥터로 연결한다.
+
+- 저장소 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 marketplace(`work-timer`)로 만든다. 설치: `claude plugin marketplace add rmia4/work_timer` → `claude plugin install work-timer@work-timer`. GitHub marketplace는 기본 브랜치(`main`)를 읽으므로 `main`에 병합된 뒤에 받을 수 있다.
+- 구성
+  - `.mcp.json`: http 서버 `worktimer`. 주소는 `userConfig.server_url`(기본값: 운영 주소)로 받아 직접 배포한 인스턴스도 쓸 수 있게 했다. Claude Code에는 `plugin:work-timer:worktimer`로 보이고, OAuth는 `/mcp`에서 직접 연결할 때와 같이 진행된다. 토큰은 플러그인에 넣지 않는다.
+  - `hooks/hooks.json`: §6.1의 훅 두 개와 같은 내용이다. 훅 문구를 바꾸면 README 예시도 함께 고친다.
+- 중복 주의(2026-10-15 Claude Code 2.1.300에서 확인)
+  - `claude mcp add`로 직접 추가한 서버나 settings에 직접 넣은 훅이 남아 있으면 도구·훅 문장이 두 번 들어간다.
+  - claude.ai 커넥터가 Claude Code에 동기화된 경우(`claude.ai worktimer`), 플러그인을 설치해도 그 커넥터가 함께 보여 같은 도구가 두 벌이 된다(`--plugin-dir`로 불러올 때만 숨겨졌다). README에서 한쪽을 끄도록 안내한다.
+- 타이머를 쓰지 않는 프로젝트는 `claude plugin disable work-timer@work-timer --scope local`로 끈다(`.claude/settings.local.json`의 `enabledPlugins`에 `false`로 기록됨).
+- 확인: `claude plugin validate ./plugins/work-timer`와 `claude plugin validate .`이 통과해야 한다.
 
 ## 7. 보안
 
@@ -293,6 +308,5 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 - 동의 화면에서 "읽기만 허용" 선택지를 줄지
 - 만료된 OAuth 데이터 정리 방식(조회 시 정리 / Vercel Cron)
 - Prompts(예: "주간 업무 보고서") 제공 여부
-- Claude Code 훅·연결 설정을 플러그인으로 배포할지
 - `start_work`의 작업 제목을 AI가 정할지, 사용자 요청 첫 문장을 그대로 쓸지(현재 설계: AI가 40자 이내로 요약)
 - 하루 넘게 켜진 타이머를 경고하거나 자동 종료할지(현재 설계: 하지 않음)
