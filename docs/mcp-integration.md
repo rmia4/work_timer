@@ -1,6 +1,6 @@
 # MCP 연동 설계
 
-> 상태: **설계만 완료, 구현 전** (2026-10-14 작성)
+> 상태: **1단계(공통 로직 분리)·2단계(OAuth 기반) 구현 완료** (2026-10-14 작성, 2026-10-15 갱신)
 > 이 문서만 읽고 다른 세션에서 바로 구현을 시작할 수 있도록 배경 지식, 결정 사항, 구현 순서를 모두 적는다.
 > 구현할 때 MCP·OAuth 사양과 SDK API는 버전에 따라 바뀌므로 **최신 공식 문서를 먼저 확인**하고, 이 문서와 다르면 이 문서를 고친다.
 
@@ -49,21 +49,31 @@ Work Timer를 **MCP 서버**로 공개해 Claude 같은 AI 앱이 사용자의 �
 | `GET /.well-known/oauth-authorization-server` | 인가·토큰·등록 엔드포인트, 지원 기능(S256 등) 알림 | RFC 8414 |
 | `POST /oauth/register` | 동적 클라이언트 등록(DCR). Claude 같은 클라이언트가 스스로 등록 | RFC 7591 |
 | `GET /oauth/authorize` | 로그인(필요 시) → 동의 화면 페이지 | OAuth 2.1 |
-| `POST /oauth/authorize` | 동의/거부 처리 → 인가 코드와 함께 redirect | OAuth 2.1 |
+| `POST /oauth/authorize/decision` | 동의/거부 처리 → 앱으로 돌아갈 주소(인가 코드 또는 오류, `state`, `iss`)를 JSON으로 돌려줌 | OAuth 2.1, RFC 9207 |
 | `POST /oauth/token` | 코드 → 토큰 교환, refresh 토큰 갱신 | OAuth 2.1 |
 | `POST /oauth/revoke` | 토큰 폐기 | RFC 7009 |
 
 - `/api/mcp`에 토큰 없이 들어오면 **401 + `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource"`** 를 돌려준다. 클라이언트는 이걸 보고 OAuth 흐름을 시작한다.
 - **PKCE(S256) 필수**, plain 거부. implicit·password grant는 지원하지 않는다.
 - `resource` 파라미터(RFC 8707)를 받고, 발급한 토큰은 이 MCP 서버(`<APP_ORIGIN>/api/mcp`) 전용으로 묶는다. 다른 audience용 토큰은 거절한다.
-- 최신 MCP 사양은 DCR 대신 **Client ID Metadata Document(URL 형태의 client_id)** 방식도 정의한다. 구현할 때 claude.ai와 Claude Code가 어느 방식을 쓰는지 확인하고, 필요하면 둘 다 지원한다.
-- redirect URI는 등록 때 받은 값과 **정확히 일치**해야 한다. https나 localhost(Claude Code의 로컬 콜백)만 허용한다.
+- **클라이언트 식별은 CIMD와 DCR을 모두 지원한다**(2단계 결정). MCP 사양(2026-07-28)은 Client ID Metadata Document(CIMD)를 권장하고 DCR을 하위 호환용으로 남겼다. Claude는 인가 서버 메타데이터에 `client_id_metadata_document_supported: true`와 `token_endpoint_auth_methods_supported`의 `none`이 모두 있을 때 CIMD를 쓴다. 둘 다 광고하므로 Claude 제품은 CIMD로, CIMD를 모르는 클라이언트는 DCR로 연결된다.
+- **CIMD 처리**(`lib/oauth.ts`의 `findClient`, `lib/oauth-cimd.ts`)
+  - `https://`로 시작하는 `client_id`는 CIMD로 본다. 경로가 있고, 기본 포트이고, 사용자 정보·fragment가 없고, 호스트가 IP 주소가 아닌 URL만 받는다. 형식이 맞지 않으면 아예 가져오지 않는다.
+  - 문서의 `client_id`가 URL과 정확히 같아야 하고, `client_name`·`redirect_uris`가 있어야 하며, `token_endpoint_auth_method`는 없거나 `none`이어야 한다.
+  - 문서는 `oauth_clients`에 URL을 id로 캐시한다(`refresh_after`). `Cache-Control: max-age`를 따르되 5분~24시간으로 제한한다. 만료되면 다시 가져와 이름·redirect 목록을 갱신한다. grant 외래키와 토큰 흐름은 DCR 클라이언트와 같다.
+  - 문서를 가져오는 횟수는 요청 IP마다 시간당 30번으로 제한한다(캐시 적중은 세지 않음).
+  - 동의 화면에 문서의 도메인을 함께 보여 준다(앱 이름은 스스로 밝힌 값이라 사칭 가능).
+- 클라이언트는 비밀값 없는 공개 클라이언트(`token_endpoint_auth_method: none`)로만 등록한다.
+- redirect URI는 등록 때 받은 값과 **정확히 일치**해야 한다. https나 루프백 http(`localhost`, `127.0.0.1`, `[::1]`)만 허용한다. claude.ai·Desktop·모바일 콜백은 `https://claude.ai/api/mcp/auth_callback`이다. Claude Code는 세션마다 포트가 바뀌는 루프백 콜백을 쓰므로 **루프백 주소만 포트를 무시하고 비교**한다(RFC 8252 7.3).
+- 인가 응답(오류 포함)에 `iss`를 넣고 `authorization_response_iss_parameter_supported: true`를 광고한다(RFC 9207).
 
 ### 4.2 동의 화면 (`app/oauth/authorize/page.tsx`)
 
 - 쿠키 세션이 없으면 기존 로그인 화면을 보여 주고, 로그인 후 원래 authorize 요청으로 돌아온다.
 - 표시할 내용: 클라이언트 이름, redirect 도메인, 요청 권한(scope) 설명, "허용"/"거부" 버튼.
-- 동의 POST는 일반 상태 변경 요청과 같이 `trustedOrigin` 검사를 한다(클릭재킹·CSRF 방지). `X-Frame-Options: DENY`.
+- 동의 POST(`/oauth/authorize/decision`)는 쿠키 세션과 **`APP_ORIGIN` 출처만** 허용한다(크롬 확장 출처는 제외). 인가 요청 파라미터는 서버가 다시 검증한다. `X-Frame-Options: DENY`는 `next.config.ts`에서 전역으로 이미 적용된다.
+- 클라이언트·redirect URI가 맞지 않으면 redirect하지 않고 오류 화면을 보여 준다. 그 밖의 오류(PKCE 누락, scope, resource)는 redirect URI로 `error`를 돌려준다.
+- 같은 사용자·클라이언트의 폐기되지 않은 grant가 있으면 새로 만들지 않고 scope만 갱신한다.
 
 ### 4.3 권한 범위(scope)
 
@@ -82,13 +92,16 @@ Work Timer를 **MCP 서버**로 공개해 Claude 같은 AI 앱이 사용자의 �
 - DB에는 기존 세션처럼 **`hashToken`(SHA-256) 해시만 저장**한다.
 - 인가 코드: 수명 1분, 1회용.
 
-### 4.5 DB 테이블 (마이그레이션 `drizzle-neon/0007_oauth.sql`, 테스트용 `drizzle/` SQLite도 함께)
+### 4.5 DB 테이블 (마이그레이션 `drizzle-neon/0007_oauth.sql`)
+
+`drizzle/` SQLite 스키마에는 `users` 테이블도 없어 따로 만들지 않았다. 마이그레이션 SQL을 SQLite에서도 실행되게 써서 테스트가 그대로 읽는다(`USING btree` 같은 Postgres 전용 구문을 쓰지 않는다).
 
 ```
 oauth_clients
   id (text pk)            -- client_id
   name (text)             -- 동의 화면 표시용, 길이 제한
   redirect_uris (text)    -- JSON 배열
+  refresh_after (bigint null) -- CIMD 문서 캐시 만료 시각, DCR 클라이언트는 null
   created (bigint)
 
 oauth_grants              -- 사용자 × 클라이언트 연결 1건 = "연결된 앱" 1줄
@@ -114,7 +127,8 @@ oauth_tokens
   - **계정 삭제**: `owner` FK cascade로 함께 지워진다.
   - **비밀번호 변경**: 다른 세션을 로그아웃시키는 기존 동작에 맞춰 해당 사용자의 모든 grant를 폐기한다.
   - 만료된 code·token 정리는 조회할 때 조건으로 거르고, 주기 정리는 미결정(§12).
-- `/oauth/register`는 누구나 호출할 수 있으므로 IP 기준 요청 제한을 둔다(기존 `code_limits` 방식 재사용).
+- `/oauth/register`는 누구나 호출할 수 있으므로 IP마다 **시간당 20건**으로 제한한다(`code_limits`에 `register:<IP 해시>` 키로 저장).
+- refresh 토큰을 `/oauth/revoke`로 폐기하면 그 grant 전체를 폐기한다. 액세스 토큰 폐기는 그 토큰만 지운다.
 
 ### 4.6 설정 화면: "연결된 앱"
 
@@ -212,6 +226,12 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 - **토큰**: 해시 저장, 짧은 수명, refresh rotation, 사용자별 폐기, 비밀번호 변경 시 전체 폐기.
 - **소유권**: 모든 쿼리에 `owner=?` 조건을 유지한다(기존 규칙 그대로).
 - **DCR 남용**: 등록 요청 제한, 클라이언트 이름 길이 제한, 동의 화면에 redirect 도메인을 반드시 표시.
+- **CIMD 문서 가져오기(SSRF)**: `client_id` URL은 누구나 정할 수 있으므로 서버가 내부망으로 요청하지 않게 막는다(`lib/oauth-cimd.ts`).
+  - 모든 도메인을 허용하되, 사설·루프백·링크로컬·CGNAT·멀티캐스트 등 공인이 아닌 IP로는 연결하지 않는다.
+  - 검사는 `https.request`의 `lookup` 훅에서 **실제로 연결하는 순간** 조회한 주소에 한다. DNS 조회와 연결 사이에 주소를 바꾸는 DNS rebinding이 통하지 않는다. 조회된 주소 중 하나라도 공인이 아니면 거부한다.
+  - IP 주소를 직접 쓴 URL, 기본 포트가 아닌 URL은 받지 않는다.
+  - 다른 주소로 넘기는 응답(3xx)은 따라가지 않는다. 응답은 5KB, 전체 5초로 제한한다.
+  - Node `BlockList`는 IPv4 규칙을 IPv4-mapped IPv6(`::ffff:a.b.c.d`)에도 적용한다. `::ffff:0:0/96`을 따로 넣으면 모든 IPv4가 막히므로 넣지 않는다.
 - **CORS**: `/api/mcp`, `/oauth/token`, `/.well-known/*`는 브라우저 기반 클라이언트를 위해 필요한 CORS 헤더를 허용하되, 쿠키를 받지 않는다(`credentials` 불허).
 - **로그**: 토큰, 인가 코드, 작업 내용은 로그에 남기지 않는다.
 
