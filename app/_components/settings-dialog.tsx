@@ -29,6 +29,20 @@ const deleteLabels: Record<DeleteKind, { button: string; target: string }> = {
 };
 const DELETE_ACCOUNT_PHRASE = "계정 삭제";
 
+type Connection = {
+  id: string;
+  name: string;
+  host: string | null;
+  scopes: string[];
+  created: number;
+  lastUsed: number | null;
+};
+const dateTime = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 export default function SettingsDialog({
   disabled,
   onDeleted,
@@ -52,7 +66,8 @@ export default function SettingsDialog({
     [accountPhrase, setAccountPhrase] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(""),
+    [connections, setConnections] = useState<Connection[] | null>(null);
 
   function reset() {
     setTab("layout");
@@ -65,6 +80,49 @@ export default function SettingsDialog({
     setAccountPhrase("");
     setError("");
     setMessage("");
+    setConnections(null);
+  }
+  async function loadConnections() {
+    setConnections(null);
+    try {
+      const r = await fetch("/api/connections");
+      const data = (await r.json()) as {
+        connections?: Connection[];
+        error?: string;
+      };
+      if (!r.ok || !data.connections)
+        throw Error(data.error || "연결된 앱을 불러오지 못했습니다.");
+      setConnections(data.connections);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "연결된 앱을 불러오지 못했습니다.",
+      );
+    }
+  }
+  async function disconnect(connection: Connection) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch("/api/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect", id: connection.id }),
+      });
+      const data = (await r.json()) as { error?: string };
+      // 이미 해제된 연결(404)도 목록에서 빼면 된다.
+      if (!r.ok && r.status !== 404)
+        throw Error(data.error || "처리하지 못했습니다.");
+      setConnections(
+        (list) => list?.filter((item) => item.id !== connection.id) ?? null,
+      );
+      setMessage(`${connection.name} 연결을 해제했습니다.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "처리하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
   }
   async function request(body: object) {
     if (busy) return false;
@@ -99,7 +157,9 @@ export default function SettingsDialog({
       setPassword(newPassword);
       setNewPassword("");
       setConfirmation("");
-      setMessage("비밀번호가 변경되었습니다. 다른 기기는 로그아웃됩니다.");
+      setMessage(
+        "비밀번호가 변경되었습니다. 다른 기기는 로그아웃되고 연결된 앱은 해제됩니다.",
+      );
     }
   }
   async function chooseLayout(next: LayoutId) {
@@ -162,7 +222,9 @@ export default function SettingsDialog({
             <DialogDescription>
               {tab === "layout"
                 ? "작업공간 화면 배치를 고릅니다. 계정에 저장되어 모든 기기에 적용됩니다."
-                : verified
+                : tab === "connections"
+                  ? "업무 기록에 접근하도록 허용한 AI 앱입니다. 해제하면 그 앱은 더 이상 접근할 수 없습니다."
+                  : verified
                   ? "계정 비밀번호를 변경하거나 기록을 일괄 삭제합니다."
                   : "계속하려면 현재 비밀번호를 입력해 주세요."}
             </DialogDescription>
@@ -173,11 +235,13 @@ export default function SettingsDialog({
               setTab(value);
               setError("");
               setMessage("");
+              if (value === "connections") void loadConnections();
             }}
             className="settings-tabs"
           >
             <TabsList>
               <TabsTrigger value="layout">화면</TabsTrigger>
+              <TabsTrigger value="connections">연결된 앱</TabsTrigger>
               <TabsTrigger value="account">계정</TabsTrigger>
             </TabsList>
             <TabsContent value="layout">
@@ -201,6 +265,40 @@ export default function SettingsDialog({
                   </button>
                 ))}
               </div>
+            </TabsContent>
+            <TabsContent value="connections">
+              {connections === null ? (
+                !error && <p className="connections-empty">불러오는 중…</p>
+              ) : connections.length === 0 ? (
+                <p className="connections-empty">연결된 앱이 없습니다.</p>
+              ) : (
+                <ul className="connections">
+                  {connections.map((connection) => (
+                    <li key={connection.id}>
+                      <div>
+                        <strong>{connection.name}</strong>
+                        {connection.host && <span>{connection.host}</span>}
+                        <span>권한: {connection.scopes.join(", ")}</span>
+                        <span>
+                          연결 {dateTime.format(connection.created)} · 마지막
+                          사용{" "}
+                          {connection.lastUsed
+                            ? dateTime.format(connection.lastUsed)
+                            : "없음"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={busy}
+                        onClick={() => void disconnect(connection)}
+                      >
+                        연결 해제
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </TabsContent>
             <TabsContent value="account">
               {!verified ? (

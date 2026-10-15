@@ -171,6 +171,27 @@ export function revokeGrant(db:Db,grantId:string,now:number){
   db.prepare('DELETE FROM oauth_codes WHERE grant_id=?').bind(grantId),
  ]);
 }
+// 사용자의 모든 연결을 폐기하는 문장들. 비밀번호 변경과 한 batch로 묶어 쓴다.
+export function revokeOwnerGrants(db:Db,owner:string,now:number){
+ const live='SELECT id FROM oauth_grants WHERE owner=? AND revoked IS NULL';
+ return [
+  db.prepare(`DELETE FROM oauth_tokens WHERE grant_id IN (${live})`).bind(owner),
+  db.prepare(`DELETE FROM oauth_codes WHERE grant_id IN (${live})`).bind(owner),
+  db.prepare('UPDATE oauth_grants SET revoked=? WHERE owner=? AND revoked IS NULL').bind(now,owner),
+ ];
+}
+// 설정 화면의 "연결된 앱" 목록. CIMD 클라이언트는 문서 도메인을 함께 보여 준다(앱 이름은 사칭 가능).
+export async function listConnections(db:Db,owner:string){
+ const {results}=await db.prepare('SELECT g.id,g.client_id,c.name,g.scope,g.created,g.last_used FROM oauth_grants g JOIN oauth_clients c ON c.id=g.client_id WHERE g.owner=? AND g.revoked IS NULL ORDER BY g.created DESC').bind(owner).all<{id:string;client_id:string;name:string;scope:string;created:number;last_used:number|null}>();
+ return results.map(r=>({id:r.id,name:r.name,host:r.client_id.startsWith('https://')?new URL(r.client_id).host:null,scopes:r.scope.split(' ').map(s=>SCOPE_LABELS[s]||s),created:r.created,lastUsed:r.last_used}));
+}
+// 연결 해제. 남의 연결이거나 이미 폐기된 연결이면 false.
+export async function disconnect(db:Db,owner:string,grantId:string,now:number){
+ const row=await db.prepare('SELECT id FROM oauth_grants WHERE id=? AND owner=? AND revoked IS NULL').bind(grantId,owner).first<{id:string}>();
+ if(!row)return false;
+ await revokeGrant(db,row.id,now);
+ return true;
+}
 const grantOf=(db:Db,id:string)=>db.prepare('SELECT id,client_id,scope,revoked FROM oauth_grants WHERE id=?').bind(id).first<Grant>();
 export async function exchangeToken(db:Db,p:URLSearchParams,now:number):Promise<TokenResult>{
  const clientId=p.get('client_id'),resource=p.get('resource');
