@@ -100,7 +100,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   assert.equal(client.getProtocolEra(),mode==='legacy'?'legacy':'modern');
   assert.match(client.getInstructions(),/start_work/);
   const tools=(await client.listTools()).tools;
-  assert.deepEqual(tools.map(t=>t.name).sort(),['export_tasks','finish_work','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks','pause_work','resume_work','save_daily_memo','save_global_memo','start_work','update_task']);
+  assert.deepEqual(tools.map(t=>t.name).sort(),['add_task','export_tasks','finish_work','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks','pause_work','resume_work','save_daily_memo','save_global_memo','start_work','update_task']);
   assert.ok(tools.filter(t=>t.name.startsWith('get_')||t.name==='list_tasks').every(t=>t.annotations?.readOnlyHint===true));
   assert.ok(tools.every(t=>t.annotations?.destructiveHint!==true),'no destructive tools');
 
@@ -225,6 +225,14 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(result.isError,true,'stale version');assert.match(result.content[0].text,/다시 조회/);
  assert.equal((await writer.callTool({name:'update_task',arguments:{task_id:'x1',version:0,title:'남의 것'}})).isError,true);
  assert.equal(db.prepare("SELECT title FROM tasks WHERE id='x1'").get().title,'남의 일');
+
+ // 지난 작업 기록: 완료 상태로 만들고 타이머·시작 시각·측정 구간은 두지 않는다.
+ const added=await data(writer,'add_task',{day:'2026-10-14',title:' 회의 ',minutes:60,result:'결정함'});
+ assert.equal(added.task.day,'2026-10-14');assert.equal(added.task.title,'회의');assert.equal(added.task.status,'done');assert.equal(added.task.minutes,60);assert.equal(added.task.started_at,null);
+ assert.equal(db.prepare('SELECT result FROM tasks WHERE id=?').get(added.task.id).result,'결정함');
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM task_sessions WHERE task_id=?').get(added.task.id).n,0,'no sessions');
+ assert.equal((await data(writer,'get_current_work')).task?.id===added.task.id,false,'not running');
+ assert.equal((await writer.callTool({name:'add_task',arguments:{day:'2026-02-30',title:'x',minutes:1}})).isError,true,'invalid date');
 
  // 날짜별 메모 생성·수정과 버전 충돌
  const created=await data(writer,'save_daily_memo',{day:'2026-10-16',title:'내일',body:'할 일'});
