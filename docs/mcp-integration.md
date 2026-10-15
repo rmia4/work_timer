@@ -1,6 +1,6 @@
 # MCP 연동 설계
 
-> 상태: **1단계(공통 로직 분리)·2단계(OAuth 기반)·3단계(MCP 엔드포인트와 조회 도구)·4단계(쓰기 도구와 instructions)·5단계(연결된 앱 관리) 구현 완료** (2026-10-14 작성, 2026-10-15 갱신)
+> 상태: **1단계(공통 로직 분리)·2단계(OAuth 기반)·3단계(MCP 엔드포인트와 조회 도구)·4단계(쓰기 도구와 instructions)·5단계(연결된 앱 관리)·6단계(문서) 완료.** 남은 일은 운영 URL에서 claude.ai 연결 검증과 §12 미결정 사항 (2026-10-14 작성, 2026-10-15 갱신)
 > 이 문서만 읽고 다른 세션에서 바로 구현을 시작할 수 있도록 배경 지식, 결정 사항, 구현 순서를 모두 적는다.
 > 구현할 때 MCP·OAuth 사양과 SDK API는 버전에 따라 바뀌므로 **최신 공식 문서를 먼저 확인**하고, 이 문서와 다르면 이 문서를 고친다.
 
@@ -221,13 +221,16 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 | Claude Code | instructions + **훅** | instructions + **훅** | 아래 훅 설정을 문서로 배포 |
 | Claude Desktop / claude.ai | instructions | instructions | 프로젝트 지침 또는 사용자 선호 설정에 같은 문장을 넣도록 안내 |
 
-### 6.1 Claude Code 훅 (사용자 설정에 추가하는 예시, 구현 단계에서 README에 정리)
+### 6.1 Claude Code 훅 (사용자 설정에 추가하는 예시, 실제 설정은 README의 "자동 시작·종료")
 
 훅은 MCP 도구를 직접 부를 수 없으므로 **Claude에게 "지금 도구를 부를 차례"라고 알려 주는 맥락 주입** 용도로 쓴다. 토큰을 훅에 넣을 필요가 없어 보안상 유리하다.
 
 - `UserPromptSubmit`: 세션의 첫 작업 요청일 때 "Work Timer: 진행 중 작업이 없으면 start_work로 시작" 맥락을 덧붙인다.
 - `PostToolUse`(matcher: `Bash`, 명령에 `gh pr create`가 포함된 경우): "PR이 생성되었다. finish_work로 종료하고 PR 링크를 포함해 요약하라" 맥락을 덧붙인다.
-- 훅의 입력·출력 형식(`additionalContext` 등)은 구현할 때 Claude Code 최신 문서로 확인한다.
+- 6단계에서 Claude Code 문서로 확인한 형식
+  - `UserPromptSubmit`은 종료 코드 0의 일반 stdout이 그대로 맥락에 들어간다. 그래서 `echo` 한 줄로 충분하다. "세션의 첫 요청"은 판별하지 않고 매 요청에 덧붙인다(진행 중 작업이 있으면 `start_work`가 충돌 오류를 내므로 중복 시작되지 않는다).
+  - `PostToolUse`는 `hookSpecificOutput.additionalContext` JSON을 출력한다. 핸들러의 `if: "Bash(gh pr create*)"`(권한 규칙 문법)로 PR 생성 명령에만 실행되므로 stdin을 파싱하는 스크립트가 필요 없다.
+  - Windows에서 훅 명령은 Git Bash(없으면 PowerShell)로 실행된다. README 예시의 `echo` 명령은 두 셸에서 같은 출력을 내는 것을 확인했다.
 - 나중에 이 훅과 MCP 연결 설정을 묶어 **Claude Code 플러그인**으로 배포하는 방안도 있다(§12).
 
 ### 6.2 경계 상황
