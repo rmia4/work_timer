@@ -33,7 +33,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  Object.assign(f,await load('lib/oauth.ts','const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/task-service.ts','const {validDay,validTimes}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/stats.ts','const {validDay}=globalThis.mcpFixture;'));
- Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,validRange,validDay}=globalThis.mcpFixture;'));
+ Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,applyTaskAction,validRange,validDay}=globalThis.mcpFixture;'));
  const route=await load('app/api/mcp/route.ts','const {createMcpHandler,database,appOrigin,oauthJson,corsPreflight,CORS,SCOPES,authenticate,createMcpServer}=globalThis.mcpFixture;');
  delete globalThis.mcpFixture;
 
@@ -95,9 +95,11 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  for(const mode of ['legacy',{pin:'2026-07-28'}]){
   const client=await connect(ownerToken,mode);
   assert.equal(client.getProtocolEra(),mode==='legacy'?'legacy':'modern');
+  assert.match(client.getInstructions(),/start_work/);
   const tools=(await client.listTools()).tools;
-  assert.deepEqual(tools.map(t=>t.name).sort(),['get_current_work','get_memos','get_stats','list_tasks']);
-  assert.ok(tools.every(t=>t.annotations?.readOnlyHint===true));
+  assert.deepEqual(tools.map(t=>t.name).sort(),['finish_work','get_current_work','get_memos','get_stats','list_tasks','pause_work','resume_work','start_work','update_daily_memo','update_task']);
+  assert.ok(tools.filter(t=>t.name.startsWith('get_')||t.name==='list_tasks').every(t=>t.annotations?.readOnlyHint===true));
+  assert.ok(tools.every(t=>t.annotations?.destructiveHint!==true),'no destructive tools');
 
   const current=(await data(client,'get_current_work')).task;
   assert.equal(current.id,'run1');assert.equal(current.status,'running');assert.equal(current.target_minutes,60);
@@ -130,12 +132,63 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await data(other,'get_current_work')).task,null);
  await other.close();
 
- // tasks:read 없는 토큰에는 조회 도구가 없다.
+ // tasks:read 없는 토큰에는 조회 도구가 없고, tasks:write 없는 토큰에는 쓰기 도구가 없다.
  const limited=await connect(writeOnly,'legacy');
- assert.deepEqual((await limited.listTools()).tools,[]);
+ assert.ok((await limited.listTools()).tools.every(t=>!t.annotations?.readOnlyHint));
  const denied=await limited.callTool({name:'list_tasks',arguments:{}}).catch(e=>({isError:true,message:e.message}));
  assert.equal(denied.isError,true);
  await limited.close();
+ const readOnlyClient=await connect(otherToken,'legacy');
+ assert.deepEqual((await readOnlyClient.listTools()).tools.map(t=>t.name).sort(),['get_current_work','get_memos','get_stats','list_tasks']);
+ const noWrite=await readOnlyClient.callTool({name:'start_work',arguments:{title:'몰래'}}).catch(e=>({isError:true,message:e.message}));
+ assert.equal(noWrite.isError,true);
+ assert.equal(db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE owner='other'").get().n,1);
+ await readOnlyClient.close();
+
+ // 쓰기 도구: 시작 충돌 → 이전 작업 종료 후 시작 → 일시정지·재개 → 요약과 함께 종료 → 수정.
+ const writer=await connect(ownerToken,'legacy');
+ let result=await writer.callTool({name:'start_work',arguments:{title:'쓰기 도구'}});
+ assert.equal(result.isError,true,'conflict with the running task');assert.match(result.content[0].text,/run1/);
+ assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,'running','fail leaves the running task alone');
+ const started=await data(writer,'start_work',{title:'쓰기 도구',note:'계획',target_minutes:90,if_running:'finish_previous'});
+ assert.equal(started.finished_task_id,'run1');
+ assert.equal(started.task.status,'running');assert.equal(started.task.target_minutes,90);assert.equal(started.task.note,'계획');
+ assert.equal(started.task.day,new Date(Date.now()+9*HOUR).toISOString().slice(0,10),'today in KST');
+ assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,'done');
+ assert.equal((await data(writer,'get_current_work')).task.id,started.task.id);
+ assert.equal((await writer.callTool({name:'resume_work',arguments:{}})).isError,true,'not paused');
+ assert.equal((await data(writer,'pause_work')).task.status,'paused');
+ assert.equal((await data(writer,'resume_work')).task.status,'running');
+ const finished=await data(writer,'finish_work',{summary:'도구 추가함',append_note:'추가 메모'});
+ assert.equal(finished.task.status,'done');assert.equal(finished.task.result,'도구 추가함');assert.equal(finished.task.note,'계획\n\n추가 메모');
+ assert.ok(finished.task.ended_at);
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM task_sessions WHERE task_id=? AND end_at IS NULL').get(finished.task.id).n,0,'sessions closed');
+ assert.equal((await writer.callTool({name:'finish_work',arguments:{summary:'또'}})).isError,true,'nothing running');
+ assert.equal((await writer.callTool({name:'finish_work',arguments:{task_id:finished.task.id,summary:'또'}})).isError,true,'already done');
+ // 결과가 이미 있는 작업을 종료하면 이어 붙인다.
+ const second=await data(writer,'start_work',{title:'두 번째'});
+ db.prepare("UPDATE tasks SET result='기존 결과' WHERE id=?").run(second.task.id);
+ assert.equal((await data(writer,'finish_work',{task_id:second.task.id,summary:'새 요약'})).task.result,'기존 결과\n\n---\n\n새 요약');
+ assert.equal((await writer.callTool({name:'finish_work',arguments:{task_id:'x1',summary:'남의 것'}})).isError,true,'not my task');
+ assert.equal(db.prepare("SELECT status FROM tasks WHERE id='x1'").get().status,'done');
+
+ const edited=await data(writer,'update_task',{task_id:finished.task.id,version:finished.task.version,title:'고친 제목',minutes:45});
+ assert.equal(edited.task.title,'고친 제목');assert.equal(edited.task.minutes,45);assert.equal(edited.task.result,'도구 추가함');assert.equal(edited.task.version,finished.task.version+1);
+ result=await writer.callTool({name:'update_task',arguments:{task_id:finished.task.id,version:finished.task.version,title:'옛 버전'}});
+ assert.equal(result.isError,true,'stale version');assert.match(result.content[0].text,/다시 조회/);
+ assert.equal((await writer.callTool({name:'update_task',arguments:{task_id:'x1',version:0,title:'남의 것'}})).isError,true);
+ assert.equal(db.prepare("SELECT title FROM tasks WHERE id='x1'").get().title,'남의 일');
+
+ // 날짜별 메모 생성·수정과 버전 충돌
+ const created=await data(writer,'update_daily_memo',{day:'2026-10-16',title:'내일',body:'할 일'});
+ assert.equal(created.memo.version,0);
+ const updated=await data(writer,'update_daily_memo',{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'바뀐 할 일'});
+ assert.deepEqual(updated.memo,{id:created.memo.id,title:'내일',body:'바뀐 할 일',version:1});
+ assert.deepEqual((await data(writer,'get_memos',{day:'2026-10-16'})).daily_memos.map(m=>[m.title,m.body,m.version]),[['내일','바뀐 할 일',1]]);
+ assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,version:0,body:'옛 버전'}})).isError,true);
+ assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-16',memo_id:created.memo.id,body:'버전 없음'}})).isError,true);
+ assert.equal((await writer.callTool({name:'update_daily_memo',arguments:{day:'2026-10-15',memo_id:'d1',version:2,body:'x'}})).isError,undefined);
+ await writer.close();
 
  // 폐기된 연결의 토큰은 거절한다.
  await f.revokeGrant(adapter,'g-other',Date.now());
