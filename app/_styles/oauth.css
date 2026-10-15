@@ -1,0 +1,39 @@
+.oauth-page {
+  display: flex;
+  justify-content: center;
+  padding: 64px 16px 80px;
+}
+.oauth-card {
+  width: 100%;
+  max-width: 440px;
+}
+.oauth-card h1 {
+  font-size: 20px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  word-break: keep-all;
+}
+.oauth-muted {
+  font-size: 13px;
+  color: var(--c-muted);
+  margin: 8px 0;
+}
+.oauth-facts {
+  margin: 20px 0;
+  font-size: 14px;
+}
+.oauth-facts dt {
+  font-weight: 600;
+  margin-top: 12px;
+}
+.oauth-facts dd {
+  margin: 4px 0 0;
+  word-break: break-all;
+}
+.oauth-facts ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.oauth-card .form-actions button {
+  flex: 1;
+}

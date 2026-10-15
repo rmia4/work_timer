@@ -8,6 +8,7 @@ import "./_styles/result.css";
 import "./_styles/daily-activity-clock.css";
 import "./_styles/stats.css";
 import "./_styles/layouts.css";
+import "./_styles/oauth.css";
 import "./_styles/dark.css";
 import { themeInitScript } from "./_components/theme-script";
 
