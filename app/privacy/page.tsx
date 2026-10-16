@@ -3,6 +3,7 @@ import "../_styles/privacy.css";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침 · Work Timer",
+  robots: { index: true, follow: true },
 };
 
 export default function PrivacyPage() {
