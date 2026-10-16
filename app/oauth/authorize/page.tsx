@@ -43,7 +43,7 @@ export default async function AuthorizePage({
       query={params.toString()}
       clientName={r.clientName}
       clientHost={r.clientHost}
-      redirectHost={new URL(r.redirectUri).host}
+      redirectHost={new URL(r.redirectUri).host || new URL(r.redirectUri).protocol.slice(0, -1)}
       loopback={isLoopback(r.redirectUri)}
       scopes={r.scope.split(" ").map((s) => SCOPE_LABELS[s])}
     />

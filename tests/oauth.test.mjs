@@ -58,7 +58,8 @@ test('OAuth: registration, consent, PKCE, code reuse and expiry, refresh rotatio
 
   // 동적 등록
   const registerRequest=(body,ip='203.0.113.1')=>register.POST(new Request(ORIGIN+'/oauth/register',{method:'POST',headers:{'content-type':'application/json','x-forwarded-for':ip},body:JSON.stringify(body)}));
-  for(const uris of [['http://evil.test/cb'],['https://ok.test/cb#frag'],[],'https://ok.test/cb'])assert.equal((await registerRequest({redirect_uris:uris})).status,400);
+  for(const uris of [['http://evil.test/cb'],['https://ok.test/cb#frag'],[],'https://ok.test/cb',['myapp:/cb'],['javascript:alert(1)']])assert.equal((await registerRequest({redirect_uris:uris})).status,400);
+  assert.equal((await registerRequest({redirect_uris:['io.github.rmia4.worktimer:/oauth']})).status,201,'reverse-domain app scheme is allowed');
   assert.equal((await registerRequest({redirect_uris:[CALLBACK],client_name:'가'.repeat(101)})).status,400);
   const registered=await registerRequest({client_name:'Claude',redirect_uris:[CALLBACK,'http://localhost/callback'],token_endpoint_auth_method:'client_secret_post'});
   assert.equal(registered.status,201);
