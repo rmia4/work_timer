@@ -3,6 +3,9 @@
   "name": "work-timer",
   "version": "0.1.0",
   "description": "Manage work timers and review work records with Work Timer.",
+  "author": {
+    "name": "rmia4"
+  },
   "homepage": "https://work-timer-mauve-seven.vercel.app",
   "keywords": [
     "work-timer",
@@ -23,7 +26,9 @@
           "Write"
         ],
         "websiteURL": "https://work-timer-mauve-seven.vercel.app",
+        "supportURL": "https://github.com/rmia4/work_timer/issues",
         "privacyPolicyURL": "https://work-timer-mauve-seven.vercel.app/privacy",
+        "termsOfServiceURL": "https://work-timer-mauve-seven.vercel.app/terms",
         "defaultPrompt": [
           "지금 진행 중인 작업이 있는지 알려줘",
           "이번 주 작업 기록을 요약해줘"
