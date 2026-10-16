@@ -64,5 +64,8 @@ export function sessionToken(req:Request){
 }
 export function sessionCookie(token:string,maxAge=SESSION_SECONDS){return `${COOKIE}=${token}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=${maxAge}`;}
 export function sameOrigin(req:Request,origin:string|undefined){return !!origin&&req.headers.get('origin')===origin&&req.headers.get('sec-fetch-site')!=='cross-site';}
-// 웹앱과 크롬 확장 팝업(EXTENSION_ORIGIN, 쉼표로 여러 개)의 쓰기 요청을 허용한다.
-export function trustedOrigin(req:Request){return sameOrigin(req,process.env.APP_ORIGIN)||(process.env.EXTENSION_ORIGIN||'').split(',').some(origin=>sameOrigin(req,origin.trim()));}
+// 모바일 앱은 Origin을 보내지 않으므로 이 헤더로 구분한다. 브라우저가 다른 사이트에서 이 헤더를 붙이려면 CORS 사전 요청을 거쳐야 하는데 서버가 허용하지 않으므로, 쿠키를 노린 위조 요청에는 쓸 수 없다.
+export const MOBILE_CLIENT_HEADER='x-work-timer-client';
+function mobileClient(req:Request){return req.headers.get(MOBILE_CLIENT_HEADER)==='mobile'&&!req.headers.get('origin')&&!req.headers.get('sec-fetch-site');}
+// 웹앱과 크롬 확장 팝업(EXTENSION_ORIGIN, 쉼표로 여러 개), 모바일 앱의 쓰기 요청을 허용한다.
+export function trustedOrigin(req:Request){return sameOrigin(req,process.env.APP_ORIGIN)||(process.env.EXTENSION_ORIGIN||'').split(',').some(origin=>sameOrigin(req,origin.trim()))||mobileClient(req);}

@@ -47,8 +47,9 @@
 - 같은 IP에서는 24시간에 한 계정만 가입 가능
 - 세션은 `code_sessions` 테이블과 `__Host-work_session` 쿠키로 관리
 - 로그인 성공 후 7일간 유지되는 HttpOnly·Secure·SameSite 세션 사용
+- `PATCH /api/auth`로 세션을 연장(남은 기간이 절반 이하이면 지금부터 7일로 늘리고 쿠키를 다시 발급). 모바일 앱이 열릴 때 부른다
 - 연속 5회 로그인 실패 시 15분 차단하며, 이후 반복 실패 시 차단 시간 증가
-- 상태 변경 API는 요청 Origin과 `APP_ORIGIN`이 일치하는지 확인
+- 상태 변경 API는 요청 Origin과 `APP_ORIGIN`(또는 크롬 확장 `EXTENSION_ORIGIN`)이 일치하는지 확인. Origin을 보내지 않는 모바일 앱은 `X-Work-Timer-Client: mobile` 헤더로 허용(브라우저는 다른 사이트에서 이 헤더를 붙이려면 CORS 사전 요청을 거쳐야 하므로 위조 요청에 쓸 수 없음)
 - 인증되지 않은 사용자의 업무·메모 API 접근 차단
 
 ## AI 앱 연결 (MCP)
