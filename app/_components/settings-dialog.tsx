@@ -67,7 +67,10 @@ export default function SettingsDialog({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [connections, setConnections] = useState<Connection[] | null>(null);
+    [connections, setConnections] = useState<Connection[] | null>(null),
+    [confirmDisconnect, setConfirmDisconnect] = useState<Connection | null>(
+      null,
+    );
 
   function reset() {
     setTab("layout");
@@ -81,6 +84,7 @@ export default function SettingsDialog({
     setError("");
     setMessage("");
     setConnections(null);
+    setConfirmDisconnect(null);
   }
   async function loadConnections() {
     setConnections(null);
@@ -291,7 +295,7 @@ export default function SettingsDialog({
                         type="button"
                         className="danger"
                         disabled={busy}
-                        onClick={() => void disconnect(connection)}
+                        onClick={() => setConfirmDisconnect(connection)}
                       >
                         연결 해제
                       </button>
@@ -414,6 +418,30 @@ export default function SettingsDialog({
               }}
             >
               삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={!!confirmDisconnect}
+        onOpenChange={(value) => {
+          if (!value) setConfirmDisconnect(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle>연결 해제</AlertDialogTitle>
+          <AlertDialogDescription>
+            {confirmDisconnect?.name} 연결을 해제할까요? 해제하면 그 앱은 더
+            이상 업무 기록에 접근할 수 없으며, 다시 쓰려면 새로 연결해야 합니다.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmDisconnect) void disconnect(confirmDisconnect);
+              }}
+            >
+              연결 해제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

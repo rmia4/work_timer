@@ -21,7 +21,8 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  for(const name of readdirSync(new URL('../drizzle',import.meta.url)).filter(name=>/^000[0-7]_.*\.sql$/.test(name)).sort())db.exec(read('drizzle/'+name));
  db.exec('CREATE TABLE task_sessions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, owner TEXT NOT NULL, start_at INTEGER NOT NULL, end_at INTEGER)');
  db.exec(read('drizzle-neon/0007_oauth.sql'));
- const adapter={prepare(sql){return {bind(...args){args=args.map(value=>typeof value==='boolean'?Number(value):value);return {
+ const sqlLog=[];
+ const adapter={prepare(sql){sqlLog.push(sql);return {bind(...args){args=args.map(value=>typeof value==='boolean'?Number(value):value);return {
   async first(){return db.prepare(sql).get(...args)||null;},
   async all(){return {results:db.prepare(sql).all(...args)};},
   async run(){return {meta:db.prepare(sql).run(...args)};},
@@ -81,8 +82,10 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  res=await jsonRpc(ownerToken,{jsonrpc:'2.0',id:1,method:'tools/list'});
  assert.equal(res.status,200);assert.equal(res.headers.get('access-control-allow-origin'),'*');
  const used=db.prepare("SELECT last_used FROM oauth_grants WHERE id='g-owner'").get().last_used;assert.ok(used>=now);
+ sqlLog.length=0;
  await jsonRpc(ownerToken,{jsonrpc:'2.0',id:2,method:'tools/list'});
  assert.equal(db.prepare("SELECT last_used FROM oauth_grants WHERE id='g-owner'").get().last_used,used,'no write within a minute');
+ assert.equal(sqlLog.filter(q=>/UPDATE oauth_grants/.test(q)).length,0,'no UPDATE query within a minute');
 
  // 실제 SDK 클라이언트로 2025(initialize) 방식과 2026-07-28 방식 모두 연결한다.
  const fetchRoute=bearer=>async(url,init)=>{const req=new Request(url,init);req.headers.set('authorization','Bearer '+bearer);return route[req.method](req);};
@@ -97,7 +100,7 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   assert.equal(client.getProtocolEra(),mode==='legacy'?'legacy':'modern');
   assert.match(client.getInstructions(),/start_work/);
   const tools=(await client.listTools()).tools;
-  assert.deepEqual(tools.map(t=>t.name).sort(),['export_tasks','finish_work','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks','pause_work','resume_work','save_daily_memo','save_global_memo','start_work','update_task']);
+  assert.deepEqual(tools.map(t=>t.name).sort(),['add_task','export_tasks','finish_work','get_current_work','get_daily_memos','get_global_memos','get_stats','list_tasks','pause_work','resume_work','save_daily_memo','save_global_memo','start_work','update_task']);
   assert.ok(tools.filter(t=>t.name.startsWith('get_')||t.name==='list_tasks').every(t=>t.annotations?.readOnlyHint===true));
   assert.ok(tools.every(t=>t.annotations?.destructiveHint!==true),'no destructive tools');
 
@@ -132,13 +135,13 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
 
   // CSV 내보내기: 웹과 같은 CSV를 텍스트로, 요약 지침은 요청할 때만 앞에 붙는다.
   const exported=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-14',to:'2026-10-15',scope:'all'}});
-  assert.equal(exported.structuredContent.task_count,3);assert.equal(exported.structuredContent.scope,'all');
+  assert.equal(exported.structuredContent,undefined,'CSV must reach clients that prefer structuredContent');
   const lines=exported.content[0].text.split('\r\n');
   assert.equal(lines[0],'2026-10-14 ~ 2026-10-15: 작업 3건\n날짜,제목,업무 내용,결과,목표(분),소요(분),시작 시각,종료 시각,상태');
   assert.deepEqual(lines.slice(1,4).map(l=>l.split(',')[1]),['어제 일','설계 검토','MCP 구현'],'date order, only my tasks');
   assert.doesNotMatch(exported.content[0].text,/남의 일|\uFEFF/);
   const timeOnly=await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15'}});
-  assert.equal(timeOnly.structuredContent.scope,'time','defaults to time scope');
+  assert.match(timeOnly.content[0].text,/\n날짜,제목,목표\(분\)/,'defaults to time scope');
   assert.doesNotMatch(timeOnly.content[0].text,/업무 내용/);assert.doesNotMatch(timeOnly.content[0].text,/\[출력 형식\]/);
   const guided=(await client.callTool({name:'export_tasks',arguments:{from:'2026-10-15',to:'2026-10-15',with_summary_guide:true}})).content[0].text;
   assert.match(guided,/\n\n아래 CSV는 2026-10-15부터/);assert.match(guided,/\[출력 형식\][\s\S]*\n날짜,제목,/);
@@ -194,9 +197,13 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,'done');
  assert.equal((await data(writer,'get_current_work')).task.id,started.task.id);
  assert.equal((await writer.callTool({name:'resume_work',arguments:{}})).isError,true,'not paused');
- assert.equal((await data(writer,'pause_work')).task.status,'paused');
- assert.equal((await data(writer,'resume_work')).task.status,'running');
+ // 쓰기 결과는 다시 조회하지 않고 만든다. DB에 저장된 값과 같아야 한다.
+ const matchesDb=task=>{const row=db.prepare('SELECT status,version,elapsed,started FROM tasks WHERE id=?').get(task.id);
+  assert.equal(task.status,row.status);assert.equal(task.version,row.version);assert.equal(task.minutes,Math.floor((row.elapsed+(row.started===null?0:Date.now()-row.started))/60000));return task;};
+ assert.equal(matchesDb((await data(writer,'pause_work')).task).status,'paused');
+ assert.equal(matchesDb((await data(writer,'resume_work')).task).status,'running');
  const finished=await data(writer,'finish_work',{summary:'도구 추가함',append_note:'추가 메모'});
+ matchesDb(finished.task);assert.equal(finished.task.ended_at,(await data(writer,'list_tasks',{day:finished.task.day})).tasks.find(t=>t.id===finished.task.id).ended_at);
  assert.equal(finished.task.status,'done');assert.equal('result' in finished.task,false);
  const saved=(await data(writer,'list_tasks',{day:finished.task.day,include_details:true})).tasks.find(t=>t.id===finished.task.id);
  assert.equal(saved.result,'도구 추가함');assert.equal(saved.note,'계획\n\n추가 메모');
@@ -212,12 +219,20 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await writer.callTool({name:'finish_work',arguments:{task_id:'x1',summary:'남의 것'}})).isError,true,'not my task');
  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='x1'").get().status,'done');
 
- const edited=await data(writer,'update_task',{task_id:finished.task.id,version:finished.task.version,title:'고친 제목',minutes:45});
+ const edited=await data(writer,'update_task',{task_id:finished.task.id,version:finished.task.version,title:' 고친 제목 ',minutes:45});matchesDb(edited.task);
  assert.equal(edited.task.title,'고친 제목');assert.equal(edited.task.minutes,45);assert.equal(db.prepare('SELECT result FROM tasks WHERE id=?').get(edited.task.id).result,'도구 추가함');assert.equal(edited.task.version,finished.task.version+1);
  result=await writer.callTool({name:'update_task',arguments:{task_id:finished.task.id,version:finished.task.version,title:'옛 버전'}});
  assert.equal(result.isError,true,'stale version');assert.match(result.content[0].text,/다시 조회/);
  assert.equal((await writer.callTool({name:'update_task',arguments:{task_id:'x1',version:0,title:'남의 것'}})).isError,true);
  assert.equal(db.prepare("SELECT title FROM tasks WHERE id='x1'").get().title,'남의 일');
+
+ // 지난 작업 기록: 완료 상태로 만들고 타이머·시작 시각·측정 구간은 두지 않는다.
+ const added=await data(writer,'add_task',{day:'2026-10-14',title:' 회의 ',minutes:60,result:'결정함'});
+ assert.equal(added.task.day,'2026-10-14');assert.equal(added.task.title,'회의');assert.equal(added.task.status,'done');assert.equal(added.task.minutes,60);assert.equal(added.task.started_at,null);
+ assert.equal(db.prepare('SELECT result FROM tasks WHERE id=?').get(added.task.id).result,'결정함');
+ assert.equal(db.prepare('SELECT COUNT(*) AS n FROM task_sessions WHERE task_id=?').get(added.task.id).n,0,'no sessions');
+ assert.equal((await data(writer,'get_current_work')).task?.id===added.task.id,false,'not running');
+ assert.equal((await writer.callTool({name:'add_task',arguments:{day:'2026-02-30',title:'x',minutes:1}})).isError,true,'invalid date');
 
  // 날짜별 메모 생성·수정과 버전 충돌
  const created=await data(writer,'save_daily_memo',{day:'2026-10-16',title:'내일',body:'할 일'});
@@ -256,14 +271,14 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  task.run('kw1','owner','2026-08-01','키워드 정리','짧은 내용','',0,60000,null,'done',day-75*DAY,null,null);
  let found=await data(writer,'list_tasks',{query:'키워드'});
  assert.deepEqual(found.tasks.map(t=>t.id),['long1','kw1']);assert.equal(found.has_more,false);
- assert.equal(found.tasks[0].note,long+'키워드','small results come in full');
+ assert.equal(found.tasks[0].note,long+'키워드','small results come in full');assert.equal(found.truncated,false);
  assert.deepEqual((await data(writer,'list_tasks',{query:'키워드',day:'2026-08-01'})).tasks.map(t=>t.id),['kw1']);
  assert.equal((await data(writer,'list_tasks',{query:'비밀'})).tasks.length,0,'not other users');
  // 본문 합계가 10000자를 넘으면 미리보기와 검색어 주변 발췌
  task.run('big1','owner','2026-08-02','큰 기록','나'.repeat(6000)+'키워드'+'다'.repeat(6000),'',0,60000,null,'done',day-74*DAY,null,null);
  found=await data(writer,'list_tasks',{query:'키워드'});
  const big=found.tasks.find(t=>t.id==='big1');
- assert.equal(big.note.length,200);assert.equal(big.note_truncated,true);assert.match(big.match_excerpt,/^나{150}키워드다{150}$/);
+ assert.equal(found.truncated,true);assert.equal(big.note.length,200);assert.equal(big.note_truncated,true);assert.match(big.match_excerpt,/^나{150}키워드다{150}$/);
  assert.equal((await data(writer,'list_tasks',{query:'키워드',include_details:true})).tasks.find(t=>t.id==='big1').note.length,12003);
 
  // 메모: 목록은 미리보기, memo_id면 전문, query는 제목·본문 검색(%·_는 글자 그대로)
@@ -274,7 +289,8 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await writer.callTool({name:'get_global_memos',arguments:{memo_id:'m2'}})).isError,true,'not my memo');
  await data(writer,'save_global_memo',{title:'진행률',body:'100% 완료'});
  assert.deepEqual((await data(writer,'get_global_memos',{query:'%'})).memos.map(m=>m.title),['진행률'],'% is literal');
- assert.deepEqual((await data(writer,'get_global_memos',{query:'회의'})).memos.map(m=>[m.title,m.body.length]),[['회의록',300]]);
+ const meetingFound=await data(writer,'get_global_memos',{query:'회의'});
+ assert.deepEqual(meetingFound.memos.map(m=>[m.title,m.body.length]),[['회의록',300]]);assert.equal(meetingFound.truncated,false);
  assert.equal((await data(writer,'get_global_memos',{query:'비밀'})).memos.length,0);
  db.prepare('INSERT INTO daily_memos (id,owner,day,title,body,position,version,created,updated) VALUES (?,?,?,?,?,?,?,?,?)').run('d9','other','2026-10-16','남의 할 일','할 일',1,0,now,now);
  await data(writer,'save_daily_memo',{day:'2026-09-01',title:'지난 할 일',body:'할 일 목록'});
@@ -282,12 +298,22 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  assert.equal((await data(writer,'get_daily_memos',{memo_id:'d1'})).memo.day,'2026-10-15');
  assert.equal((await writer.callTool({name:'get_daily_memos',arguments:{memo_id:'d9'}})).isError,true,'not my daily memo');
 
- // 기간 안이어도 내용이 50000자를 넘으면 내보내지 않는다.
- for(const i of [1,2,3])task.run('huge'+i,'owner','2026-07-01','긴 내용 '+i,'마'.repeat(20000),'',0,60000,null,'done',day-100*DAY+i,null,null);
- const huge=await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'detail'}});
- assert.equal(huge.isError,true);assert.match(huge.content[0].text,/너무 깁니다/);
+ // 기간 안이어도 내용이 50000자를 넘으면 긴 작업의 업무 내용·결과만 잘라 상한에 맞춘다. 따옴표는 CSV에서 두 배가 된다.
+ task.run('huge1','owner','2026-07-01','긴 내용 1','마'.repeat(40000),'',0,60000,null,'done',day-100*DAY+1,null,null);
+ task.run('huge2','owner','2026-07-01','긴 내용 2','바'.repeat(15000),'"'.repeat(15000),0,60000,null,'done',day-100*DAY+2,null,null);
+ task.run('huge3','owner','2026-07-01','짧은 일','짧은 내용','짧은 결과',0,60000,null,'done',day-100*DAY+3,null,null);
+ const huge=(await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'detail',with_summary_guide:true}}));
+ assert.equal(huge.isError,undefined,huge.content[0].text.slice(0,200));
+ const hugeText=huge.content[0].text;
+ assert.ok(hugeText.length<=50000&&hugeText.length>49000,`fits the limit: ${hugeText.length}`);
+ assert.match(hugeText,/^2026-07-01 ~ 2026-07-01: 작업 3건\. 글자 수 상한 때문에 2건의/);
+ assert.equal(hugeText.match(/…\(잘림\)/g).length-1,3,'note of huge1, note and result of huge2 (one mark is in the summary)');
+ assert.match(hugeText,/,짧은 일,짧은 내용,짧은 결과\r\n/,'short task untouched');
+ const kept=hugeText.split('\r\n').slice(1).map(line=>line.replace(/""/g,'"').length);
+ assert.ok(Math.abs(kept[0]-kept[1])<kept[0]*0.2,`long tasks share the budget: ${kept}`);
  assert.equal((await writer.callTool({name:'export_tasks',arguments:{from:'2026-07-01',to:'2026-07-01'}})).isError,undefined,'time scope stays small');
- await assert.rejects(writer.getPrompt({name:'summarize_work',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'all'}}),/너무 깁니다/);
+ const hugePrompt=(await writer.getPrompt({name:'summarize_work',arguments:{from:'2026-07-01',to:'2026-07-01',scope:'all'}})).messages[0].content.text;
+ assert.ok(hugePrompt.length<=50000);assert.match(hugePrompt,/2건의 업무 내용·결과 뒷부분을 잘랐습니다/);
  await writer.close();
 
  // 폐기된 연결의 토큰은 거절한다.

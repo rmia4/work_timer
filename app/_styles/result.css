@@ -133,6 +133,63 @@
 .connect-menu button {
   justify-content: flex-start;
 }
+.codex-steps {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding-left: 1.3em;
+  list-style: decimal;
+  color: var(--c-text);
+  font-size: 14px;
+}
+.codex-steps li {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.codex-steps p {
+  margin: 0;
+  line-height: 1.6;
+}
+.codex-fields {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.codex-fields div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.codex-fields dt {
+  min-width: 56px;
+  color: var(--c-muted);
+  font-size: 13px;
+}
+.codex-fields dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.codex-fields code {
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  color: var(--c-text-strong);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.codex-fields button {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.codex-error {
+  margin: 0;
+  color: var(--c-error);
+  font-size: 13px;
+}
 .connections {
   display: grid;
   gap: 10px;

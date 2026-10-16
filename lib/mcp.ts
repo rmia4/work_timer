@@ -2,7 +2,7 @@ import {McpServer,type AuthInfo} from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 import type {database} from '../db/raw';
 import {verifyAccessToken,resourceUrl} from './oauth';
-import {listTasks,dayTotals,exportRows,applyTaskAction,type TaskFailure} from './task-service';
+import {dayTotals,exportRows,applyTaskAction,type TaskFailure} from './task-service';
 import {validRange,validScope,tasksCsv,summaryPrompt,weekStart,type ExportScope} from './stats';
 import {validDay} from './work-dates';
 // MCP 서버(/api/mcp)의 인증과 도구. 요청마다 서버를 새로 만들고(stateless), 토큰 주인의 기록만 다룬다.
@@ -15,10 +15,11 @@ const kstToday=(now:number)=>new Date(now+KST_MS).toISOString().slice(0,10);
 const minutes=(ms:number)=>Math.floor(Math.max(0,ms)/60000);
 
 // Bearer 토큰을 확인하고 연결의 마지막 사용 시각을 분 단위로만 갱신한다. 유효하지 않으면 null.
+// 갱신할 때가 아니면 UPDATE를 보내지 않아 요청마다 DB 왕복을 1번으로 줄인다.
 export async function authenticate(db:Db,header:string|null,now:number):Promise<AuthInfo|null>{
  const match=/^Bearer ([A-Za-z0-9]+)$/i.exec(header||'');if(!match)return null;
  const grant=await verifyAccessToken(db,match[1],now);if(!grant)return null;
- await db.prepare('UPDATE oauth_grants SET last_used=? WHERE id=? AND (last_used IS NULL OR last_used<=?)').bind(now,grant.grantId,now-60000).run();
+ if(grant.lastUsed===null||grant.lastUsed<=now-60000)await db.prepare('UPDATE oauth_grants SET last_used=? WHERE id=? AND (last_used IS NULL OR last_used<=?)').bind(now,grant.grantId,now-60000).run();
  return {token:match[1],clientId:grant.clientId,scopes:grant.scopes,resource:new URL(resourceUrl()),extra:{owner:grant.owner}};
 }
 
@@ -45,11 +46,11 @@ function excerpt(texts:string[],query:string){
  return null;
 }
 // 검색 결과는 AI가 사용자가 말한 대상을 고를 수 있게 본문을 최대한 넣는다.
-// 본문 합계가 작으면 모두 전문, 크면 미리보기와 검색어 주변 발췌를 준다. rows는 MATCH_LIMIT+1건까지 받는다.
+// 본문 합계가 작으면 모두 전문, 크면 미리보기와 검색어 주변 발췌를 준다(truncated: true). rows는 MATCH_LIMIT+1건까지 받는다.
 function searchResults<T>(rows:T[],query:string,texts:(row:T)=>string[],full:(row:T)=>object,short:(row:T)=>object){
  const items=rows.slice(0,MATCH_LIMIT);
  const fits=items.reduce((n,row)=>n+texts(row).reduce((m,text)=>m+text.length,0),0)<=SEARCH_FULL_CHARS;
- return {items:items.map(row=>fits?full(row):{...short(row),match_excerpt:excerpt(texts(row),query)}),has_more:rows.length>MATCH_LIMIT};
+ return {items:items.map(row=>fits?full(row):{...short(row),match_excerpt:excerpt(texts(row),query)}),has_more:rows.length>MATCH_LIMIT,truncated:!fits};
 }
 // 사용자 입력 텍스트는 데이터 필드에만 담는다. 텍스트 결과에는 한 줄 요약과 같은 JSON을 함께 넣는다.
 const ok=(summary:string,data:Record<string,unknown>)=>({content:[{type:'text' as const,text:summary+'\n'+JSON.stringify(data)}],structuredContent:data});
@@ -90,7 +91,7 @@ function readTools(server:McpServer,ctx:Ctx){
   const task=t&&taskView(t,now(),include_details?'full':'preview');
   return ok(task?`${task.status==='running'?'진행 중':'일시정지'}: ${task.minutes}분 경과`:'진행 중인 작업이 없습니다.',{task});
  });
- server.registerTool('list_tasks',{title:'작업 목록·검색',description:'한 날짜의 작업 목록(제목, 상태, 소요 분, 시작·종료 시각, 내용, 결과)을 만든 순서의 역순으로 돌려준다. day를 생략하면 오늘이다. 내용·결과는 앞 200자만 오고, 전문은 include_details: true. query를 주면 제목·내용·결과에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 결과가 잘렸으면 match_excerpt로 대상을 고른 뒤 include_details로 다시 조회한다.',
+ server.registerTool('list_tasks',{title:'작업 목록·검색',description:'한 날짜의 작업 목록(제목, 상태, 소요 분, 시작·종료 시각, 내용, 결과)을 만든 순서의 역순으로 돌려준다. day를 생략하면 오늘이다. 내용·결과는 앞 200자만 오고(잘린 항목은 note_truncated·result_truncated: true), 전문은 include_details: true. query를 주면 제목·내용·결과에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 검색 결과는 truncated: false면 전문이고, true면 match_excerpt로 대상을 고른 뒤 include_details로 다시 조회한다.',
   inputSchema:z.object({day:dayInput.optional(),query:queryInput.optional(),include_details:detailsInput}),annotations:readOnly},async({day,query,include_details})=>{
   if(day!==undefined&&!validDay(day))return toolError(badDay);
   const at=now(),mode=include_details?'full':'preview';
@@ -98,11 +99,12 @@ function readTools(server:McpServer,ctx:Ctx){
    const pattern=likePattern(query);
    const rows=(await db.prepare(`SELECT * FROM tasks WHERE owner=?${day?' AND day=?':''} AND ${likeAny(['title','note','result'])} ORDER BY day DESC,created DESC LIMIT ?`)
     .bind(...[owner,...(day?[day]:[]),pattern,pattern,pattern,MATCH_LIMIT+1]).all<TaskRow>()).results;
-   const {items,has_more}=searchResults(rows,query,t=>[t.note,t.result],t=>taskView(t,at,'full'),t=>taskView(t,at,mode));
-   return ok(`"${query}" 일치 작업 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,tasks:items,has_more});
+   const {items,has_more,truncated}=searchResults(rows,query,t=>[t.note,t.result],t=>taskView(t,at,'full'),t=>taskView(t,at,mode));
+   return ok(`"${query}" 일치 작업 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,tasks:items,has_more,truncated});
   }
   const target=day??kstToday(at);
-  const tasks=(await listTasks(db,owner,target) as unknown as TaskRow[]).filter(t=>t.day===target).map(t=>taskView(t,at,mode));
+  // 웹용 listTasks는 측정 구간과 다른 날의 미완료 작업까지 가져온다. MCP는 그날 작업만 한 번에 조회한다.
+  const tasks=(await db.prepare('SELECT * FROM tasks WHERE owner=? AND day=? ORDER BY created DESC').bind(owner,target).all<TaskRow>()).results.map(t=>taskView(t,at,mode));
   return ok(`${target} 작업 ${tasks.length}건, 합계 ${tasks.reduce((sum,t)=>sum+t.minutes,0)}분`,{day:target,tasks});
  });
  server.registerTool('get_stats',{title:'기간 통계',description:'기간(최대 371일)의 총 작업 시간(분), 작업 수와 기간별 합계를 돌려준다. group이 day(기본)면 days에 일별, week·month면 periods에 주별(월요일 시작일)·월별 합계가 온다. 기간이 길면 week나 month를 쓴다. 기록이 없는 날·기간은 빠진다.',
@@ -119,7 +121,7 @@ function readTools(server:McpServer,ctx:Ctx){
   }
   return ok(summary,{from,to,group,total_minutes:total,task_count:count,periods:[...periods.values()]});
  });
- server.registerTool('get_daily_memos',{title:'날짜별 메모 조회·검색',description:'한 날짜의 메모를 돌려준다(day 생략 시 오늘). 본문은 앞 200자만 온다. memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 잘린 결과는 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜와 상관없는 메모는 get_global_memos.',
+ server.registerTool('get_daily_memos',{title:'날짜별 메모 조회·검색',description:'한 날짜의 메모를 돌려준다(day 생략 시 오늘). 본문은 앞 200자만 온다(잘린 항목은 body_truncated: true). memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(day를 생략하면 모든 날짜, 최근 순 최대 20건). 검색 결과는 truncated: false면 전문이고, true면 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜와 상관없는 메모는 get_global_memos.',
   inputSchema:z.object({day:dayInput.optional(),memo_id:z.string().optional(),query:queryInput.optional()}),annotations:readOnly},async({day,memo_id,query})=>{
   if(day!==undefined&&!validDay(day))return toolError(badDay);
   if(memo_id!==undefined){
@@ -130,14 +132,14 @@ function readTools(server:McpServer,ctx:Ctx){
    const pattern=likePattern(query);
    const rows=(await db.prepare(`SELECT id,day,title,body,version FROM daily_memos WHERE owner=?${day?' AND day=?':''} AND ${likeAny(['title','body'])} ORDER BY day DESC,position,created LIMIT ?`)
     .bind(...[owner,...(day?[day]:[]),pattern,pattern,MATCH_LIMIT+1]).all<MemoRow>()).results;
-   const {items,has_more}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
-   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,daily_memos:items,has_more});
+   const {items,has_more,truncated}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
+   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,day:day??null,daily_memos:items,has_more,truncated});
   }
   const target=day??kstToday(now());
   const daily=await db.prepare('SELECT id,title,body,version FROM daily_memos WHERE owner=? AND day=? ORDER BY position,created').bind(owner,target).all<MemoRow>();
   return ok(`${target} 메모 ${daily.results.length}건`,{day:target,daily_memos:daily.results.map(m=>memoView(m,false))});
  });
- server.registerTool('get_global_memos',{title:'전역 메모 조회·검색',description:'날짜와 상관없는 전역 메모를 돌려준다. 본문은 앞 200자만 온다. memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(최대 20건). 잘린 결과는 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜별 메모는 get_daily_memos.',
+ server.registerTool('get_global_memos',{title:'전역 메모 조회·검색',description:'날짜와 상관없는 전역 메모를 돌려준다. 본문은 앞 200자만 온다(잘린 항목은 body_truncated: true). memo_id를 주면 그 메모 1건을 전문으로 준다. query를 주면 제목·본문에서 찾는다(최대 20건). 검색 결과는 truncated: false면 전문이고, true면 match_excerpt로 대상을 고른 뒤 memo_id로 전문을 가져온다. 날짜별 메모는 get_daily_memos.',
   inputSchema:z.object({memo_id:z.string().optional(),query:queryInput.optional()}),annotations:readOnly},async({memo_id,query})=>{
   if(memo_id!==undefined){
    const memo=await db.prepare('SELECT id,title,body,version FROM memos WHERE id=? AND owner=?').bind(memo_id,owner).first<MemoRow>();
@@ -146,8 +148,8 @@ function readTools(server:McpServer,ctx:Ctx){
   if(query!==undefined){
    const pattern=likePattern(query);
    const rows=(await db.prepare(`SELECT id,title,body,version FROM memos WHERE owner=? AND ${likeAny(['title','body'])} ORDER BY position,created LIMIT ?`).bind(owner,pattern,pattern,MATCH_LIMIT+1).all<MemoRow>()).results;
-   const {items,has_more}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
-   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,memos:items,has_more});
+   const {items,has_more,truncated}=searchResults(rows,query,m=>[m.body],m=>m,m=>memoView(m,false));
+   return ok(`"${query}" 일치 메모 ${items.length}건${has_more?' 이상':''}`,{query,memos:items,has_more,truncated});
   }
   const memos=await db.prepare('SELECT id,title,body,version FROM memos WHERE owner=? ORDER BY position,created').bind(owner).all<MemoRow>();
   return ok(`전역 메모 ${memos.results.length}건`,{memos:memos.results.map(m=>memoView(m,false))});
@@ -161,20 +163,54 @@ function readTools(server:McpServer,ctx:Ctx){
   return null;
  };
  const tooLong=(size:number)=>`내보낼 내용이 ${size}자로 너무 깁니다(최대 ${EXPORT_MAX_CHARS}자). 기간을 줄이거나 scope: "time"으로 다시 호출하세요.`;
- const exportCsv=async(from:string,to:string,scope:ExportScope)=>{
-  const rows=await exportRows(db,owner,from,to,now());
-  return {count:rows.length,csv:tasksCsv(rows,scope).replace(/^\uFEFF/,'')};
+ const CUT_MARK='…(잘림)';
+ const cutText=(text:string,size:number)=>text.length<=size?text:text.slice(0,Math.max(0,size-CUT_MARK.length)).replace(/[\uD800-\uDBFF]$/,'')+CUT_MARK;
+ // 작업별 업무 내용+결과 길이 상한. 상한보다 짧은 작업은 그대로 두고 남는 몫을 긴 작업에 나눈다.
+ const fairCap=(sizes:number[],budget:number)=>{
+  const sorted=[...sizes].sort((a,b)=>a-b);
+  for(let i=0,rest=budget;i<sorted.length;rest-=sorted[i],i++){
+   const share=Math.floor(Math.max(0,rest)/(sorted.length-i));
+   if(sorted[i]>share)return share;
+  }
+  return Infinity;
  };
- server.registerTool('export_tasks',{title:'CSV 내보내기',description:`업무 기록을 웹의 내보내기와 같은 CSV 텍스트로 돌려준다. scope는 time(시간 기록 열, 기본값, 최대 366일), detail(업무 내용·결과 열)·all(전부)은 최대 ${DETAIL_EXPORT_DAYS}일. 업무 내용까지 봐야 할 때만 all·detail을 쓴다. 사용자가 기간 업무 요약·분석을 원하면 with_summary_guide: true로 호출하고, CSV 앞에 붙는 지침대로 요약한다.`,
+ // 상한을 넘으면 업무 내용·결과를 작업별로 잘라 맞춘다. CSV 이스케이프로 길이가 달라지니 다시 재서 예산을 고치고, 상한 안에서 가장 긴 결과를 고른다.
+ // compose는 CSV, 잘린 작업 수, 전체 작업 수로 최종 텍스트를 만든다. 다 잘라도 넘으면 상한을 넘는 텍스트를 그대로 돌려준다.
+ const exportText=async(from:string,to:string,scope:ExportScope,compose:(csv:string,cut:number,count:number)=>string)=>{
+  const rows=await exportRows(db,owner,from,to,now());
+  const build=(list:typeof rows,cut:number)=>compose(tasksCsv(list,scope).replace(/^\uFEFF/,''),cut,rows.length);
+  let text=build(rows,0);
+  if(text.length<=EXPORT_MAX_CHARS||scope==='time')return text;
+  const sizes=rows.map(r=>r.note.length+r.result.length);
+  let budget=sizes.reduce((a,b)=>a+b,0);
+  let best:string|null=null;
+  for(let i=0;i<5&&text.length!==EXPORT_MAX_CHARS;i++){
+   budget-=text.length-EXPORT_MAX_CHARS;
+   const cap=fairCap(sizes,budget);
+   let cut=0;
+   const fitted=rows.map((r,j)=>{
+    if(sizes[j]<=cap)return r;
+    cut++;
+    const noteSize=Math.floor(cap*r.note.length/sizes[j]);
+    return {...r,note:cutText(r.note,noteSize),result:cutText(r.result,cap-noteSize)};
+   });
+   text=build(fitted,cut);
+   if(text.length<=EXPORT_MAX_CHARS&&text.length>(best?.length??-1))best=text;
+  }
+  return best??text;
+ };
+ server.registerTool('export_tasks',{title:'CSV 내보내기',description:`업무 기록을 웹의 내보내기와 같은 CSV 텍스트로 돌려준다. scope는 time(시간 기록 열, 기본값, 최대 366일), detail(업무 내용·결과 열)·all(전부)은 최대 ${DETAIL_EXPORT_DAYS}일. 업무 내용까지 봐야 할 때만 all·detail을 쓴다. 전체가 ${EXPORT_MAX_CHARS}자를 넘으면 긴 작업의 업무 내용·결과 뒷부분을 잘라 "${CUT_MARK}"을 붙인다. 사용자가 기간 업무 요약·분석을 원하면 with_summary_guide: true로 호출하고, CSV 앞에 붙는 지침대로 요약한다.`,
   inputSchema:z.object({from:dayInput,to:dayInput,scope:z.enum(['time','all','detail']).optional(),with_summary_guide:z.boolean().optional().describe('웹의 "AI 요약 프롬프트"를 CSV 앞에 붙인다')}),annotations:readOnly},
   async({from,to,scope='time',with_summary_guide})=>{
   const rangeError=exportRangeError(from,to,scope);
   if(rangeError)return toolError(rangeError);
-  const {count,csv}=await exportCsv(from,to,scope);
-  const summary=`${from} ~ ${to}: 작업 ${count}건`;
-  const text=with_summary_guide?`${summary}\n\n${summaryPrompt(from,to,scope,'below')}\n\n${csv}`:`${summary}\n${csv}`;
+  const text=await exportText(from,to,scope,(csv,cut,count)=>{
+   const summary=`${from} ~ ${to}: 작업 ${count}건`+(cut?`. 글자 수 상한 때문에 ${cut}건의 업무 내용·결과 뒷부분을 잘랐습니다(칸 끝 "${CUT_MARK}"). 전문은 list_tasks에 day와 include_details: true로 조회합니다.`:'');
+   return with_summary_guide?`${summary}\n\n${summaryPrompt(from,to,scope,'below')}\n\n${csv}`:`${summary}\n${csv}`;
+  });
   if(text.length>EXPORT_MAX_CHARS)return toolError(tooLong(text.length));
-  return {content:[{type:'text' as const,text}],structuredContent:{from,to,scope,task_count:count}};
+  // structuredContent를 두면 그것만 모델에 넘기는 클라이언트(Claude Code 등)에서 CSV가 빠진다. 텍스트로만 돌려준다.
+  return {content:[{type:'text' as const,text}]};
  });
  server.registerPrompt('summarize_work',{title:'업무 기록 요약',description:`기간의 업무 기록 CSV와 웹의 AI 요약 프롬프트를 함께 넣는다. scope는 time(기본, 최대 366일), all·detail(최대 ${DETAIL_EXPORT_DAYS}일).`,
   argsSchema:z.object({from:dayInput,to:dayInput,scope:z.string().optional().describe('time(기본) / all / detail')})},
@@ -182,8 +218,7 @@ function readTools(server:McpServer,ctx:Ctx){
   if(!validScope(scope))throw new Error('scope는 time, all, detail 중 하나여야 합니다.');
   const rangeError=exportRangeError(from,to,scope);
   if(rangeError)throw new Error(rangeError);
-  const {csv}=await exportCsv(from,to,scope);
-  const text=`${summaryPrompt(from,to,scope,'below')}\n\n${csv}`;
+  const text=await exportText(from,to,scope,(csv,cut)=>`${summaryPrompt(from,to,scope,'below')}\n\n${cut?`글자 수 상한 때문에 ${cut}건의 업무 내용·결과 뒷부분을 잘랐습니다(칸 끝 "${CUT_MARK}").\n\n`:''}${csv}`);
   if(text.length>EXPORT_MAX_CHARS)throw new Error(tooLong(text.length));
   return {messages:[{role:'user' as const,content:{type:'text' as const,text}}]};
  });
@@ -192,9 +227,11 @@ function readTools(server:McpServer,ctx:Ctx){
 // 쓰기 도구. 검증과 상태 전이는 웹 API와 같은 applyTaskAction을 거친다. 삭제 도구는 두지 않는다.
 function writeTools(server:McpServer,ctx:Ctx){
  const {db,owner,now}=ctx;
- const view=async(id:string)=>taskView((await taskById(ctx,id))!,now(),'compact');
- server.registerTool('start_work',{title:'작업 시작',description:'오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 진행 중이거나 일시정지된 작업이 있으면 기본값(if_running: "fail")으로는 그 작업 정보와 함께 오류를 돌려준다. 사용자가 동의하면 "finish_previous"로 기존 작업을 종료하고 시작한다.',
-  inputSchema:z.object({title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),note:z.string().max(20000).optional().describe('작업 내용'),target_minutes:minutesInput.optional().describe('목표 시간(분)'),if_running:z.enum(['fail','finish_previous']).optional()}),annotations:write},
+ // 쓰기 결과는 저장한 값으로 만들어 다시 조회하지 않는다. 성공하면 버전이 1 오른다.
+ const after=(t:TaskRow,change:Partial<TaskRow>,at:number)=>taskView({...t,version:t.version+1,...change},at,'compact');
+ const spent=(t:TaskRow,at:number)=>t.elapsed+(t.started===null?0:Math.max(0,at-t.started));
+ server.registerTool('start_work',{title:'작업 시작',description:'오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 시작만 하며 결과는 넣지 않는다(결과는 finish_work). 진행 중이거나 일시정지된 작업이 있으면 기본값(if_running: "fail")으로는 그 작업 정보와 함께 오류를 돌려준다. 사용자가 동의하면 "finish_previous"로 기존 작업을 종료하고 시작한다.',
+  inputSchema:z.object({title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),note:z.string().max(20000).optional().describe('할 일·목표. 이미 한 일과 결과는 적지 않는다'),target_minutes:minutesInput.optional().describe('목표 시간(분)'),if_running:z.enum(['fail','finish_previous']).optional()}),annotations:write},
   async({title,note,target_minutes,if_running})=>{
   const previous=await currentTask(ctx);
   if(previous){
@@ -208,7 +245,7 @@ function writeTools(server:McpServer,ctx:Ctx){
   const task=taskView((await currentTask(ctx))!,now(),'compact');
   return ok(previous?'이전 작업을 종료하고 타이머를 시작했습니다.':'타이머를 시작했습니다.',{task,finished_task_id:previous?.id??null});
  });
- server.registerTool('finish_work',{title:'작업 종료',description:'작업의 타이머를 종료하고 결과 요약을 저장한다. task_id를 생략하면 진행 중이거나 일시정지된 작업이다. 결과가 이미 있으면 덮어쓰지 않고 구분선 뒤에 이어 붙인다.',
+ server.registerTool('finish_work',{title:'작업 종료',description:'작업의 타이머를 종료하고 결과 요약을 저장한다. 사용자가 작업을 마치라고 하거나 진행 중인 작업에 결과를 넣으라고 하면 이 도구를 쓴다. task_id를 생략하면 진행 중이거나 일시정지된 작업이다. 결과가 이미 있으면 덮어쓰지 않고 구분선 뒤에 이어 붙인다.',
   inputSchema:z.object({task_id:z.string().optional(),summary:z.string().min(1).max(20000).describe('무엇을, 왜, 결과(PR 링크·검증 결과)를 3~6줄로'),append_note:z.string().max(20000).optional().describe('작업 내용 뒤에 덧붙일 글')}),annotations:write},
   async({task_id,summary,append_note})=>{
   const t=task_id===undefined?await currentTask(ctx):await taskById(ctx,task_id);
@@ -217,29 +254,32 @@ function writeTools(server:McpServer,ctx:Ctx){
   const result=t.result.trim()?`${t.result}\n\n---\n\n${summary}`:summary;
   const note=append_note===undefined?undefined:t.note.trim()?`${t.note}\n\n${append_note}`:append_note;
   if(result.length>20000||(note?.length??0)>20000)return toolError('결과나 내용이 20000자를 넘습니다. 요약을 줄여 주세요.');
-  const failure=await applyTaskAction(db,owner,{action:'finish',id:t.id,version:t.version,result,note},now());
+  const at=now();
+  const failure=await applyTaskAction(db,owner,{action:'finish',id:t.id,version:t.version,result,note},at);
   if(failure)return failed(failure);
-  const task=await view(t.id);
+  const task=after(t,{elapsed:spent(t,at),started:null,status:'done',ended_at:at},at);
   return ok(`작업을 종료했습니다: ${task.minutes}분`,{task});
  });
  for(const [name,action,from,title] of [['pause_work','pause','running','작업 일시정지'],['resume_work','resume','paused','작업 재개']] as const){
   server.registerTool(name,{title,description:action==='pause'?'진행 중인 작업의 타이머를 일시정지한다.':'일시정지된 작업의 타이머를 다시 시작한다.',annotations:write},async()=>{
    const t=await currentTask(ctx);
    if(t?.status!==from)return toolError(action==='pause'?'진행 중인 작업이 없습니다.':'일시정지된 작업이 없습니다.');
-   const failure=await applyTaskAction(db,owner,{action,id:t.id,version:t.version},now());
+   const at=now();
+   const failure=await applyTaskAction(db,owner,{action,id:t.id,version:t.version},at);
    if(failure)return failed(failure);
-   const task=await view(t.id);
+   const task=after(t,{elapsed:spent(t,at),started:action==='resume'?at:null,status:action==='pause'?'paused':'running'},at);
    return ok(action==='pause'?`일시정지했습니다: ${task.minutes}분 경과`:'타이머를 다시 시작했습니다.',{task});
   });
  }
- server.registerTool('update_task',{title:'완료된 작업 수정',description:'종료된 작업의 제목·내용·결과·소요 시간(분)을 고친다. 생략한 항목은 그대로 둔다. version은 list_tasks 결과의 값을 넣는다. 날짜와 시작·종료 시각은 바꾸지 않는다.',
+ server.registerTool('update_task',{title:'완료된 작업 수정',description:'이미 종료된 작업의 제목·내용·결과·소요 시간(분)을 고친다. 진행 중이거나 일시정지된 작업에는 쓸 수 없다(결과 저장은 finish_work). 생략한 항목은 그대로 둔다. version은 list_tasks 결과의 값을 넣는다. 날짜와 시작·종료 시각은 바꾸지 않는다.',
   inputSchema:z.object({task_id:z.string(),version:z.number().int(),title:z.string().min(1).max(200).optional(),note:z.string().max(20000).optional(),result:z.string().max(20000).optional(),minutes:minutesInput.optional()}),annotations:write},
-  async({task_id,version,title,note,result,minutes:spent})=>{
+  async({task_id,version,title,note,result,minutes:spentMinutes})=>{
   const t=await taskById(ctx,task_id);
   if(!t)return toolError('작업이 없습니다.');
-  const failure=await applyTaskAction(db,owner,{action:'edit',id:t.id,version,title:title??t.title,note:note??t.note,result:result??t.result,day:t.day,target:t.target,elapsed:spent===undefined?t.elapsed:spent*60000},now());
+  const at=now(),elapsed=spentMinutes===undefined?t.elapsed:spentMinutes*60000;
+  const failure=await applyTaskAction(db,owner,{action:'edit',id:t.id,version,title:title??t.title,note:note??t.note,result:result??t.result,day:t.day,target:t.target,elapsed},at);
   if(failure)return failed(failure);
-  return ok('작업을 수정했습니다.',{task:await view(t.id)});
+  return ok('작업을 수정했습니다.',{task:after(t,{title:(title??t.title).trim(),elapsed,version:version+1},at)});
  });
  server.registerTool('save_daily_memo',{title:'날짜별 메모 저장',description:'날짜별 메모를 새로 만들거나(memo_id 생략) 기존 메모를 고친다(get_daily_memos 결과의 memo_id와 version). 고칠 때 생략한 title·body는 그대로 둔다. 결과에는 본문 없이 id·title·version만 온다.',
   inputSchema:z.object({day:dayInput,memo_id:z.string().optional(),version:z.number().int().optional(),title:z.string().max(200).optional(),body:z.string().max(20000).optional()}),annotations:write},
@@ -275,5 +315,16 @@ function writeTools(server:McpServer,ctx:Ctx){
   const result=await db.prepare('UPDATE memos SET title=?,body=?,version=version+1,updated=? WHERE id=? AND owner=? AND version=?').bind(memo.title,memo.body,at,memo_id,owner,version).run();
   if(!result.meta.changes)return toolError('다른 기기에서 변경되었습니다. get_global_memos로 다시 조회한 뒤 시도하세요.');
   return ok('전역 메모를 고쳤습니다.',{memo:{id:memo.id,title:memo.title,version:memo.version}});
+ });
+ // 지난 작업을 완료 상태로 바로 기록한다. 웹의 "기록 추가"와 같이 타이머 없이 만들고 시작·종료 시각은 비워 둔다.
+ server.registerTool('add_task',{title:'지난 작업 기록',description:'이미 끝난 작업을 지정한 날짜에 완료 상태로 기록한다. 타이머는 켜지 않고 시작·종료 시각은 비워 둔다. 지금 시작하는 작업은 start_work를 쓴다.',
+  inputSchema:z.object({day:dayInput,title:z.string().min(1).max(200).describe('작업 제목(한국어, 40자 이내 권장)'),minutes:minutesInput.describe('소요 시간(분)'),note:z.string().max(20000).optional().describe('할 일·내용'),result:z.string().max(20000).optional().describe('결과'),target_minutes:minutesInput.optional().describe('목표 시간(분)')}),annotations:write},
+  async({day,title,minutes:spent,note,result,target_minutes})=>{
+  if(!validDay(day))return toolError(badDay);
+  const at=now();
+  const failure=await applyTaskAction(db,owner,{action:'create',title,day,note:note??'',result:result??'',target:(target_minutes??0)*60000,elapsed:spent*60000,run:false},at);
+  if(failure)return failed(failure);
+  const t=await db.prepare('SELECT * FROM tasks WHERE owner=? AND day=? AND created=? ORDER BY id LIMIT 1').bind(owner,day,at).first<TaskRow>();
+  return ok(`${day}에 작업을 기록했습니다: ${spent}분`,{task:t&&taskView(t,at,'compact')});
  });
 }

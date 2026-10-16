@@ -74,6 +74,10 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
   추가한 뒤 Claude Code에서 `/mcp`를 열어 인증을 진행합니다.
 
   - claude.ai에 Work Timer 커넥터를 연결해 두었다면 Claude Code에서도 `claude.ai worktimer`로 보입니다. 이 경우 같은 도구가 두 벌이 되므로 Claude Code의 `/mcp`에서 한쪽을 끕니다.
+- **Codex:** 플러그인은 이 저장소의 `plugin/codex` 브랜치에 있습니다. Work Timer 상단의 **AI 연결 > Codex에 연결**에서 아래 순서를 안내하고, 입력값 복사와 Codex 앱 화면 열기 버튼을 제공합니다.
+  1. Codex 앱의 플러그인 화면에서 **관리 > 마켓플레이스 > 마켓플레이스 추가**를 누릅니다.
+  2. 출처에 `rmia4/work_timer`, Git ref에 `plugin/codex`를 입력합니다(Sparse 경로는 비워 둠).
+  3. Work Timer 플러그인을 설치하고, Work Timer 로그인·동의 화면에서 허용합니다.
 
 ### AI 사용 규칙
 
