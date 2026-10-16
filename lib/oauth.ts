@@ -39,12 +39,14 @@ export async function readBody(req:Request,limit=16*1024){
 }
 
 const LOOPBACK=new Set(['localhost','127.0.0.1','[::1]']);
-// https 또는 루프백 http(Claude Code 같은 네이티브 앱의 로컬 콜백)만 허용한다.
+// 모바일 앱의 비공개 스킴은 RFC 8252 7.1에 따라 역도메인 형식(예: io.github.rmia4.worktimer:/oauth)만 받는다.
+const PRIVATE_SCHEME=/^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+:$/;
+// https, 루프백 http(Claude Code 같은 네이티브 앱의 로컬 콜백), 모바일 앱의 비공개 스킴만 허용한다.
 function validRedirect(value:unknown):value is string{
  if(typeof value!=='string'||value.length>MAX_URI)return false;
  let url:URL;try{url=new URL(value);}catch{return false;}
  if(url.hash||url.username||url.password)return false;
- return url.protocol==='https:'||(url.protocol==='http:'&&LOOPBACK.has(url.hostname));
+ return url.protocol==='https:'||(url.protocol==='http:'&&LOOPBACK.has(url.hostname))||PRIVATE_SCHEME.test(url.protocol);
 }
 // 등록된 값과 정확히 일치해야 한다. 루프백 주소만 RFC 8252 7.3에 따라 포트를 무시한다.
 export function redirectMatches(registered:string[],requested:string){
@@ -58,7 +60,7 @@ export const isLoopback=(uri:string)=>{try{return LOOPBACK.has(new URL(uri).host
 type Registration={ok:true;client:Record<string,unknown>}|{ok:false;error:string;description:string};
 export async function registerClient(db:Db,body:Record<string,unknown>,now:number):Promise<Registration>{
  const uris=body.redirect_uris;
- if(!Array.isArray(uris)||!uris.length||uris.length>MAX_REDIRECTS||!uris.every(validRedirect))return {ok:false,error:'invalid_redirect_uri',description:'redirect_uris는 https 또는 루프백 http 주소여야 합니다.'};
+ if(!Array.isArray(uris)||!uris.length||uris.length>MAX_REDIRECTS||!uris.every(validRedirect))return {ok:false,error:'invalid_redirect_uri',description:'redirect_uris는 https, 루프백 http 또는 역도메인 형식의 앱 스킴 주소여야 합니다.'};
  if(body.client_name!==undefined&&(typeof body.client_name!=='string'||body.client_name.length>MAX_NAME))return {ok:false,error:'invalid_client_metadata',description:`client_name은 ${MAX_NAME}자 이하여야 합니다.`};
  const grantTypes=body.grant_types??['authorization_code'],responseTypes=body.response_types??['code'];
  if(!Array.isArray(grantTypes)||!grantTypes.every(g=>g==='authorization_code'||g==='refresh_token')||!Array.isArray(responseTypes)||!responseTypes.every(r=>r==='code'))return {ok:false,error:'invalid_client_metadata',description:'authorization_code와 refresh_token만 지원합니다.'};
