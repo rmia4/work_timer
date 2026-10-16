@@ -52,8 +52,11 @@ export type LayoutProps = {
   onLayoutChange: (layout: LayoutId) => Promise<boolean>;
 };
 
-// TODO: Codex 연결 링크 확정 후 채운다. 비어 있으면 메뉴 항목이 비활성으로 보인다.
-const CODEX_CONNECT_URL = "";
+// GitHub의 plugin/codex 브랜치를 Codex 마켓플레이스로 추가해 플러그인을 설치하고, MCP 로그인(OAuth)까지 이어서 실행한다.
+const CODEX_PLUGIN_ID = "work-timer@work-timer-local";
+const CODEX_INSTALL_COMMAND = `codex plugin marketplace add rmia4/work_timer --ref plugin/codex && codex plugin add ${CODEX_PLUGIN_ID} && codex mcp login work-timer`;
+// 설치 후 Codex 앱의 플러그인 상세 화면을 여는 딥링크.
+const CODEX_PLUGIN_URL = `codex://plugins/${encodeURIComponent(CODEX_PLUGIN_ID)}`;
 
 function openClaudeConnect() {
   // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
@@ -69,29 +72,87 @@ function openClaudeConnect() {
   );
 }
 
-function ConnectMenu() {
+function CodexConnectDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [copied, setCopied] = useState(false),
+    [error, setError] = useState("");
+  async function copyCommand() {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(CODEX_INSTALL_COMMAND);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("명령을 복사하지 못했습니다.");
+    }
+  }
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className="connect-trigger">
-          <Plug size={16} />
-          AI 연결
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="connect-menu">
-        <button type="button" onClick={openClaudeConnect}>
-          Claude에 연결
-        </button>
-        <button
-          type="button"
-          disabled={!CODEX_CONNECT_URL}
-          title={CODEX_CONNECT_URL ? undefined : "준비 중"}
-          onClick={() => window.open(CODEX_CONNECT_URL, "_blank", "noopener")}
-        >
-          Codex에 연결{!CODEX_CONNECT_URL && " (준비 중)"}
-        </button>
-      </PopoverContent>
-    </Popover>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Codex에 연결</DialogTitle>
+          <DialogDescription>
+            Codex CLI가 설치된 터미널에서 아래 명령을 실행하세요. 플러그인을
+            설치한 뒤 브라우저에 Work Timer 동의 화면이 열리면 허용을 누릅니다.
+          </DialogDescription>
+        </DialogHeader>
+        <pre className="codex-command">
+          <code>{CODEX_INSTALL_COMMAND}</code>
+        </pre>
+        {error && <p className="codex-error">{error}</p>}
+        <DialogFooter>
+          <button type="button" onClick={copyCommand}>
+            {copied ? "복사했습니다" : "명령 복사"}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              window.location.href = CODEX_PLUGIN_URL;
+            }}
+          >
+            Codex에서 플러그인 열기
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ConnectMenu() {
+  const [menuOpen, setMenuOpen] = useState(false),
+    [codexOpen, setCodexOpen] = useState(false);
+  return (
+    <>
+      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+        <PopoverTrigger asChild>
+          <button type="button" className="connect-trigger">
+            <Plug size={16} />
+            AI 연결
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="connect-menu">
+          <button type="button" onClick={openClaudeConnect}>
+            Claude에 연결
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              setCodexOpen(true);
+            }}
+          >
+            Codex에 연결
+          </button>
+        </PopoverContent>
+      </Popover>
+      <CodexConnectDialog open={codexOpen} onOpenChange={setCodexOpen} />
+    </>
   );
 }
 
