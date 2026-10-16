@@ -3,6 +3,7 @@ import "../_styles/privacy.css";
 
 export const metadata: Metadata = {
   title: "이용약관 · Work Timer",
+  robots: { index: true, follow: true },
 };
 
 export default function TermsPage() {
