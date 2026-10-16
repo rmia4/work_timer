@@ -52,11 +52,15 @@ export type LayoutProps = {
   onLayoutChange: (layout: LayoutId) => Promise<boolean>;
 };
 
-// GitHub의 plugin/codex 브랜치를 Codex 마켓플레이스로 추가해 플러그인을 설치하고, MCP 로그인(OAuth)까지 이어서 실행한다.
-const CODEX_PLUGIN_ID = "work-timer@work-timer-local";
-const CODEX_INSTALL_COMMAND = `codex plugin marketplace add rmia4/work_timer --ref plugin/codex && codex plugin add ${CODEX_PLUGIN_ID} && codex mcp login work-timer`;
-// 설치 후 Codex 앱의 플러그인 상세 화면을 여는 딥링크.
-const CODEX_PLUGIN_URL = `codex://plugins/${encodeURIComponent(CODEX_PLUGIN_ID)}`;
+// Codex 앱의 "마켓플레이스 추가"에 입력할 값. GitHub의 plugin/codex 브랜치가 마켓플레이스(work-timer-local)다.
+const CODEX_MARKETPLACE_FIELDS = [
+  { label: "출처", value: "rmia4/work_timer" },
+  { label: "Git ref", value: "plugin/codex" },
+];
+// Codex 앱 딥링크. 마켓플레이스를 아직 추가하지 않았으면 설치 링크도 플러그인 화면을 연다.
+const CODEX_PLUGINS_URL = "codex://plugins";
+const CODEX_INSTALL_URL =
+  "codex://plugins/install/work-timer?marketplace=work-timer-local";
 
 function openClaudeConnect() {
   // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
@@ -79,17 +83,20 @@ function CodexConnectDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [copied, setCopied] = useState(false),
+  const [copied, setCopied] = useState(""),
     [error, setError] = useState("");
-  async function copyCommand() {
+  async function copy(value: string) {
     setError("");
     try {
-      await navigator.clipboard.writeText(CODEX_INSTALL_COMMAND);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopied(value);
+      setTimeout(() => setCopied(""), 2000);
     } catch {
-      setError("명령을 복사하지 못했습니다.");
+      setError("복사하지 못했습니다. 값을 직접 입력해 주세요.");
     }
+  }
+  function openCodex(url: string) {
+    window.location.href = url;
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -97,28 +104,52 @@ function CodexConnectDialog({
         <DialogHeader>
           <DialogTitle>Codex에 연결</DialogTitle>
           <DialogDescription>
-            Codex CLI가 설치된 터미널에서 아래 명령을 실행하세요. 플러그인을
-            설치한 뒤 브라우저에 Work Timer 동의 화면이 열리면 허용을 누릅니다.
+            Codex 앱에 Work Timer 마켓플레이스를 추가한 뒤 플러그인을
+            설치합니다.
           </DialogDescription>
         </DialogHeader>
-        <pre className="codex-command">
-          <code>{CODEX_INSTALL_COMMAND}</code>
-        </pre>
+        <ol className="codex-steps">
+          <li>
+            <p>Codex 앱에서 플러그인 화면을 엽니다.</p>
+            <button type="button" onClick={() => openCodex(CODEX_PLUGINS_URL)}>
+              Codex 플러그인 화면 열기
+            </button>
+          </li>
+          <li>
+            <p>
+              <strong>관리 &gt; 마켓플레이스</strong> 탭에서{" "}
+              <strong>마켓플레이스 추가</strong>를 누르고 아래 값을 입력합니다.
+              Sparse 경로는 비워 둡니다.
+            </p>
+            <dl className="codex-fields">
+              {CODEX_MARKETPLACE_FIELDS.map(({ label, value }) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>
+                    <code>{value}</code>
+                    <button type="button" onClick={() => copy(value)}>
+                      {copied === value ? "복사했습니다" : "복사"}
+                    </button>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+          <li>
+            <p>
+              Work Timer 플러그인을 열어 설치하고, Work Timer 로그인·동의 화면이
+              열리면 허용합니다.
+            </p>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => openCodex(CODEX_INSTALL_URL)}
+            >
+              Work Timer 플러그인 열기
+            </button>
+          </li>
+        </ol>
         {error && <p className="codex-error">{error}</p>}
-        <DialogFooter>
-          <button type="button" onClick={copyCommand}>
-            {copied ? "복사했습니다" : "명령 복사"}
-          </button>
-          <button
-            type="button"
-            className="primary"
-            onClick={() => {
-              window.location.href = CODEX_PLUGIN_URL;
-            }}
-          >
-            Codex에서 플러그인 열기
-          </button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
