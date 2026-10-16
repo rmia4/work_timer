@@ -204,6 +204,8 @@ function showLogin() {
   if (remove) closeRemove();
   if ($("csv-dialog").open) $("csv-dialog").close();
   closeAccount();
+  closeDisconnect();
+  closeAi();
   $("settings-menu").hidePopover();
   toggleCalendar(false);
   render();
@@ -462,6 +464,135 @@ $("theme-toggle").addEventListener("click", () => {
 
 // 원본 웹앱을 새 탭으로 연다(팝업은 탭으로 포커스가 옮겨 가며 닫힌다).
 $("web-open").addEventListener("click", () => chrome.tabs.create({ url: APP_ORIGIN }));
+
+// 웹앱 workspace-parts.tsx의 AI 연결 메뉴(Claude·Codex 연결)와 settings-dialog.tsx의 연결된 앱 탭과 같다.
+const connectionTime = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium", timeStyle: "short" });
+let aiBusy = false;
+let disconnectTarget = null; // 해제를 확인 중인 연결
+
+const AI_DIALOGS = ["ai-dialog", "claude-dialog", "codex-dialog", "connections-dialog"];
+
+function aiFailed(e, fallback) {
+  $("connections-error").textContent = e instanceof Error && e.message ? e.message : fallback;
+}
+function closeAi() {
+  for (const id of AI_DIALOGS) if ($(id).open) $(id).close();
+}
+function renderConnections(list) {
+  $("connections-empty").textContent = list === null ? "불러오는 중…" : list.length ? "" : "연결된 앱이 없습니다.";
+  $("connections").replaceChildren(
+    ...(list || []).map((c) => {
+      const li = document.createElement("li");
+      const info = document.createElement("div");
+      const name = document.createElement("strong");
+      name.textContent = c.name;
+      info.append(name);
+      const lines = [c.host, `권한: ${c.scopes.join(", ")}`, `연결 ${connectionTime.format(c.created)} · 마지막 사용 ${c.lastUsed ? connectionTime.format(c.lastUsed) : "없음"}`];
+      for (const text of lines.filter(Boolean)) {
+        const span = document.createElement("span");
+        span.textContent = text;
+        info.append(span);
+      }
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "danger";
+      button.textContent = "연결 해제";
+      button.disabled = aiBusy;
+      button.addEventListener("click", () => {
+        disconnectTarget = c;
+        $("disconnect-desc").textContent = `${c.name} 연결을 해제할까요? 해제하면 그 앱은 더 이상 업무 기록에 접근할 수 없으며, 다시 쓰려면 새로 연결해야 합니다.`;
+        $("disconnect-dialog").showModal();
+      });
+      li.append(info, button);
+      li.dataset.id = c.id;
+      return li;
+    }),
+  );
+}
+async function loadConnections() {
+  renderConnections(null);
+  try {
+    const r = await authed("/api/connections");
+    if (!r) return;
+    if (!r.ok || !r.data.connections) throw Error(r.data.error || "연결된 앱을 불러오지 못했습니다.");
+    renderConnections(r.data.connections);
+  } catch (e) {
+    $("connections-empty").textContent = "";
+    aiFailed(e, "연결된 앱을 불러오지 못했습니다.");
+  }
+}
+function closeDisconnect() {
+  disconnectTarget = null;
+  if ($("disconnect-dialog").open) $("disconnect-dialog").close();
+}
+$("ai-open").addEventListener("click", () => {
+  $("settings-menu").hidePopover();
+  $("ai-dialog").showModal();
+});
+// 고른 항목의 상세 대화상자로 바꿔 연다.
+for (const b of $("ai-dialog").querySelectorAll("[data-ai]"))
+  b.addEventListener("click", () => {
+    $("ai-dialog").close();
+    $("codex-error").textContent = "";
+    $("connections-error").textContent = "";
+    $("connections-message").textContent = "";
+    $(b.dataset.ai).showModal();
+    if (b.dataset.ai === "connections-dialog") loadConnections();
+  });
+for (const id of AI_DIALOGS) $(id).querySelector(".dialog-close").addEventListener("click", () => $(id).close());
+// claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
+$("claude-connect").addEventListener("click", () => {
+  const params = new URLSearchParams({
+    modal: "add-custom-connector",
+    connectorName: "Work Timer",
+    connectorUrl: `${APP_ORIGIN}/api/mcp`,
+  });
+  chrome.tabs.create({ url: `https://claude.ai/customize/connectors?${params}` });
+});
+// Codex 앱 딥링크. 마켓플레이스를 아직 추가하지 않았으면 설치 링크도 플러그인 화면을 연다.
+for (const b of document.querySelectorAll("[data-codex]"))
+  b.addEventListener("click", () => (location.href = b.dataset.codex));
+// Codex "마켓플레이스 추가"에 입력할 값을 복사한다.
+for (const b of document.querySelectorAll("[data-copy]"))
+  b.addEventListener("click", async () => {
+    $("codex-error").textContent = "";
+    try {
+      await navigator.clipboard.writeText(b.dataset.copy);
+      b.textContent = "복사했습니다";
+      setTimeout(() => (b.textContent = "복사"), 2000);
+    } catch {
+      $("codex-error").textContent = "복사하지 못했습니다. 값을 직접 입력해 주세요.";
+    }
+  });
+$("disconnect-cancel").addEventListener("click", closeDisconnect);
+$("disconnect-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeDisconnect();
+});
+$("disconnect-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const target = disconnectTarget;
+  closeDisconnect();
+  if (!target || aiBusy) return;
+  aiBusy = true;
+  for (const b of $("connections").querySelectorAll("button")) b.disabled = true;
+  $("connections-error").textContent = "";
+  $("connections-message").textContent = "";
+  try {
+    const r = await authed("/api/connections", { method: "POST", body: { action: "disconnect", id: target.id } });
+    if (!r) return;
+    // 이미 해제된 연결(404)도 목록에서 빼면 된다.
+    if (!r.ok && r.status !== 404) throw Error(r.data.error || "처리하지 못했습니다.");
+    $("connections").querySelector(`[data-id="${CSS.escape(target.id)}"]`)?.remove();
+    if (!$("connections").children.length) $("connections-empty").textContent = "연결된 앱이 없습니다.";
+    $("connections-message").textContent = `${target.name} 연결을 해제했습니다.`;
+  } catch (e) {
+    aiFailed(e, "처리하지 못했습니다.");
+  } finally {
+    aiBusy = false;
+    for (const b of $("connections").querySelectorAll("button")) b.disabled = false;
+  }
+});
 
 // 웹앱 settings-dialog.tsx의 계정 탭과 같은 요청이다. 매 요청에 확인한 현재 비밀번호를 함께 보낸다.
 // 비밀번호가 틀려도 401이 오므로 authed() 대신 call()로 보내 오류 문구만 보여 준다.

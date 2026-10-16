@@ -23,6 +23,7 @@
     <div id="settings-menu" popover role="menu" aria-label="설정">
       <button type="button" role="menuitem" id="theme-toggle"></button>
       <button type="button" role="menuitem" id="web-open">웹페이지 방문</button>
+      <button type="button" role="menuitem" id="ai-open">AI 연결</button>
       <hr role="separator" />
       <button type="button" role="menuitem" id="account-open">계정 설정</button>
       <button type="button" role="menuitem" id="logout">로그아웃</button>
@@ -223,6 +224,75 @@
         </div>
         <p class="error" id="account-error" role="alert"></p>
         <p role="status" class="saved" id="account-message"></p>
+      </dialog>
+
+      <!-- 웹앱 헤더의 "AI 연결" 메뉴. 고른 항목의 상세 대화상자로 바꿔 연다. -->
+      <dialog id="ai-dialog">
+        <button type="button" class="dialog-close" aria-label="닫기">×</button>
+        <h2>AI 연결</h2>
+        <div class="ai-choices">
+          <button type="button" class="outline" data-ai="claude-dialog">Claude에 연결</button>
+          <button type="button" class="outline" data-ai="codex-dialog">Codex에 연결</button>
+          <button type="button" class="outline" data-ai="connections-dialog">연결된 앱</button>
+        </div>
+      </dialog>
+
+      <dialog id="claude-dialog">
+        <button type="button" class="dialog-close" aria-label="닫기">×</button>
+        <h2>Claude에 연결</h2>
+        <p class="hint">claude.ai의 커스텀 커넥터 추가 화면을 Work Timer 주소를 채운 채로 엽니다. 연결을 추가한 뒤 Work Timer 로그인·동의 화면이 열리면 허용합니다.</p>
+        <button type="button" id="claude-connect">claude.ai 열기</button>
+      </dialog>
+
+      <dialog id="codex-dialog">
+        <button type="button" class="dialog-close" aria-label="닫기">×</button>
+        <h2>Codex에 연결</h2>
+        <p class="hint">Codex 앱에 Work Timer 마켓플레이스를 추가한 뒤 플러그인을 설치합니다.</p>
+        <ol class="codex-steps">
+          <li>
+            <p>Codex 앱에서 플러그인 화면을 엽니다.</p>
+            <button type="button" class="outline" data-codex="codex://plugins">Codex 플러그인 화면 열기</button>
+          </li>
+          <li>
+            <p><strong>관리 &gt; 마켓플레이스</strong> 탭에서 <strong>마켓플레이스 추가</strong>를 누르고 아래 값을 입력합니다. Sparse 경로는 비워 둡니다.</p>
+            <dl class="codex-fields">
+              <div>
+                <dt>출처</dt>
+                <dd><code>rmia4/work_timer</code><button type="button" class="outline" data-copy="rmia4/work_timer">복사</button></dd>
+              </div>
+              <div>
+                <dt>Git ref</dt>
+                <dd><code>plugin/codex</code><button type="button" class="outline" data-copy="plugin/codex">복사</button></dd>
+              </div>
+            </dl>
+          </li>
+          <li>
+            <p>Work Timer 플러그인을 열어 설치하고, Work Timer 로그인·동의 화면이 열리면 허용합니다.</p>
+            <button type="button" data-codex="codex://plugins/install/work-timer?marketplace=work-timer-local">Work Timer 플러그인 열기</button>
+          </li>
+        </ol>
+        <p class="error" id="codex-error" role="alert"></p>
+      </dialog>
+
+      <!-- 웹앱 설정 대화상자의 "연결된 앱" 탭 -->
+      <dialog id="connections-dialog">
+        <button type="button" class="dialog-close" aria-label="닫기">×</button>
+        <h2>연결된 앱</h2>
+        <p class="hint" id="connections-empty"></p>
+        <ul class="connections" id="connections"></ul>
+        <p class="error" id="connections-error" role="alert"></p>
+        <p role="status" class="saved" id="connections-message"></p>
+      </dialog>
+
+      <dialog id="disconnect-dialog">
+        <form id="disconnect-form">
+          <h2>연결 해제</h2>
+          <p class="hint" id="disconnect-desc"></p>
+          <div class="row">
+            <button type="button" id="disconnect-cancel" class="outline">취소</button>
+            <button id="disconnect-submit">연결 해제</button>
+          </div>
+        </form>
       </dialog>
 
       <dialog id="delete-dialog">
