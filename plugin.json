@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "work-timer",
+  "version": "0.1.0",
+  "description": "Manage work timers and review work records with Work Timer.",
+  "homepage": "https://work-timer-mauve-seven.vercel.app",
+  "keywords": [
+    "work-timer",
+    "timer",
+    "time-tracking",
+    "productivity"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Work Timer",
+        "shortDescription": "업무 타이머와 작업 기록 관리",
+        "longDescription": "Work Timer 계정에 연결해 업무 타이머를 시작·일시정지·종료하고, 작업 기록과 메모, 통계를 조회합니다.",
+        "developerName": "rmia4",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://work-timer-mauve-seven.vercel.app",
+        "privacyPolicyURL": "https://work-timer-mauve-seven.vercel.app/privacy",
+        "defaultPrompt": [
+          "지금 진행 중인 작업이 있는지 알려줘",
+          "이번 주 작업 기록을 요약해줘"
+        ],
+        "composerIcon": "./assets/icon.svg",
+        "logo": "./assets/icon.svg"
+      }
+    }
+  }
+}

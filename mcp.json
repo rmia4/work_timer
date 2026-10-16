@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "work-timer": {
+      "type": "streamable-http",
+      "url": "https://work-timer-mauve-seven.vercel.app/api/mcp"
+    }
+  }
+}

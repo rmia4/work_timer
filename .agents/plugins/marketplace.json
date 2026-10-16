@@ -1,0 +1,20 @@
+{
+  "name": "work-timer-local",
+  "interface": {
+    "displayName": "Work Timer (로컬)"
+  },
+  "plugins": [
+    {
+      "name": "work-timer",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
