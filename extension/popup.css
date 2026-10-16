@@ -99,7 +99,7 @@ h2 {
   transform-origin: 120px 120px;
   stroke-linecap: round;
 }
-.clock-segment:hover {
+.clock-segment.is-active {
   stroke-width: 16;
 }
 /* 구간에 커서를 올리면 바로 뜨는 검정 툴팁 */
@@ -327,6 +327,98 @@ dialog {
 .account-actions h3 {
   margin: 0;
   font-size: 13px;
+}
+/* AI 연결: 웹앱 result.css의 codex-steps·codex-fields·connections를 팝업 크기에 맞췄다. */
+.ai-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#claude-dialog .hint,
+#codex-dialog .hint {
+  line-height: 1.5;
+}
+#connections-empty:empty {
+  display: none;
+}
+.codex-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding-left: 1.3em;
+  font-size: 12px;
+}
+/* li를 flex로 두면 번호가 사라지므로 블록으로 두고 간격만 준다. */
+.codex-steps p {
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+.codex-steps button {
+  flex: none;
+  padding: 0 10px;
+}
+.codex-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+.codex-fields div,
+.codex-fields dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.codex-fields dt {
+  min-width: 48px;
+  color: var(--muted);
+}
+.codex-fields code {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--page);
+}
+.codex-fields button {
+  min-height: 24px;
+}
+.connections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.connections li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.connections div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.connections span {
+  color: var(--muted);
+}
+.connections button {
+  flex: none;
+  padding: 0 8px;
+}
+#disconnect-submit {
+  border-color: var(--danger);
+  background: var(--danger);
 }
 .danger {
   border-color: var(--danger);
