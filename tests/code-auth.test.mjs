@@ -59,6 +59,21 @@ test('password auth: wrong password, secure session, old records, expiry, logout
  assert.deepEqual(await user.getCodeUser(req),{userId:'legacy-owner'});
  const records=await tasks.GET(req);assert.equal(records.status,200);assert.equal((await records.json()).tasks[0].id,'old');
  assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,origin:'https://evil.test'},body:'{}'}))).status,403);
+ // 모바일 앱: Origin 없이 전용 헤더가 있으면 쓰기를 허용한다. Origin이 있으면 헤더와 상관없이 Origin으로 판단한다.
+ const mobile={cookie,'x-work-timer-client':'mobile'};
+ assert.notEqual((await tasks.POST(new Request(req.url,{method:'POST',headers:mobile,body:'{}'}))).status,403);
+ assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{...mobile,origin:'https://evil.test'},body:'{}'}))).status,403);
+ assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{...mobile,'sec-fetch-site':'cross-site'},body:'{}'}))).status,403);
+ assert.equal((await tasks.POST(new Request(req.url,{method:'POST',headers:{cookie,'x-work-timer-client':'web'},body:'{}'}))).status,403);
+ // 세션 연장: 남은 기간이 절반을 넘으면 그대로 두고, 절반 이하면 7일로 늘리고 쿠키를 다시 준다.
+ const renew=(headers=mobile)=>auth.PATCH(new Request(env.APP_ORIGIN+'/api/auth',{method:'PATCH',headers}));
+ const sessionHash=await helpers.hashToken(cookie.match(/=([a-f0-9]{64})/)[1]);
+ let renewed=await renew();assert.equal(renewed.status,200);assert.equal(renewed.headers.get('set-cookie'),null);
+ db.prepare('UPDATE code_sessions SET expires=? WHERE token_hash=?').run(Date.now()+60_000,sessionHash);
+ renewed=await renew();assert.equal(renewed.status,200);assert.match(renewed.headers.get('set-cookie'),/Max-Age=604800/);
+ assert.ok(db.prepare('SELECT expires FROM code_sessions WHERE token_hash=?').get(sessionHash).expires>Date.now()+6*86400_000);
+ assert.equal((await renew({cookie,origin:'https://evil.test'})).status,403);
+ assert.equal((await renew({...mobile,cookie:cookie.replace(/=./,'=z')})).status,401);
  assert.equal(await user.getCodeUser(new Request(req.url,{headers:{cookie:cookie.replace(/=./,'=z')}})),null);
  const signupRequest=(username,password='new-password',confirmation=password,ip='192.0.2.10')=>new Request(env.APP_ORIGIN+'/api/auth/signup',{method:'POST',headers:{origin:env.APP_ORIGIN,'Content-Type':'application/json','x-forwarded-for':ip},body:JSON.stringify({username,password,confirmation})});
  assert.equal((await signup.POST(signupRequest('abc'))).status,400);
