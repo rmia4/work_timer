@@ -528,6 +528,20 @@ footer {
   .columns {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* 헤더 버튼 3개가 아이콘까지 다 들어가면 헤더가 넘쳐 줄바꿈되므로 글자만 보인다. */
+  .brand {
+    padding: 0;
+  }
+  .top-actions {
+    flex-wrap: nowrap;
+  }
+  .top-actions button {
+    padding: 9px 11px;
+    white-space: nowrap;
+  }
+  .top-actions button svg {
+    display: none;
+  }
 }
 /* 터치 화면: 누르는 영역을 40px 이상으로 둔다. */
 @media (pointer: coarse) {
