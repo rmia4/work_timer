@@ -35,3 +35,16 @@ export async function DELETE(req:Request){
  return json({ok:true},200,{'Set-Cookie':sessionCookie('',0)});
  }catch{return json({error:'로그아웃하지 못했습니다. 다시 시도해 주세요.'},503);}
 }
+// 슬라이딩 만료: 남은 기간이 절반 이하인 세션을 지금부터 SESSION_SECONDS 뒤로 늘리고 쿠키를 다시 내려 준다(앱을 열 때 부른다).
+export async function PATCH(req:Request){
+ if(!trustedOrigin(req))return json({error:'허용되지 않은 요청입니다.'},403);
+ const token=sessionToken(req);if(!token)return json({error:'로그인이 필요합니다.'},401);
+ try{
+ const db=database(),now=Date.now(),hash=await hashToken(token);
+ const session=await db.prepare('SELECT expires FROM code_sessions WHERE token_hash=? AND expires>?').bind(hash,now).first<{expires:number}>();
+ if(!session)return json({error:'로그인이 필요합니다.'},401);
+ if(Number(session.expires)-now>SESSION_SECONDS*500)return json({ok:true});
+ await db.prepare('UPDATE code_sessions SET expires=? WHERE token_hash=?').bind(now+SESSION_SECONDS*1000,hash).run();
+ return json({ok:true},200,{'Set-Cookie':sessionCookie(token)});
+ }catch(e){console.error('Session renewal failed',e);return json({error:'접속하지 못했습니다. 잠시 후 다시 시도해 주세요.'},503);}
+}
