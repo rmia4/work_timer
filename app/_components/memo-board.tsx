@@ -184,6 +184,8 @@ function MemoCard({
   });
   // 날짜·레이아웃 전환으로 사라지거나 탭이 닫힐 때 디바운스 중인 입력을 바로 저장한다.
   useEffect(() => {
+    // 개발 모드 StrictMode는 effect를 정리 후 다시 실행하므로 여기서 마운트 상태를 되돌린다.
+    mountedRef.current = true;
     const flush = (keepalive: boolean) => {
       if (!timerRef.current) return;
       clearTimeout(timerRef.current);
