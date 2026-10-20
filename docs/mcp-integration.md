@@ -138,9 +138,9 @@ oauth_tokens
 - 연결 해제는 권한을 줄이는 동작이라 계정 탭과 달리 비밀번호를 다시 묻지 않는다.
 - 비밀번호 변경(`app/api/account`)은 같은 batch에서 `revokeOwnerGrants`로 그 사용자의 모든 grant를 폐기하고 토큰·코드를 지운다.
 
-### 4.7 헤더의 "AI 연결" 버튼
+### 4.7 헤더의 "부가기능" 버튼
 
-메인 헤더(`workspace-parts.tsx`의 `HeaderActions`, 모든 레이아웃 공통)의 "설정" 왼쪽에 **AI 연결** 버튼을 두고, 누르면 메뉴가 열린다.
+메인 헤더(`workspace-parts.tsx`의 `HeaderActions`, 모든 레이아웃 공통)의 "설정" 왼쪽에 **부가기능** 버튼을 두고, 누르면 메뉴가 열린다. 메뉴는 AI 연결·확장프로그램·모바일 애플리케이션 세 묶음이다. 확장프로그램의 "크롬 웹 스토어에서 설치"는 스토어 페이지를 새 탭으로 열고, 모바일 앱은 아직 배포 전이라 "준비 중"으로 비활성이다. 아래는 AI 연결 묶음의 항목이다.
 
 - **Claude에 연결**: claude.ai의 미리 채운 커스텀 커넥터 링크(`https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Work%20Timer&connectorUrl=<origin>/api/mcp`)를 새 탭으로 연다. 값만 채울 뿐이라 사용자가 추가를 누르고 동의 화면을 거쳐야 연결된다.
 - **Codex에 연결**: 미리 채우는 공식 링크를 아직 정하지 않아 자리만 두었다. `CODEX_CONNECT_URL`이 비어 있으면 "준비 중"으로 비활성이고, 값을 채우면 그 주소를 새 탭으로 연다.
