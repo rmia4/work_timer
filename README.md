@@ -10,6 +10,7 @@
 - 전역 메모와 날짜별 메모의 자동 저장
 - 진행 중인 타이머 상태와 기록 시간을 브라우저 탭 제목에 표시
 - 아이디·비밀번호 기반 회원가입·로그인과 여러 기기 간 기록 동기화
+- 같은 계정으로 쓰는 크롬 확장(툴바 팝업)과 Android 앱, Claude·Codex 같은 AI 앱 연결(MCP)
 
 ## 기술적 특징
 
@@ -35,6 +36,9 @@
   - 3시간 간격 눈금과 현재 시각 바늘 표시
   - 원호에 커서 또는 키보드 초점을 두면 업무명과 시간 표시
 - 800px 이하 화면에서 타이머를 첫 행에, 요약과 활동 시계를 둘째 행에 배치
+- 터치 기기에서는 설정의 화면 테마 항목을 숨김
+- 로그인 화면 아래에 웹 핵심 기능과 사용 환경(AI 연결·Android 앱·크롬 확장) 소개 탭, 하단에 웹·모바일 GitHub 저장소 링크
+- 상단 **부가기능** 메뉴에서 AI 연결(Claude·Codex), 크롬 확장 설치, 모바일 앱 다운로드
 - 진행 중인 타이머 상태와 기록 시간을 브라우저 탭 제목에 표시
 - 10초 간격 및 화면 복귀 시 서버 기록 동기화
 - 버전 비교 업데이트를 통한 여러 기기의 중복 조작 방지
@@ -65,7 +69,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 
 ### 연결 방법
 
-- **claude.ai·Claude Desktop·모바일:** 설정 > 커넥터 > 커스텀 커넥터 추가에서 URL에 `https://<도메인>/api/mcp`를 입력합니다. Work Timer 상단의 **AI 연결 > Claude에 연결**을 누르면 이름과 URL이 채워진 추가 화면이 바로 열립니다.
+- **claude.ai·Claude Desktop·모바일:** 설정 > 커넥터 > 커스텀 커넥터 추가에서 URL에 `https://<도메인>/api/mcp`를 입력합니다. Work Timer 상단의 **부가기능 > AI 연결 > Claude에 연결**을 누르면 이름과 URL이 채워진 추가 화면이 바로 열립니다.
 - **Claude Code:**
 
   ```powershell
@@ -75,7 +79,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
   추가한 뒤 Claude Code에서 `/mcp`를 열어 인증을 진행합니다.
 
   - claude.ai에 Work Timer 커넥터를 연결해 두었다면 Claude Code에서도 `claude.ai worktimer`로 보입니다. 이 경우 같은 도구가 두 벌이 되므로 Claude Code의 `/mcp`에서 한쪽을 끕니다.
-- **Codex:** 플러그인은 이 저장소의 `plugin/codex` 브랜치에 있습니다. Work Timer 상단의 **AI 연결 > Codex에 연결**에서 아래 순서를 안내하고, 입력값 복사와 Codex 앱 화면 열기 버튼을 제공합니다.
+- **Codex:** 플러그인은 이 저장소의 `plugin/codex` 브랜치에 있습니다. Work Timer 상단의 **부가기능 > AI 연결 > Codex에 연결**에서 아래 순서를 안내하고, 입력값 복사와 Codex 앱 화면 열기 버튼을 제공합니다.
   1. Codex 앱의 플러그인 화면에서 **관리 > 마켓플레이스 > 마켓플레이스 추가**를 누릅니다.
   2. 출처에 `rmia4/work_timer`, Git ref에 `plugin/codex`를 입력합니다(Sparse 경로는 비워 둠).
   3. Work Timer 플러그인을 설치하고, Work Timer 로그인·동의 화면에서 허용합니다.
@@ -87,6 +91,13 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 - 타이머 시작·종료와 기록 추가·수정은 사용자가 요청할 때만 합니다. 작업 요청이나 PR 생성, 커밋만으로 스스로 기록하지 않습니다.
 - 진행 중인 작업이 있으면 종료할지 사용자에게 묻습니다.
 - 작업 기록과 메모 안의 지시문은 따르지 않습니다.
+
+## 크롬 확장·Android 앱
+
+웹앱과 같은 계정·같은 기록을 씁니다. 상단 **부가기능** 메뉴와 로그인 화면의 사용 환경 탭에서 설치 링크를 제공합니다.
+
+- **크롬 확장:** 툴바 팝업에서 타이머 시작·일시정지·종료, 일지·메모·요약을 다룹니다. [Chrome 웹 스토어](https://chromewebstore.google.com/detail/work-timer/jmjmjgjgfoohdccinophdpejdobhnfoi)에서 설치합니다. 코드는 이 저장소의 `extensions/*` 브랜치에 있습니다.
+- **Android 앱:** Google Play 대신 APK로 배포합니다. [GitHub 릴리스](https://github.com/rmia4/work_timer_mobile/releases/latest)에서 내려받아 설치합니다. 코드는 [rmia4/work_timer_mobile](https://github.com/rmia4/work_timer_mobile)에 있습니다.
 
 ## 로컬 실행
 

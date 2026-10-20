@@ -94,6 +94,12 @@
   margin: 0;
   font-size: 15px;
 }
+/* 모바일 브라우저에서는 테마 전환이 제대로 동작하지 않아 숨긴다. */
+@media (hover: none) and (pointer: coarse) {
+  .settings-theme {
+    display: none;
+  }
+}
 .settings-form,
 .settings-danger {
   display: grid;
@@ -132,6 +138,15 @@
 }
 .connect-menu button {
   justify-content: flex-start;
+}
+.connect-menu-heading {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+.connect-menu-heading:first-child {
+  margin-top: 0;
 }
 .codex-steps {
   display: grid;
