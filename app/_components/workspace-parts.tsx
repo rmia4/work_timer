@@ -62,7 +62,7 @@ const CODEX_PLUGINS_URL = "codex://plugins";
 const CODEX_INSTALL_URL =
   "codex://plugins/install/work-timer?marketplace=work-timer-local";
 
-function openClaudeConnect() {
+export function openClaudeConnect() {
   // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
   const params = new URLSearchParams({
     modal: "add-custom-connector",
@@ -76,7 +76,7 @@ function openClaudeConnect() {
   );
 }
 
-function CodexConnectDialog({
+export function CodexConnectDialog({
   open,
   onOpenChange,
 }: {
