@@ -133,6 +133,15 @@
 .connect-menu button {
   justify-content: flex-start;
 }
+.connect-menu-heading {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-muted);
+}
+.connect-menu-heading:first-child {
+  margin-top: 0;
+}
 .codex-steps {
   display: grid;
   gap: 14px;

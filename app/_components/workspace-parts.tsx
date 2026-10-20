@@ -61,6 +61,9 @@ const CODEX_MARKETPLACE_FIELDS = [
 const CODEX_PLUGINS_URL = "codex://plugins";
 const CODEX_INSTALL_URL =
   "codex://plugins/install/work-timer?marketplace=work-timer-local";
+const CHROME_EXTENSION_URL =
+  "https://chromewebstore.google.com/detail/work-timer/jmjmjgjgfoohdccinophdpejdobhnfoi";
+const MOBILE_APP_URL = "https://github.com/rmia4/work_timer_mobile/releases/latest";
 
 function openClaudeConnect() {
   // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
@@ -164,10 +167,11 @@ function ConnectMenu() {
         <PopoverTrigger asChild>
           <button type="button" className="connect-trigger">
             <Plug size={16} />
-            AI 연결
+            부가기능
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="connect-menu">
+          <p className="connect-menu-heading">AI 연결</p>
           <button type="button" onClick={openClaudeConnect}>
             Claude에 연결
           </button>
@@ -179,6 +183,20 @@ function ConnectMenu() {
             }}
           >
             Codex에 연결
+          </button>
+          <p className="connect-menu-heading">확장프로그램</p>
+          <button
+            type="button"
+            onClick={() => window.open(CHROME_EXTENSION_URL, "_blank", "noopener")}
+          >
+            크롬 웹 스토어에서 설치
+          </button>
+          <p className="connect-menu-heading">모바일 애플리케이션</p>
+          <button
+            type="button"
+            onClick={() => window.open(MOBILE_APP_URL, "_blank", "noopener")}
+          >
+            모바일 앱 다운로드
           </button>
         </PopoverContent>
       </Popover>
