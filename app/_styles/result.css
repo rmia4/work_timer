@@ -94,6 +94,12 @@
   margin: 0;
   font-size: 15px;
 }
+/* 모바일 브라우저에서는 테마 전환이 제대로 동작하지 않아 숨긴다. */
+@media (hover: none) and (pointer: coarse) {
+  .settings-theme {
+    display: none;
+  }
+}
 .settings-form,
 .settings-danger {
   display: grid;
