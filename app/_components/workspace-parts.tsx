@@ -65,7 +65,7 @@ const CHROME_EXTENSION_URL =
   "https://chromewebstore.google.com/detail/work-timer/jmjmjgjgfoohdccinophdpejdobhnfoi";
 const MOBILE_APP_URL = "https://github.com/rmia4/work_timer_mobile/releases/latest";
 
-function openClaudeConnect() {
+export function openClaudeConnect() {
   // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
   const params = new URLSearchParams({
     modal: "add-custom-connector",
@@ -79,7 +79,7 @@ function openClaudeConnect() {
   );
 }
 
-function CodexConnectDialog({
+export function CodexConnectDialog({
   open,
   onOpenChange,
 }: {

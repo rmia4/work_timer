@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import LoginPreview from "./login-preview";
+import LoginShowcase from "./login-showcase";
 
 export default function Login({
   onSuccess,
@@ -33,7 +33,9 @@ export default function Login({
         <div className="login-wrap">
           <section className="login-intro" aria-label="기능 소개">
             <h1 className="login-title">작업 시간과 일지를 한곳에서.</h1>
-            <LoginPreview />
+            <p className="login-subtitle">
+              웹에서 기록하고, 휴대폰·크롬·AI 앱에서 이어서 다룹니다.
+            </p>
           </section>
 
           <section className="login-card">
@@ -166,7 +168,21 @@ export default function Login({
             </form>
           </section>
         </div>
+        <LoginShowcase />
       </main>
+
+      <footer className="login-footer">
+        <a href="https://github.com/rmia4/work_timer" target="_blank" rel="noopener noreferrer">
+          GitHub · 웹
+        </a>
+        <a
+          href="https://github.com/rmia4/work_timer_mobile"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub · 모바일
+        </a>
+      </footer>
     </div>
   );
 }
