@@ -127,7 +127,7 @@ export function createCalendar(el, { fetchMonth, onChoose }) {
       status.setAttribute("role", "alert");
       status.textContent = error;
     } else {
-      status.className = "hint";
+      status.className = ready ? "hint" : "hint spinner";
       status.setAttribute("aria-live", "polite");
       const s = days[selection];
       status.textContent =
