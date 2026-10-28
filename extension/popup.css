@@ -445,6 +445,19 @@ nav[hidden] {
   align-items: center;
   margin-left: auto;
 }
+/* 처음 화면에 캐시를 보여 주는 동안 설정 버튼 앞에 띄우는 동기화 표시 */
+#syncing {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+#syncing::before {
+  width: 10px;
+  height: 10px;
+}
+#syncing:not([hidden]) + #settings {
+  margin-left: 4px;
+}
 #settings:hover {
   color: var(--fg);
 }

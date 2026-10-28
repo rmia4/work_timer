@@ -13,6 +13,7 @@
       <button data-view="log">일지</button>
       <button data-view="memo">메모</button>
       <button data-view="summary">요약</button>
+      <span id="syncing" class="spinner" role="status" hidden>동기화 중</span>
       <button id="settings" popovertarget="settings-menu" aria-label="설정" title="설정">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
@@ -49,6 +50,7 @@
       </section>
 
       <section id="view-timer" hidden>
+        <p id="timer-loading" class="hint spinner" hidden>기록을 불러오는 중입니다.</p>
         <section id="active">
           <p class="state"><span>작업 스톱워치</span> · <span id="state"></span></p>
           <h1 id="title"></h1>

@@ -176,6 +176,8 @@ function createCard(memo, { request, collapsible, confirmRemove, onDeleted, onMo
   return {
     id: memo.id,
     el: card,
+    // 서버에 저장된 마지막 내용(팝업을 다시 열 때 먼저 보여 줄 저장본).
+    data: () => ({ ...memo, ...persisted, version }),
     focus: () => title.focus(),
     setMove(canUp, canDown) {
       up.disabled = !canUp;
@@ -192,7 +194,8 @@ function createCard(memo, { request, collapsible, confirmRemove, onDeleted, onMo
 }
 
 // endpoint: /api/memos(메모장) 또는 /api/daily-memos(일일 메모, show(day)로 날짜를 준다).
-export function createMemoBoard(root, { endpoint, collapsible, emptyText, confirmRemove }) {
+// onLoad(memos)는 불러오기가 끝날 때마다 받은 메모 목록(실패하면 null)으로 불린다.
+export function createMemoBoard(root, { endpoint, collapsible, emptyText, confirmRemove, onLoad }) {
   let shown = false,
     day,
     cards = [],
@@ -232,7 +235,7 @@ export function createMemoBoard(root, { endpoint, collapsible, emptyText, confir
       line.setAttribute("role", "alert");
       const retry = el("button", "", "다시 불러오기");
       retry.type = "button";
-      retry.addEventListener("click", reload);
+      retry.addEventListener("click", () => reload());
       line.append(el("span", "", error), retry);
       parts.push(line);
     }
@@ -248,24 +251,29 @@ export function createMemoBoard(root, { endpoint, collapsible, emptyText, confir
     root.replaceChildren(...parts);
   }
 
-  async function reload() {
+  // saved를 주면 그 저장본을 먼저 보여 주고, 없으면 응답이 올 때까지 로딩 표시를 보여 준다.
+  async function reload(saved) {
     for (const c of cards) c.flush(false);
     const n = ++seq;
-    cards = [];
-    loading = true;
+    cards = saved ? saved.map(makeCard) : [];
+    loading = !saved;
     error = "";
     render();
+    let memos = null;
     try {
       const r = await authed(day ? `${endpoint}?day=${day}` : endpoint);
       if (n !== seq || !r) return;
       if (!r.ok) throw Error(r.data.error);
-      cards = r.data.memos.map(makeCard);
+      memos = r.data.memos;
+      // 먼저 보여 준 저장본과 같으면 카드를 그대로 둔다(입력 중 포커스 유지).
+      if (JSON.stringify(memos) !== JSON.stringify(saved)) cards = memos.map(makeCard);
     } catch (e) {
       if (n !== seq) return;
       error = e.message || "메모를 불러오지 못했습니다.";
     }
     loading = false;
     render();
+    onLoad?.(memos);
   }
 
   async function create() {
@@ -313,13 +321,15 @@ export function createMemoBoard(root, { endpoint, collapsible, emptyText, confir
 
   return {
     // 처음 보거나 날짜가 바뀌었을 때만 불러온다.
-    show(nextDay) {
+    show(nextDay, saved) {
       if (shown && nextDay === day) return;
       shown = true;
       day = nextDay;
-      reload();
+      reload(saved);
     },
     flush: (keepalive) => cards.forEach((c) => c.flush(keepalive)),
+    // 지금 메모 목록(불러오는 중이거나 오류면 null). 팝업이 닫힐 때 저장본으로 남긴다.
+    current: () => (shown && !loading && !error ? cards.map((c) => c.data()) : null),
     // 로그아웃: 이전 계정의 메모를 비운다.
     reset() {
       seq++;
