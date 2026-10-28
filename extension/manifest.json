@@ -9,5 +9,7 @@
     "default_title": "Work Timer",
     "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }
   },
-  "host_permissions": ["https://work-timer-mauve-seven.vercel.app/*"]
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["alarms", "storage"],
+  "host_permissions":["https://work-timer-mauve-seven.vercel.app/*"]
 }

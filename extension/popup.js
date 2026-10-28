@@ -1,4 +1,5 @@
 import { authed, call, download, onUnauthorized } from "./api.js";
+import { MEMOS, TASKS, clearCache, readCache, writeCache } from "./cache.js";
 import { APP_ORIGIN } from "./config.js";
 import { activitySegments, bindClockTooltip, drawClock } from "./activity-clock.js";
 import { createCalendar, invalidateCalendarCache } from "./calendar.js";
@@ -21,8 +22,13 @@ const VIEWS = ["timer", "summary", "log", "memo"];
 let status = "loading"; // loading | login | ready
 const VIEW = "view"; // 마지막으로 연 화면(팝업을 다시 열면 그대로 보여 주고, 로그아웃하면 지운다)
 let view = VIEWS.includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "timer";
+const first = view; // 팝업을 열 때 처음 보인 화면(이 화면만 캐시를 보여 준다)
 let day = today(); // 일지에서 보는 날짜
 let loading = false; // 날짜를 바꾼 뒤 그 날짜 기록을 아직 못 받았는지
+let stale = false; // 팝업을 열 때 보여 준 기록 캐시를 아직 서버 응답으로 바꾸지 못했는지
+let memoSyncing = false; // 처음 보인 메모 화면에 캐시를 보여 주고 응답을 기다리는지
+// 처음 보인 화면이 아니면 캐시 대신 로딩 표시를 보여 준다.
+const stalePane = (v) => stale && v !== first;
 let tasks = [];
 let edit = null; // 수정 중인 기록
 let editTimes = { first: "", last: "" }; // 수정 중인 기록의 시작·종료 시각(웹앱 first·last)
@@ -34,7 +40,7 @@ let offset = 0;
 let busy = false;
 let request = 0; // 늦게 온 이전 조회 응답을 버리기 위한 번호
 let mode = "login"; // login | signup
-const CACHES = ["tasks-cache", "memos-cache"]; // 예전 버전이 남긴 오늘 기록·메모 캐시(이제 쓰지 않고 지운다)
+const CACHES = ["tasks-cache", "memos-cache"]; // 예전 버전이 localStorage에 남긴 캐시(지금은 chrome.storage에 둔다)
 
 const elapsed = (t) =>
   t.elapsed + (t.started === null ? 0 : Math.max(0, Date.now() + offset - t.started));
@@ -95,7 +101,8 @@ function renderLog() {
   for (const b of document.querySelectorAll("[data-log]")) b.setAttribute("aria-selected", b.dataset.log === logMode);
   $("log-list").hidden = logMode !== "records";
   $("daily-memo-board").hidden = logMode !== "memos";
-  if (loading) return $("log-list").replaceChildren(el("p", "hint spinner", "기록을 불러오는 중입니다."));
+  if (loading || stalePane("log"))
+    return $("log-list").replaceChildren(el("p", "hint spinner", "기록을 불러오는 중입니다."));
   const list = daily();
   if (!list.length) {
     const empty = el("div", "empty");
@@ -118,9 +125,10 @@ function renderSummary() {
   const segments = activitySegments(tasks, day, now);
   const list = daily();
   // 날짜를 바꾼 뒤 기록을 받기 전에는 0개·빈 시계 대신 로딩 표시를 보여 준다.
-  $("view-summary").classList.toggle("is-loading", loading);
-  $("sum-count").classList.toggle("spinner", loading);
-  if (loading) return ($("sum-count").textContent = "기록을 불러오는 중입니다.");
+  const waiting = loading || stalePane("summary");
+  $("view-summary").classList.toggle("is-loading", waiting);
+  $("sum-count").classList.toggle("spinner", waiting);
+  if (waiting) return ($("sum-count").textContent = "기록을 불러오는 중입니다.");
   $("sum-total").textContent = duration(segments.reduce((sum, s) => sum + s.end - s.start, 0));
   $("sum-count").textContent =
     `${day === today() ? "오늘" : day} 측정 시간 · 작업 ${list.length}개 · 완료 ${list.filter((t) => t.status === "done").length}개`;
@@ -150,6 +158,7 @@ function render() {
   for (const v of VIEWS) $(`view-${v}`).hidden = status !== "ready" || v !== view;
   for (const b of document.querySelectorAll("nav button[data-view]")) b.setAttribute("aria-current", b.dataset.view === view);
   if (status === "ready") localStorage.setItem(VIEW, view);
+  renderSyncing();
   if (status === "login") renderLogin();
   if (status !== "ready") return;
   if (view === "summary") renderSummary();
@@ -160,6 +169,11 @@ function render() {
   renderTimer();
 }
 
+// 처음 보인 화면이 캐시인 동안 헤더에 동기화 표시를 띄운다.
+function renderSyncing() {
+  $("syncing").hidden = status !== "ready" || !(first === "memo" ? memoSyncing : stale);
+}
+
 // 웹앱 TimerPanel·TaskForm과 같은 문구와 버튼 규칙이다.
 function renderTimer() {
   $("state").textContent = task ? statusLabel(task.status) : "준비";
@@ -167,8 +181,9 @@ function renderTimer() {
   $("target").textContent = task && task.target > 0 ? `목표 ${duration(task.target)}` : "";
   $("clock").textContent = duration(task ? elapsed(task) : 0);
   // 기록 중인 작업이 있으면 그 작업만, 없으면 새 기록 추가 폼만 보여 준다. 기록 수정 중에는 폼만 보여 준다.
-  $("active").hidden = !task || !!edit;
-  $("task-form").hidden = !!task && !edit;
+  $("timer-loading").hidden = !stalePane("timer");
+  $("active").hidden = !task || !!edit || stalePane("timer");
+  $("task-form").hidden = (!!task && !edit) || stalePane("timer");
   // 기록 중일 때 박스 아래 빈 공간에 그 작업의 업무 내용을 보여 준다.
   $("active-work").hidden = $("active").hidden || !task.note;
   $("active-work-text").textContent = task?.note || "";
@@ -189,6 +204,7 @@ function renderTimer() {
 
 // 로그아웃되면 이전 계정의 데이터를 비우고 로그인 화면을 보여 준다.
 function showLogin() {
+  clearCache();
   localStorage.removeItem(VIEW);
   invalidateCalendarCache();
   status = "login";
@@ -201,6 +217,8 @@ function showLogin() {
   view = "timer";
   day = today();
   loading = false;
+  stale = false;
+  memoSyncing = false;
   request++;
   clearForm();
   if (finishTask) closeFinish();
@@ -232,11 +250,13 @@ async function load() {
     const data = await get(`/api/tasks?day=${day}`);
     if (seq !== request || !data) return;
     // 이미 보여 주고 있는 기록과 같으면 다시 그리지 않는다(팝업을 열 때·10초 갱신 때 화면을 새로 만들지 않도록).
-    const changed = status !== "ready" || loading || JSON.stringify(data.tasks) !== JSON.stringify(tasks);
+    const changed = status !== "ready" || loading || stale || JSON.stringify(data.tasks) !== JSON.stringify(tasks);
     tasks = data.tasks;
     task = tasks.find((t) => t.status !== "done") || null;
     offset = data.now - Date.now();
     loading = false;
+    stale = false;
+    if (day === today()) writeCache(TASKS, { day, tasks, offset });
     status = "ready";
     $("error").textContent = "";
     if (changed) render();
@@ -353,6 +373,11 @@ const memoBoard = createMemoBoard($("memo-board"), {
   collapsible: true,
   emptyText: "항상 표시할 메모를 남겨보세요.",
   confirmRemove: confirmMemoRemove,
+  onLoad(memos) {
+    if (memos) writeCache(MEMOS, memos);
+    memoSyncing = false;
+    renderSyncing();
+  },
 });
 const dailyBoard = createMemoBoard($("daily-memo-board"), {
   endpoint: "/api/daily-memos",
@@ -360,8 +385,10 @@ const dailyBoard = createMemoBoard($("daily-memo-board"), {
   emptyText: "선택한 날짜에 메모를 남겨보세요.",
   confirmRemove: confirmMemoRemove,
 });
-// 팝업이 닫힐 때 디바운스 중인 메모 입력을 바로 저장한다.
+// 팝업이 닫힐 때 디바운스 중인 메모 입력을 바로 저장하고, 다음에 열 때 먼저 보여 줄 메모 목록을 남긴다.
 addEventListener("pagehide", () => {
+  const memos = memoBoard.current();
+  if (memos) writeCache(MEMOS, memos);
   memoBoard.flush(true);
   dailyBoard.flush(true);
 });
@@ -714,11 +741,13 @@ $("delete-form").addEventListener("submit", async (event) => {
   $("account-message").textContent = `${DELETE_LABELS[kind].title}가 완료되었습니다.`;
   // 지운 데이터를 저장본과 화면에서도 비운다.
   if (kind === "tasks") {
+    clearCache(TASKS);
     invalidateCalendarCache();
     calendar.refresh();
     if (edit) clearForm();
     load();
   } else {
+    if (kind === "memos") clearCache(MEMOS);
     (kind === "memos" ? memoBoard : dailyBoard).reset();
     render();
   }
@@ -887,7 +916,21 @@ setInterval(() => {
 setInterval(() => {
   if (status === "ready" && !busy) load();
 }, 10000);
-// 지난 기록을 잠깐 보여 주면 헷갈리므로 서버 응답이 올 때까지 로딩 표시만 보여 준다.
 for (const key of CACHES) localStorage.removeItem(key);
+// 처음 보인 화면만 background.js가 갱신해 둔 캐시를 바로 보여 주고(동기화 표시와 함께),
+// 다른 화면은 뒤에서 받는 최신 데이터가 올 때까지 로딩 표시를 보여 준다. 메모장도 뒤에서 미리 받는다.
+const cache = await readCache().catch(() => ({}));
+const cachedTasks = cache[TASKS]?.day === today() ? cache[TASKS] : null;
+const cachedMemos = first === "memo" && Array.isArray(cache[MEMOS]) ? cache[MEMOS] : undefined;
+if (first === "memo" ? cachedMemos : cachedTasks) {
+  if (first !== "memo") {
+    ({ tasks, offset } = cachedTasks);
+    task = tasks.find((t) => t.status !== "done") || null;
+  }
+  status = "ready";
+  stale = true;
+  memoSyncing = !!cachedMemos;
+}
+memoBoard.show(undefined, cachedMemos);
 render();
 load();
