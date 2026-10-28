@@ -445,6 +445,19 @@ nav[hidden] {
   align-items: center;
   margin-left: auto;
 }
+/* 처음 화면에 캐시를 보여 주는 동안 설정 버튼 앞에 띄우는 동기화 표시 */
+#syncing {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+#syncing::before {
+  width: 10px;
+  height: 10px;
+}
+#syncing:not([hidden]) + #settings {
+  margin-left: 4px;
+}
 #settings:hover {
   color: var(--fg);
 }
@@ -515,6 +528,43 @@ nav[hidden] {
   margin: 0 0 8px;
   color: var(--muted);
   font-size: 12px;
+}
+/* 불러오는 중인 문구 앞에 도는 원을 붙인다. */
+.spinner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.spinner::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+#loading {
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 0;
+  color: var(--muted);
+}
+#loading::before {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+#view-summary.is-loading #sum-total,
+#view-summary.is-loading .day-clock {
+  visibility: hidden;
 }
 .date-nav {
   display: flex;
