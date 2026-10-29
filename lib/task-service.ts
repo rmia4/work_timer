@@ -34,9 +34,10 @@ export async function exportRows(db:Db,owner:string,from:string,to:string,now:nu
  const result=await db.prepare("SELECT day,title,note,result,target,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed,started_at,ended_at,status FROM tasks WHERE owner=? AND day>=? AND day<=? ORDER BY day,created").bind(now,owner,from,to).all<ExportRow>();
  return result.results;
 }
-// 기록 검색(통계 > 검색). 기간 안의 업무 중 제목·내용·결과에 검색어가 있는 것을 최근 순으로 최대 SEARCH_LIMIT건 돌려준다.
-// 내용·결과 전문 대신 일치한 필드(field)와 앞뒤 SNIPPET_CHARS자 발췌(snippet)만 보낸다. 기간은 호출하는 쪽에서 검증한다.
-const SEARCH_LIMIT=50;
+// 기록 검색(통계 > 검색). 기간 안의 업무 중 제목·내용·결과에 검색어가 있는 것을 최근 순으로 offset부터 SEARCH_PAGE건 돌려준다.
+// 내용·결과 전문 대신 일치한 필드(field)와 앞뒤 SNIPPET_CHARS자 발췌(snippet)만 보낸다. 기간·offset은 호출하는 쪽에서 검증한다.
+// id까지 정렬해 같은 시각에 만든 기록도 페이지 사이에서 겹치거나 빠지지 않게 한다.
+const SEARCH_PAGE=10;
 const SNIPPET_CHARS=40;
 type SearchRow={id:string;day:string;title:string;note:string;result:string;status:string;elapsed:number};
 function matchedField(t:SearchRow,query:string){
@@ -49,12 +50,12 @@ function matchedField(t:SearchRow,query:string){
  // Postgres LOWER는 비ASCII도 소문자로 바꿔 SQL만 일치할 수 있다. 이때는 제목만 보인다.
  return {field:null,snippet:null};
 }
-export async function searchTasks(db:Db,owner:string,query:string,from:string,to:string,now:number){
+export async function searchTasks(db:Db,owner:string,query:string,from:string,to:string,offset:number,now:number){
  const pattern=likePattern(query);
- const result=await db.prepare(`SELECT id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed FROM tasks WHERE owner=? AND day>=? AND day<=? AND ${likeAny(['title','note','result'])} ORDER BY day DESC,created DESC LIMIT ?`)
-  .bind(now,owner,from,to,pattern,pattern,pattern,SEARCH_LIMIT+1).all<SearchRow>();
+ const result=await db.prepare(`SELECT id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed FROM tasks WHERE owner=? AND day>=? AND day<=? AND ${likeAny(['title','note','result'])} ORDER BY day DESC,created DESC,id DESC LIMIT ? OFFSET ?`)
+  .bind(now,owner,from,to,pattern,pattern,pattern,SEARCH_PAGE+1,offset).all<SearchRow>();
  const rows=result.results;
- return {results:rows.slice(0,SEARCH_LIMIT).map(t=>({id:t.id,day:t.day,title:t.title,status:t.status,elapsed:t.elapsed,...matchedField(t,query)})),more:rows.length>SEARCH_LIMIT};
+ return {results:rows.slice(0,SEARCH_PAGE).map(t=>({id:t.id,day:t.day,title:t.title,status:t.status,elapsed:t.elapsed,...matchedField(t,query)})),more:rows.length>SEARCH_PAGE};
 }
 // 업무 생성·수정·삭제·상태 전이를 처리한다. 성공하면 null, 사용자에게 보일 실패는 TaskFailure를 돌려준다.
 // 그 밖의 DB 오류는 그대로 던진다.

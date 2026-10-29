@@ -11,7 +11,7 @@ async function load(path,imports='',exports=''){
  return import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 }
 
-test('task search: fields, owner and range isolation, literal LIKE, snippets, limit and route validation',async()=>{
+test('task search: fields, owner and range isolation, literal LIKE, snippets, paging and route validation',async()=>{
  const db=new DatabaseSync(':memory:');
  for(const name of readdirSync(new URL('../drizzle',import.meta.url)).filter(name=>/^000[0-7]_.*\.sql$/.test(name)).sort())db.exec(read('drizzle/'+name));
  const sqlLog=[];
@@ -26,7 +26,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, li
  const route=await load('app/api/tasks/search/route.ts','const {getCodeUser,database,validRange,searchTasks}=globalThis.searchFixture;');
  const add=(id,day,title,{note='',result='',owner='owner',created=1,elapsed=60000,started=null,status='done'}={})=>
   db.prepare('INSERT INTO tasks (id,owner,day,title,note,result,elapsed,started,status,created) VALUES (?,?,?,?,?,?,?,?,?,?)').run(id,owner,day,title,note,result,elapsed,started,status,created);
- const search=(q,from,to,now=0)=>fx.searchTasks(adapter,'owner',q,from,to,now);
+ const search=(q,from,to,{offset=0,now=0}={})=>fx.searchTasks(adapter,'owner',q,from,to,offset,now);
  const get=async params=>{
   const r=await route.GET(new Request('http://localhost/api/tasks/search?'+new URLSearchParams(params)));
   return {status:r.status,cache:r.headers.get('cache-control'),body:await r.json()};
@@ -40,7 +40,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, li
  add('run','2026-10-03','회의 진행',{status:'running',started:NOW-120000,created:4});
  add('other','2026-10-03','회의',{owner:'someone'});
  add('old','2025-10-01','회의');
- const found=await search('회의','2026-10-01','2026-10-31',NOW);
+ const found=await search('회의','2026-10-01','2026-10-31',{now:NOW});
  assert.equal(found.more,false);
  assert.deepEqual(found.results.map(t=>t.id),['run','r1','n1','t1'],'day DESC, created DESC; other owner and out-of-range excluded');
  assert.deepEqual(found.results.map(t=>[t.field,t.snippet]),[['title',null],['result','회의 결과 공유'],['note','오늘 회의에서 결정'],['title',null]]);
@@ -70,14 +70,14 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, li
  assert.deepEqual((await search('키워드','2026-11-02','2026-11-02')).results.map(t=>t.snippet),[
   '…'+a(40)+'키워드'+b(40)+'…','키워드'+b(40)+'…','…'+a(40)+'키워드','…'+'İ'.repeat(40)+'키워드']);
 
- // 50건까지 more:false, 51건이면 50건과 more:true
- for(let i=0;i<51;i++)add('many'+i,'2026-12-01','반복 '+i,{created:i});
- const over=await search('반복','2026-12-01','2026-12-01');
- assert.equal(over.results.length,50);assert.equal(over.more,true);
- assert.equal(over.results[0].id,'many50');
- db.prepare("DELETE FROM tasks WHERE id='many0'").run();
- const exact=await search('반복','2026-12-01','2026-12-01');
- assert.equal(exact.results.length,50);assert.equal(exact.more,false);
+ // 10건씩 페이지: 남은 기록이 11건 이상이면 more:true, 10건 이하면 false. 같은 시각 기록은 id 역순으로 겹침·누락 없이 이어진다.
+ const many=Array.from({length:25},(_,i)=>'p'+String(i).padStart(2,'0'));
+ for(const id of many)add(id,'2026-12-01','반복 '+id,{created:0});
+ const page=offset=>search('반복','2026-12-01','2026-12-01',{offset});
+ const pages=[await page(0),await page(10),await page(20)];
+ assert.deepEqual(pages.map(p=>[p.results.length,p.more]),[[10,true],[10,true],[5,false]]);
+ assert.deepEqual(pages.flatMap(p=>p.results.map(t=>t.id)),[...many].reverse());
+ assert.deepEqual([(await page(14)).more,(await page(15)).more],[true,false],'11 left vs exactly 10 left');
 
  // 라우트: 검색어 trim, 특수문자 전달, 검증, 인증, 오류, no-store
  add('special','2026-10-10','a+b&c#d%e\\f');
@@ -85,6 +85,8 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, li
  assert.equal(r.status,200);assert.equal(r.cache,'no-store');
  assert.deepEqual(r.body.results.map(t=>t.id),['special']);
  assert.equal((await get({q:'회의',from:'2025-10-31',to:'2026-10-31'})).status,200,'366 days is allowed');
+ r=await get({q:'반복',from:'2026-12-01',to:'2026-12-01',offset:'20'});
+ assert.equal(r.status,200);assert.deepEqual([r.body.results.length,r.body.more],[5,false]);
  for(const params of [
   {q:'   ',from:'2026-10-01',to:'2026-10-31'},
   {q:'가'.repeat(101),from:'2026-10-01',to:'2026-10-31'},
@@ -93,6 +95,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, li
   {q:'회의',from:'2026-13-01',to:'2026-12-31'},
   {q:'회의',from:'2026-10-31',to:'2026-10-01'},
   {q:'회의',from:'2025-10-30',to:'2026-10-31'},
+  ...['-1','a','1.5','','1234567'].map(offset=>({q:'회의',from:'2026-10-01',to:'2026-10-31',offset})),
  ]){r=await get(params);assert.equal(r.status,400,JSON.stringify(params));assert.equal(r.cache,'no-store');}
  const valid={q:'회의',from:'2026-10-01',to:'2026-10-31'};
  const error=console.error;console.error=()=>{};
@@ -108,7 +111,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, li
  const sql=raw.postgresSql(sqlLog.find(q=>q.includes('LIKE')));
  assert.match(sql,/GREATEST\(0, \$1-started\)/);
  assert.match(sql,/owner=\$2 AND day>=\$3 AND day<=\$4 AND \(LOWER\(title\) LIKE \$5 ESCAPE '\\' OR LOWER\(note\) LIKE \$6 ESCAPE '\\' OR LOWER\(result\) LIKE \$7 ESCAPE '\\'\)/);
- assert.match(sql,/LIMIT \$8$/);
+ assert.match(sql,/ORDER BY day DESC,created DESC,id DESC LIMIT \$8 OFFSET \$9$/);
  delete globalThis.rawFixture;
  delete globalThis.searchFixture;
 });

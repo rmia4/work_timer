@@ -310,6 +310,9 @@
   margin-right: 6px;
   font-weight: 600;
 }
+.stats-search-more {
+  width: 100%;
+}
 .stats-search-list mark {
   border-radius: 2px;
   background: #ffe58a;

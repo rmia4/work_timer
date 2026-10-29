@@ -403,10 +403,17 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
     [to, setTo] = useState(anchor),
     [found, setFound] = useState<{ query: SearchQuery; results: SearchResult[]; more: boolean } | null>(null),
     [busy, setBusy] = useState(false),
+    [loadingMore, setLoadingMore] = useState(false),
     [error, setError] = useState("");
   const request = useRef(0);
   const term = q.trim();
   const invalid = !from || !to || from > to || dayCount(from, to) > 366;
+  async function fetchPage(query: SearchQuery, offset: number) {
+    const r = await fetch(`/api/tasks/search?${new URLSearchParams({ ...query, offset: String(offset) })}`);
+    const data = (await r.json()) as { results?: SearchResult[]; more?: boolean; error?: string };
+    if (!r.ok || !data.results) throw Error(data.error || "검색하지 못했습니다.");
+    return { results: data.results, more: !!data.more };
+  }
   // 결과와 강조는 제출할 때의 조건(found.query)을 따른다. 늦게 온 이전 요청의 응답은 버린다.
   async function search(event: FormEvent) {
     event.preventDefault();
@@ -414,18 +421,34 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
     const id = ++request.current,
       query = { q: term, from, to };
     setBusy(true);
+    setLoadingMore(false);
     setError("");
     try {
-      const r = await fetch(`/api/tasks/search?${new URLSearchParams(query)}`);
-      const data = (await r.json()) as { results?: SearchResult[]; more?: boolean; error?: string };
-      if (!r.ok || !data.results) throw Error(data.error || "검색하지 못했습니다.");
-      if (id === request.current) setFound({ query, results: data.results, more: !!data.more });
+      const page = await fetchPage(query, 0);
+      if (id === request.current) setFound({ query, ...page });
     } catch (e) {
       if (id !== request.current) return;
       setFound(null);
       setError(e instanceof Error ? e.message : "검색하지 못했습니다.");
     } finally {
       if (id === request.current) setBusy(false);
+    }
+  }
+  // 「더 보기」: 같은 조건으로 다음 10건을 받아 이어 붙인다. 실패해도 이미 보인 목록은 둔다.
+  async function loadMore() {
+    if (!found || loadingMore) return;
+    const id = ++request.current,
+      current = found;
+    setLoadingMore(true);
+    setError("");
+    try {
+      const page = await fetchPage(current.query, current.results.length);
+      if (id === request.current)
+        setFound({ query: current.query, results: [...current.results, ...page.results], more: page.more });
+    } catch (e) {
+      if (id === request.current) setError(e instanceof Error ? e.message : "검색하지 못했습니다.");
+    } finally {
+      if (id === request.current) setLoadingMore(false);
     }
   }
   return (
@@ -450,7 +473,6 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
         </button>
       </form>
       {invalid && from && to && <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
-      {error && <p className="stats-message stats-error" role="alert">{error}</p>}
       {busy ? (
         <p className="stats-message stats-search-state">검색 중…</p>
       ) : (
@@ -490,13 +512,17 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
               })}
             </ul>
             {found.more && (
-              <p className="stats-message">최신 50건만 표시합니다. 기간을 좁히거나 검색어를 구체적으로 입력해 주세요.</p>
+              <button type="button" className="stats-search-more" disabled={loadingMore} onClick={loadMore}>
+                {loadingMore ? "불러오는 중…" : "더 보기"}
+              </button>
             )}
           </>
         ) : (
           <p className="stats-message stats-search-state">일치하는 기록이 없습니다.</p>
         ))
       )}
+      {/* 「더 보기」 실패도 버튼 가까이 보이도록 목록 뒤에 둔다. */}
+      {error && <p className="stats-message stats-error stats-search-state" role="alert">{error}</p>}
     </>
   );
 }
