@@ -1,6 +1,7 @@
 import type {database} from '../db/raw';
 import {validDay,validTimes} from './work-dates';
 import type {ExportRow} from './stats';
+import {likePattern,likeAny,findMatch} from './like-search';
 // 업무 기록의 검증·SQL·상태 전이. 웹 API(/api/tasks)와 MCP가 같은 규칙을 쓰도록 여기에 모은다.
 type Db=ReturnType<typeof database>;
 type TaskRow=Record<string,unknown>&{id:string;version:number;status:string;elapsed:number;started:number|null;started_at:number|null;ended_at:number|null;note:string;result:string};
@@ -32,6 +33,28 @@ export async function dayTotals(db:Db,owner:string,from:string,to:string,now:num
 export async function exportRows(db:Db,owner:string,from:string,to:string,now:number){
  const result=await db.prepare("SELECT day,title,note,result,target,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed,started_at,ended_at,status FROM tasks WHERE owner=? AND day>=? AND day<=? ORDER BY day,created").bind(now,owner,from,to).all<ExportRow>();
  return result.results;
+}
+// 기록 검색(통계 > 검색). 기간 안의 업무 중 제목·내용·결과에 검색어가 있는 것을 최근 순으로 최대 SEARCH_LIMIT건 돌려준다.
+// 내용·결과 전문 대신 일치한 필드(field)와 앞뒤 SNIPPET_CHARS자 발췌(snippet)만 보낸다. 기간은 호출하는 쪽에서 검증한다.
+const SEARCH_LIMIT=50;
+const SNIPPET_CHARS=40;
+type SearchRow={id:string;day:string;title:string;note:string;result:string;status:string;elapsed:number};
+function matchedField(t:SearchRow,query:string){
+ if(findMatch(t.title,query)>=0)return {field:'title',snippet:null};
+ for(const field of ['note','result'] as const){
+  const text=t[field],i=findMatch(text,query);if(i<0)continue;
+  const start=Math.max(0,i-SNIPPET_CHARS),end=i+query.length+SNIPPET_CHARS;
+  return {field,snippet:(start>0?'…':'')+text.slice(start,end)+(end<text.length?'…':'')};
+ }
+ // Postgres LOWER는 비ASCII도 소문자로 바꿔 SQL만 일치할 수 있다. 이때는 제목만 보인다.
+ return {field:null,snippet:null};
+}
+export async function searchTasks(db:Db,owner:string,query:string,from:string,to:string,now:number){
+ const pattern=likePattern(query);
+ const result=await db.prepare(`SELECT id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed FROM tasks WHERE owner=? AND day>=? AND day<=? AND ${likeAny(['title','note','result'])} ORDER BY day DESC,created DESC LIMIT ?`)
+  .bind(now,owner,from,to,pattern,pattern,pattern,SEARCH_LIMIT+1).all<SearchRow>();
+ const rows=result.results;
+ return {results:rows.slice(0,SEARCH_LIMIT).map(t=>({id:t.id,day:t.day,title:t.title,status:t.status,elapsed:t.elapsed,...matchedField(t,query)})),more:rows.length>SEARCH_LIMIT};
 }
 // 업무 생성·수정·삭제·상태 전이를 처리한다. 성공하면 null, 사용자에게 보일 실패는 TaskFailure를 돌려준다.
 // 그 밖의 DB 오류는 그대로 던진다.

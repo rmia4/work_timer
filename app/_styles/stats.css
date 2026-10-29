@@ -257,6 +257,65 @@
   width: auto;
 }
 
+/* 기록 검색 */
+.stats-search-query {
+  flex: 1 1 200px;
+}
+.stats-export .stats-search-query input {
+  width: 100%;
+}
+.stats-search-state {
+  margin-top: 16px;
+}
+.stats-search-list {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.stats-search-list button,
+.stats-search-list div {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-weight: 400;
+  text-align: left;
+}
+.stats-search-list button:hover {
+  filter: none;
+  background: var(--c-tint);
+}
+.stats-search-list strong {
+  overflow-wrap: anywhere;
+}
+.stats-search-meta,
+.stats-search-snippet {
+  color: var(--c-muted);
+  font-size: 13px;
+}
+.stats-search-snippet {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-search-snippet b {
+  margin-right: 6px;
+  font-weight: 600;
+}
+.stats-search-list mark {
+  border-radius: 2px;
+  background: #ffe58a;
+  color: inherit;
+}
+
 @media (max-width: 640px) {
   .stats-layout {
     grid-template-columns: minmax(0, 1fr);

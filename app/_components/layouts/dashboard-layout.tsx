@@ -88,7 +88,7 @@ export default function DashboardLayout(props: LayoutProps) {
               <strong>{ws.daily.length}개</strong>
             </div>
           </div>
-          <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} />
+          <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
           <div className="lay-card lay-memo-tabs">
             <div className="lay-underline-tabs" role="tablist" aria-label="메모 종류">
               <button type="button" role="tab" aria-selected={memoTab === "daily"} className={memoTab === "daily" ? "on" : ""} onClick={() => setMemoTab("daily")}>

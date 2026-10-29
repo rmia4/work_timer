@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
@@ -23,13 +23,15 @@ import {
   type DayStat,
   type ExportScope,
 } from "../../lib/stats";
+import { findMatch } from "../../lib/like-search";
 
-type Section = "summary" | "week" | "month" | "export";
+type Section = "summary" | "week" | "month" | "export" | "search";
 const sections: { id: Section; label: string }[] = [
   { id: "summary", label: "Summary" },
   { id: "week", label: "주간 요약" },
   { id: "month", label: "월간 요약" },
   { id: "export", label: "데이터 내보내기" },
+  { id: "search", label: "검색" },
 ];
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const HEAT_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -371,7 +373,135 @@ function ExportView({ anchor }: { anchor: string }) {
   );
 }
 
-export default function StatsDialog({ day }: { day: string }) {
+type SearchResult = {
+  id: string;
+  day: string;
+  title: string;
+  status: string;
+  elapsed: number;
+  field: "title" | "note" | "result" | null;
+  snippet: string | null;
+};
+type SearchQuery = { q: string; from: string; to: string };
+
+// 검색어와 처음 일치한 부분을 <mark>로 감싼다. 대소문자는 서버와 같이 ASCII 영문만 무시한다.
+function Highlight({ text, query }: { text: string; query: string }) {
+  const i = findMatch(text, query);
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark>{text.slice(i, i + query.length)}</mark>
+      {text.slice(i + query.length)}
+    </>
+  );
+}
+
+function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: string) => void }) {
+  const [q, setQ] = useState(""),
+    [from, setFrom] = useState(() => addDays(anchor, -89)),
+    [to, setTo] = useState(anchor),
+    [found, setFound] = useState<{ query: SearchQuery; results: SearchResult[]; more: boolean } | null>(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const request = useRef(0);
+  const term = q.trim();
+  const invalid = !from || !to || from > to || dayCount(from, to) > 366;
+  // 결과와 강조는 제출할 때의 조건(found.query)을 따른다. 늦게 온 이전 요청의 응답은 버린다.
+  async function search(event: FormEvent) {
+    event.preventDefault();
+    if (!term || invalid) return;
+    const id = ++request.current,
+      query = { q: term, from, to };
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch(`/api/tasks/search?${new URLSearchParams(query)}`);
+      const data = (await r.json()) as { results?: SearchResult[]; more?: boolean; error?: string };
+      if (!r.ok || !data.results) throw Error(data.error || "검색하지 못했습니다.");
+      if (id === request.current) setFound({ query, results: data.results, more: !!data.more });
+    } catch (e) {
+      if (id !== request.current) return;
+      setFound(null);
+      setError(e instanceof Error ? e.message : "검색하지 못했습니다.");
+    } finally {
+      if (id === request.current) setBusy(false);
+    }
+  }
+  return (
+    <>
+      <h3 className="stats-heading">기록 검색</h3>
+      <p className="stats-message">선택한 기간의 작업 제목·내용·결과에서 찾습니다. (최대 366일)</p>
+      <form className="stats-export" onSubmit={search}>
+        <label className="dialog-label stats-search-query">
+          검색어
+          <input type="search" value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <label className="dialog-label">
+          시작일
+          <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="dialog-label">
+          종료일
+          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        <button type="submit" className="primary" disabled={!term || invalid}>
+          검색
+        </button>
+      </form>
+      {invalid && from && to && <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
+      {error && <p className="stats-message stats-error" role="alert">{error}</p>}
+      {busy ? (
+        <p className="stats-message stats-search-state">검색 중…</p>
+      ) : (
+        found &&
+        (found.results.length ? (
+          <>
+            <ul className="stats-search-list">
+              {found.results.map((t) => {
+                const body = (
+                  <>
+                    <span className="stats-search-meta">
+                      {dotted(t.day)} ({WEEKDAYS[weekdayIndex(t.day)]}) · {hoursLabel(t.elapsed)}
+                      {t.status !== "done" && ` · ${t.status === "running" ? "측정 중" : "일시정지"}`}
+                    </span>
+                    <strong>
+                      <Highlight text={t.title} query={found.query.q} />
+                    </strong>
+                    {t.snippet && (
+                      <span className="stats-search-snippet">
+                        <b>{t.field === "note" ? "내용" : "결과"}</b>
+                        <Highlight text={t.snippet} query={found.query.q} />
+                      </span>
+                    )}
+                  </>
+                );
+                return (
+                  <li key={t.id}>
+                    {onSelect ? (
+                      <button type="button" onClick={() => onSelect(t.day)}>
+                        {body}
+                      </button>
+                    ) : (
+                      <div>{body}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {found.more && (
+              <p className="stats-message">최신 50건만 표시합니다. 기간을 좁히거나 검색어를 구체적으로 입력해 주세요.</p>
+            )}
+          </>
+        ) : (
+          <p className="stats-message stats-search-state">일치하는 기록이 없습니다.</p>
+        ))
+      )}
+    </>
+  );
+}
+
+export default function StatsDialog({ day, onSelectDay }: { day: string; onSelectDay?: (day: string) => void }) {
   const [open, setOpen] = useState(false),
     [section, setSection] = useState<Section>("summary");
   return (
@@ -389,7 +519,7 @@ export default function StatsDialog({ day }: { day: string }) {
         <DialogContent className="stats-dialog">
           <DialogHeader>
             <DialogTitle>통계</DialogTitle>
-            <DialogDescription className="sr-only">작업 기록 통계와 데이터 내보내기</DialogDescription>
+            <DialogDescription className="sr-only">작업 기록 통계, 기록 검색과 데이터 내보내기</DialogDescription>
           </DialogHeader>
           <div className="stats-layout">
             <nav className="stats-nav" role="tablist" aria-orientation="vertical">
@@ -412,6 +542,18 @@ export default function StatsDialog({ day }: { day: string }) {
               {section === "week" && <WeekView day={day} />}
               {section === "month" && <MonthView day={day} />}
               {section === "export" && <ExportView anchor={day} />}
+              {section === "search" && (
+                <SearchView
+                  anchor={day}
+                  onSelect={
+                    onSelectDay &&
+                    ((value) => {
+                      setOpen(false);
+                      onSelectDay(value);
+                    })
+                  }
+                />
+              )}
             </div>
           </div>
         </DialogContent>

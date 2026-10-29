@@ -201,6 +201,9 @@
 :where(:root[data-theme="dark"]) .stats-bar-track {
   border-bottom-color: var(--dk-border-strong);
 }
+:where(:root[data-theme="dark"]) .stats-search-list mark {
+  background: rgba(234, 179, 8, 0.35);
+}
 
 /* daily-activity-clock.css */
 :where(:root[data-theme="dark"]) .day-clock-track {

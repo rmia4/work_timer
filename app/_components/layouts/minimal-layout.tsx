@@ -53,7 +53,7 @@ export default function MinimalLayout(props: LayoutProps) {
               <TimerButtons ws={ws} classes={["", ""]} />
             </div>
           </div>
-          <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} />
+          <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
         </section>
 
         <section className="lay-minimal-add" aria-label={ws.edit ? "기록 수정" : "새 작업"}>

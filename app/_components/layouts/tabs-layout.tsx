@@ -102,7 +102,7 @@ export default function TabsLayout(props: LayoutProps) {
               <strong>{duration(ws.total)}</strong>
               <span className="lay-muted">기록 {ws.daily.length}개</span>
             </section>
-            <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} />
+            <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
           </div>
         )}
         {tab === "업무 일지" && (
