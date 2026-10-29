@@ -50,12 +50,16 @@ function matchedField(t:SearchRow,query:string){
  // Postgres LOWER는 비ASCII도 소문자로 바꿔 SQL만 일치할 수 있다. 이때는 제목만 보인다.
  return {field:null,snippet:null};
 }
+// 총 건수(total)는 페이지마다 다시 세어 「더 보기」 사이에 바뀐 기록도 반영한다.
 export async function searchTasks(db:Db,owner:string,query:string,from:string,to:string,offset:number,now:number){
- const pattern=likePattern(query);
- const result=await db.prepare(`SELECT id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed FROM tasks WHERE owner=? AND day>=? AND day<=? AND ${likeAny(['title','note','result'])} ORDER BY day DESC,created DESC,id DESC LIMIT ? OFFSET ?`)
-  .bind(now,owner,from,to,pattern,pattern,pattern,SEARCH_PAGE+1,offset).all<SearchRow>();
+ const pattern=likePattern(query),where=`owner=? AND day>=? AND day<=? AND ${likeAny(['title','note','result'])}`,args=[owner,from,to,pattern,pattern,pattern];
+ const [result,count]=await Promise.all([
+  db.prepare(`SELECT id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed FROM tasks WHERE ${where} ORDER BY day DESC,created DESC,id DESC LIMIT ? OFFSET ?`)
+   .bind(now,...args,SEARCH_PAGE+1,offset).all<SearchRow>(),
+  db.prepare(`SELECT COUNT(*) AS count FROM tasks WHERE ${where}`).bind(...args).all<{count:number}>(),
+ ]);
  const rows=result.results;
- return {results:rows.slice(0,SEARCH_PAGE).map(t=>({id:t.id,day:t.day,title:t.title,status:t.status,elapsed:t.elapsed,...matchedField(t,query)})),more:rows.length>SEARCH_PAGE};
+ return {results:rows.slice(0,SEARCH_PAGE).map(t=>({id:t.id,day:t.day,title:t.title,status:t.status,elapsed:t.elapsed,...matchedField(t,query)})),more:rows.length>SEARCH_PAGE,total:Number(count.results[0]?.count??0)};
 }
 // 업무 생성·수정·삭제·상태 전이를 처리한다. 성공하면 null, 사용자에게 보일 실패는 TaskFailure를 돌려준다.
 // 그 밖의 DB 오류는 그대로 던진다.

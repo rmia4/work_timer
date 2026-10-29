@@ -42,6 +42,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, pa
  add('old','2025-10-01','회의');
  const found=await search('회의','2026-10-01','2026-10-31',{now:NOW});
  assert.equal(found.more,false);
+ assert.equal(found.total,4,'total excludes other owner and out-of-range');
  assert.deepEqual(found.results.map(t=>t.id),['run','r1','n1','t1'],'day DESC, created DESC; other owner and out-of-range excluded');
  assert.deepEqual(found.results.map(t=>[t.field,t.snippet]),[['title',null],['result','회의 결과 공유'],['note','오늘 회의에서 결정'],['title',null]]);
  assert.equal(found.results[0].elapsed,180000,'running task counts up to now');
@@ -75,7 +76,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, pa
  for(const id of many)add(id,'2026-12-01','반복 '+id,{created:0});
  const page=offset=>search('반복','2026-12-01','2026-12-01',{offset});
  const pages=[await page(0),await page(10),await page(20)];
- assert.deepEqual(pages.map(p=>[p.results.length,p.more]),[[10,true],[10,true],[5,false]]);
+ assert.deepEqual(pages.map(p=>[p.results.length,p.more,p.total]),[[10,true,25],[10,true,25],[5,false,25]]);
  assert.deepEqual(pages.flatMap(p=>p.results.map(t=>t.id)),[...many].reverse());
  assert.deepEqual([(await page(14)).more,(await page(15)).more],[true,false],'11 left vs exactly 10 left');
 
@@ -86,7 +87,7 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, pa
  assert.deepEqual(r.body.results.map(t=>t.id),['special']);
  assert.equal((await get({q:'회의',from:'2025-10-31',to:'2026-10-31'})).status,200,'366 days is allowed');
  r=await get({q:'반복',from:'2026-12-01',to:'2026-12-01',offset:'20'});
- assert.equal(r.status,200);assert.deepEqual([r.body.results.length,r.body.more],[5,false]);
+ assert.equal(r.status,200);assert.deepEqual([r.body.results.length,r.body.more,r.body.total],[5,false,25]);
  for(const params of [
   {q:'   ',from:'2026-10-01',to:'2026-10-31'},
   {q:'가'.repeat(101),from:'2026-10-01',to:'2026-10-31'},
@@ -108,7 +109,8 @@ test('task search: fields, owner and range isolation, literal LIKE, snippets, pa
  // Postgres 변환: 자리표시자 순서와 GREATEST, ESCAPE 리터럴 유지
  globalThis.rawFixture={neon:()=>null};
  const raw=await load('db/raw.ts','const {neon}=globalThis.rawFixture;','\nexport {postgresSql};');
- const sql=raw.postgresSql(sqlLog.find(q=>q.includes('LIKE')));
+ const sql=raw.postgresSql(sqlLog.find(q=>q.includes('LIKE')&&q.includes('ORDER BY')));
+ assert.match(raw.postgresSql(sqlLog.find(q=>q.includes('LIKE')&&q.includes('COUNT(*)'))),/owner=\$1 AND day>=\$2 AND day<=\$3 AND .*LIKE \$6 ESCAPE '\\'\)$/);
  assert.match(sql,/GREATEST\(0, \$1-started\)/);
  assert.match(sql,/owner=\$2 AND day>=\$3 AND day<=\$4 AND \(LOWER\(title\) LIKE \$5 ESCAPE '\\' OR LOWER\(note\) LIKE \$6 ESCAPE '\\' OR LOWER\(result\) LIKE \$7 ESCAPE '\\'\)/);
  assert.match(sql,/ORDER BY day DESC,created DESC,id DESC LIMIT \$8 OFFSET \$9$/);
