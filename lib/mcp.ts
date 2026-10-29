@@ -5,6 +5,7 @@ import {verifyAccessToken,resourceUrl} from './oauth';
 import {dayTotals,exportRows,applyTaskAction,type TaskFailure} from './task-service';
 import {validRange,validScope,tasksCsv,summaryPrompt,weekStart,type ExportScope} from './stats';
 import {validDay} from './work-dates';
+import {likePattern,likeAny} from './like-search';
 // MCP 서버(/api/mcp)의 인증과 도구. 요청마다 서버를 새로 만들고(stateless), 토큰 주인의 기록만 다룬다.
 // 시각은 한국 시간 ISO 문자열, 시간 길이는 분 단위 정수로 내보내고 내부 epoch ms는 노출하지 않는다.
 type Db=ReturnType<typeof database>;
@@ -37,9 +38,6 @@ function taskView(t:TaskRow,now:number,mode:TextMode='full'){
 }
 type MemoRow=Record<string,unknown>&{id:string;title:string;body:string;version:number};
 const memoView=(m:MemoRow,full:boolean)=>full?m:{...m,body:cut(m.body),body_truncated:m.body.length>PREVIEW_CHARS};
-// 키워드 검색: 대소문자 구분 없이 부분 일치. %·_·\는 글자 그대로 찾는다.
-const likePattern=(query:string)=>'%'+query.toLowerCase().replace(/[\\%_]/g,c=>'\\'+c)+'%';
-const likeAny=(columns:string[])=>'('+columns.map(c=>`LOWER(${c}) LIKE ? ESCAPE '\\'`).join(' OR ')+')';
 function excerpt(texts:string[],query:string){
  const q=query.toLowerCase();
  for(const text of texts){const i=text.toLowerCase().indexOf(q);if(i>=0)return text.slice(Math.max(0,i-EXCERPT_CHARS),i+q.length+EXCERPT_CHARS);}

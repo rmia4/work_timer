@@ -45,6 +45,9 @@
 .stats-body {
   min-width: 0;
   overflow-y: auto;
+  /* 스크롤 영역이 입력칸 바깥 포커스 테두리(3px + 간격 3px)를 자르지 않도록 여백을 두고, 같은 만큼 바깥으로 넓혀 배치는 그대로 둔다. */
+  margin: -6px;
+  padding: 6px;
 }
 .stats-heading {
   margin: 0 0 14px;
@@ -255,6 +258,82 @@
 }
 .stats-scope input {
   width: auto;
+}
+
+/* 기록 검색 */
+.stats-search-query {
+  flex: 1 1 200px;
+}
+.stats-export .stats-search-query input {
+  width: 100%;
+}
+.stats-search-state {
+  margin-top: 16px;
+}
+.stats-search-list {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.stats-search-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.stats-search-state + .stats-search-list {
+  margin-top: 0;
+}
+.stats-search-body {
+  display: grid;
+  justify-items: start;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+.stats-search-list li > button {
+  flex-shrink: 0;
+  padding: 6px 12px;
+}
+.stats-search-list strong {
+  overflow-wrap: anywhere;
+}
+.stats-search-meta,
+.stats-search-snippet {
+  color: var(--c-muted);
+  font-size: 13px;
+}
+.stats-search-snippet {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-search-snippet b {
+  margin-right: 6px;
+  font-weight: 600;
+}
+.stats-search-more {
+  width: 100%;
+}
+/* 「자세히」 팝업: 긴 업무 내용·결과는 팝업 안에서 스크롤한다. */
+.stats-detail {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.stats-detail .record {
+  margin-bottom: 0;
+}
+.stats-search-list mark {
+  border-radius: 2px;
+  background: #ffe58a;
+  color: inherit;
 }
 
 @media (max-width: 640px) {

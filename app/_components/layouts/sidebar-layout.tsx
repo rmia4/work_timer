@@ -54,7 +54,7 @@ export default function SidebarLayout(props: LayoutProps) {
           <ErrorNotice ws={ws} />
           <div className="lay-sidebar-row">
             <TimerPanel ws={ws} />
-            <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} />
+            <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
           </div>
           <section className="lay-sidebar-card">
             <div className="section-title">

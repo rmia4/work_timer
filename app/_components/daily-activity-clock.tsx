@@ -142,11 +142,13 @@ export default function DailyActivityClock({
   day,
   now,
   preview = false,
+  onSelectDay,
 }: {
   tasks: ActivityTask[];
   day: string;
   now: number;
   preview?: boolean;
+  onSelectDay?: (day: string) => void;
 }) {
   const segments = activitySegments(tasks, day, now);
   const [, month, date] = day.split("-");
@@ -192,7 +194,7 @@ export default function DailyActivityClock({
             통계
           </button>
         ) : (
-          <StatsDialog day={day} />
+          <StatsDialog day={day} onSelectDay={onSelectDay} />
         )}
       </div>
       <div className="day-clock-wrap">
