@@ -190,18 +190,6 @@
   font-size: 14px;
   line-height: 1.9;
 }
-.login-badge {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--c-tint);
-  color: var(--c-accent);
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 600;
-  vertical-align: middle;
-}
 .login-link-button {
   display: inline-flex;
   align-items: center;
