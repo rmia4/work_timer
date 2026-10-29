@@ -12,7 +12,6 @@ const channels: {
   tagline: string;
   body: string;
   points: string[];
-  badge?: string;
   link?: { label: string; href: string };
 }[] = [
   {
@@ -26,12 +25,11 @@ const channels: {
     id: "android",
     name: "Android 앱",
     tagline: "이동 중에도 이어서",
-    body: "PC에서 시작한 작업을 휴대폰에서 일시정지하고 마무리합니다. APK 파일로 내려받아 설치할 수 있습니다.",
+    body: "PC에서 시작한 작업을 휴대폰에서 일시정지하고 마무리합니다. 원스토어에서 설치할 수 있습니다.",
     points: ["같은 계정·같은 기록", "진행 중 타이머 확인", "로그인 유지"],
-    badge: "APK로 설치",
     link: {
-      label: "GitHub에서 APK 받기",
-      href: "https://github.com/rmia4/work_timer_mobile/releases/latest",
+      label: "원스토어에서 설치",
+      href: "https://m.onestore.co.kr/v2/ko-kr/app/0001011397",
     },
   },
   {
@@ -189,10 +187,7 @@ export default function LoginShowcase() {
           key={active}
         >
           <div className="login-channel-text">
-            <h3>
-              {c.tagline}
-              {c.badge && <em className="login-badge">{c.badge}</em>}
-            </h3>
+            <h3>{c.tagline}</h3>
             <p>{c.body}</p>
             <ul>
               {c.points.map((p) => (

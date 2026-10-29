@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   dayCount,
@@ -23,13 +24,17 @@ import {
   type DayStat,
   type ExportScope,
 } from "../../lib/stats";
+import { findMatch } from "../../lib/like-search";
+import { timeLabel } from "../../lib/work-dates";
+import { duration, statusLabel, type Task } from "./use-workspace";
 
-type Section = "summary" | "week" | "month" | "export";
+type Section = "summary" | "week" | "month" | "export" | "search";
 const sections: { id: Section; label: string }[] = [
   { id: "summary", label: "Summary" },
   { id: "week", label: "주간 요약" },
   { id: "month", label: "월간 요약" },
   { id: "export", label: "데이터 내보내기" },
+  { id: "search", label: "검색" },
 ];
 const WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const HEAT_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -371,7 +376,256 @@ function ExportView({ anchor }: { anchor: string }) {
   );
 }
 
-export default function StatsDialog({ day }: { day: string }) {
+type SearchResult = {
+  id: string;
+  day: string;
+  title: string;
+  status: string;
+  elapsed: number;
+  field: "title" | "note" | "result" | null;
+  snippet: string | null;
+};
+type SearchQuery = { q: string; from: string; to: string };
+
+// 검색어와 처음 일치한 부분을 <mark>로 감싼다. 대소문자는 서버와 같이 ASCII 영문만 무시한다.
+function Highlight({ text, query }: { text: string; query: string }) {
+  const i = findMatch(text, query);
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark>{text.slice(i, i + query.length)}</mark>
+      {text.slice(i + query.length)}
+    </>
+  );
+}
+
+// 「자세히」 팝업: 메인 화면 일지 카드와 같은 모양의 읽기 전용 보기. 전문은 그날 기록 API(/api/tasks?day=)에서 받는다.
+function TaskDetail({
+  item,
+  onClose,
+  onSelect,
+}: {
+  item: SearchResult | null;
+  onClose: () => void;
+  onSelect?: (day: string) => void;
+}) {
+  const [state, setState] = useState<{ id: string; task: Task | null; now: number; error: string } | null>(null);
+  useEffect(() => {
+    if (!item) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await fetch(`/api/tasks?day=${item.day}`);
+        const data = (await r.json()) as { tasks?: Task[]; now?: number; error?: string };
+        if (!r.ok || !data.tasks) throw Error(data.error || "기록을 불러오지 못했습니다.");
+        const task = data.tasks.find((t) => t.id === item.id) ?? null;
+        if (!cancelled)
+          setState({ id: item.id, task, now: data.now ?? Date.now(), error: task ? "" : "기록을 찾을 수 없습니다. 삭제되었을 수 있습니다." });
+      } catch (e) {
+        if (!cancelled)
+          setState({ id: item.id, task: null, now: 0, error: e instanceof Error ? e.message : "기록을 불러오지 못했습니다." });
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+  const current = item && state?.id === item.id ? state : null,
+    t = current?.task,
+    now = current?.now ?? 0;
+  return (
+    <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="stats-detail">
+        <DialogHeader>
+          <DialogTitle>{item && `${dotted(item.day)} (${WEEKDAYS[weekdayIndex(item.day)]})`}</DialogTitle>
+          <DialogDescription className="sr-only">검색한 업무 기록의 전체 내용</DialogDescription>
+        </DialogHeader>
+        <LoadState ready={!!current} error={current?.error ?? ""}>
+          {t && (
+            <article className="record">
+              <div className="record-head">
+                <h3>{t.title}</h3>
+                <div className="record-times">
+                  {t.target > 0 && (
+                    <span>
+                      <small>목표</small>
+                      <strong>{duration(t.target)}</strong>
+                    </span>
+                  )}
+                  <span>
+                    <small>소요</small>
+                    <strong>{duration(t.elapsed + (t.started === null ? 0 : Math.max(0, now - t.started)))}</strong>
+                  </span>
+                </div>
+              </div>
+              <span className="status">{statusLabel(t.status)}</span>
+              <dl className="task-times">
+                <div>
+                  <dt>시작</dt>
+                  <dd>{timeLabel(t.started_at)}</dd>
+                </div>
+                <div>
+                  <dt>종료</dt>
+                  <dd>{t.status === "done" ? timeLabel(t.ended_at) : "진행 중"}</dd>
+                </div>
+              </dl>
+              {t.note && (
+                <div className="journal-block">
+                  <strong>업무 내용</strong>
+                  <p className="note">{t.note}</p>
+                </div>
+              )}
+              {t.result && (
+                <div className="journal-block result-block">
+                  <strong>업무 결과</strong>
+                  <p className="note">{t.result}</p>
+                </div>
+              )}
+            </article>
+          )}
+        </LoadState>
+        {item && onSelect && (
+          <DialogFooter>
+            <button type="button" className="primary" onClick={() => onSelect(item.day)}>
+              이 날짜로 이동
+            </button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: string) => void }) {
+  const [q, setQ] = useState(""),
+    [from, setFrom] = useState(() => addDays(anchor, -89)),
+    [to, setTo] = useState(anchor),
+    [found, setFound] = useState<{ query: SearchQuery; results: SearchResult[]; more: boolean; total: number } | null>(
+      null,
+    ),
+    [busy, setBusy] = useState(false),
+    [loadingMore, setLoadingMore] = useState(false),
+    [detail, setDetail] = useState<SearchResult | null>(null),
+    [error, setError] = useState("");
+  const request = useRef(0);
+  const term = q.trim();
+  const invalid = !from || !to || from > to || dayCount(from, to) > 366;
+  async function fetchPage(query: SearchQuery, offset: number) {
+    const r = await fetch(`/api/tasks/search?${new URLSearchParams({ ...query, offset: String(offset) })}`);
+    const data = (await r.json()) as { results?: SearchResult[]; more?: boolean; total?: number; error?: string };
+    if (!r.ok || !data.results) throw Error(data.error || "검색하지 못했습니다.");
+    return { results: data.results, more: !!data.more, total: data.total ?? 0 };
+  }
+  // 결과와 강조는 제출할 때의 조건(found.query)을 따른다. 늦게 온 이전 요청의 응답은 버린다.
+  async function search(event: FormEvent) {
+    event.preventDefault();
+    if (!term || invalid) return;
+    const id = ++request.current,
+      query = { q: term, from, to };
+    setBusy(true);
+    setLoadingMore(false);
+    setError("");
+    try {
+      const page = await fetchPage(query, 0);
+      if (id === request.current) setFound({ query, ...page });
+    } catch (e) {
+      if (id !== request.current) return;
+      setFound(null);
+      setError(e instanceof Error ? e.message : "검색하지 못했습니다.");
+    } finally {
+      if (id === request.current) setBusy(false);
+    }
+  }
+  // 「더 보기」: 같은 조건으로 다음 10건을 받아 이어 붙인다. 실패해도 이미 보인 목록은 둔다.
+  async function loadMore() {
+    if (!found || loadingMore) return;
+    const id = ++request.current,
+      current = found;
+    setLoadingMore(true);
+    setError("");
+    try {
+      const page = await fetchPage(current.query, current.results.length);
+      if (id === request.current)
+        setFound({ ...page, query: current.query, results: [...current.results, ...page.results] });
+    } catch (e) {
+      if (id === request.current) setError(e instanceof Error ? e.message : "검색하지 못했습니다.");
+    } finally {
+      if (id === request.current) setLoadingMore(false);
+    }
+  }
+  return (
+    <>
+      <h3 className="stats-heading">기록 검색</h3>
+      <p className="stats-message">선택한 기간의 작업 제목·내용·결과에서 찾습니다. (최대 366일)</p>
+      <form className="stats-export" onSubmit={search}>
+        <label className="dialog-label stats-search-query">
+          검색어
+          <input type="search" value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <label className="dialog-label">
+          시작일
+          <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="dialog-label">
+          종료일
+          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        <button type="submit" className="primary" disabled={!term || invalid}>
+          검색
+        </button>
+      </form>
+      {invalid && from && to && <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
+      {busy ? (
+        <p className="stats-message stats-search-state">검색 중…</p>
+      ) : (
+        found &&
+        (found.results.length ? (
+          <>
+            <p className="stats-message stats-search-state">검색 결과 총 {found.total}건</p>
+            <ul className="stats-search-list">
+              {found.results.map((t) => (
+                <li key={t.id}>
+                  <div className="stats-search-body">
+                    <span className="stats-search-meta">
+                      {dotted(t.day)} ({WEEKDAYS[weekdayIndex(t.day)]}) · {hoursLabel(t.elapsed)}
+                      {t.status !== "done" && ` · ${t.status === "running" ? "측정 중" : "일시정지"}`}
+                    </span>
+                    <strong>
+                      <Highlight text={t.title} query={found.query.q} />
+                    </strong>
+                    {t.snippet && (
+                      <span className="stats-search-snippet">
+                        <b>{t.field === "note" ? "내용" : "결과"}</b>
+                        <Highlight text={t.snippet} query={found.query.q} />
+                      </span>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => setDetail(t)}>
+                    자세히
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {found.more && (
+              <button type="button" className="stats-search-more" disabled={loadingMore} onClick={loadMore}>
+                {loadingMore ? "불러오는 중…" : "더 보기"}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="stats-message stats-search-state">일치하는 기록이 없습니다.</p>
+        ))
+      )}
+      {/* 「더 보기」 실패도 버튼 가까이 보이도록 목록 뒤에 둔다. */}
+      {error && <p className="stats-message stats-error stats-search-state" role="alert">{error}</p>}
+      <TaskDetail item={detail} onClose={() => setDetail(null)} onSelect={onSelect} />
+    </>
+  );
+}
+
+export default function StatsDialog({ day, onSelectDay }: { day: string; onSelectDay?: (day: string) => void }) {
   const [open, setOpen] = useState(false),
     [section, setSection] = useState<Section>("summary");
   return (
@@ -389,7 +643,7 @@ export default function StatsDialog({ day }: { day: string }) {
         <DialogContent className="stats-dialog">
           <DialogHeader>
             <DialogTitle>통계</DialogTitle>
-            <DialogDescription className="sr-only">작업 기록 통계와 데이터 내보내기</DialogDescription>
+            <DialogDescription className="sr-only">작업 기록 통계, 기록 검색과 데이터 내보내기</DialogDescription>
           </DialogHeader>
           <div className="stats-layout">
             <nav className="stats-nav" role="tablist" aria-orientation="vertical">
@@ -412,6 +666,18 @@ export default function StatsDialog({ day }: { day: string }) {
               {section === "week" && <WeekView day={day} />}
               {section === "month" && <MonthView day={day} />}
               {section === "export" && <ExportView anchor={day} />}
+              {section === "search" && (
+                <SearchView
+                  anchor={day}
+                  onSelect={
+                    onSelectDay &&
+                    ((value) => {
+                      setOpen(false);
+                      onSelectDay(value);
+                    })
+                  }
+                />
+              )}
             </div>
           </div>
         </DialogContent>

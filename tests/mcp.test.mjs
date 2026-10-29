@@ -32,9 +32,10 @@ test('MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
  globalThis.mcpFixture={...auth,...dates,database:()=>adapter,McpServer,createMcpHandler,z,fetchClientDocument:null,validClientIdUrl:null};
  const f=globalThis.mcpFixture;
  Object.assign(f,await load('lib/oauth.ts','const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.mcpFixture;'));
- Object.assign(f,await load('lib/task-service.ts','const {validDay,validTimes}=globalThis.mcpFixture;'));
+ Object.assign(f,await load('lib/like-search.ts'));
+ Object.assign(f,await load('lib/task-service.ts','const {validDay,validTimes,likePattern,likeAny,findMatch}=globalThis.mcpFixture;'));
  Object.assign(f,await load('lib/stats.ts','const {validDay}=globalThis.mcpFixture;'));
- Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,exportRows,applyTaskAction,validRange,validScope,tasksCsv,summaryPrompt,weekStart,validDay}=globalThis.mcpFixture;'));
+ Object.assign(f,await load('lib/mcp.ts','const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,exportRows,applyTaskAction,validRange,validScope,tasksCsv,summaryPrompt,weekStart,validDay,likePattern,likeAny}=globalThis.mcpFixture;'));
  const route=await load('app/api/mcp/route.ts','const {createMcpHandler,database,appOrigin,oauthJson,corsPreflight,CORS,SCOPES,authenticate,createMcpServer}=globalThis.mcpFixture;');
  delete globalThis.mcpFixture;
 
