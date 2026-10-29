@@ -63,7 +63,7 @@ const CODEX_INSTALL_URL =
   "codex://plugins/install/work-timer?marketplace=work-timer-local";
 const CHROME_EXTENSION_URL =
   "https://chromewebstore.google.com/detail/work-timer/jmjmjgjgfoohdccinophdpejdobhnfoi";
-const MOBILE_APP_URL = "https://github.com/rmia4/work_timer_mobile/releases/latest";
+const MOBILE_APP_URL = "https://m.onestore.co.kr/v2/ko-kr/app/0001011397";
 
 export function openClaudeConnect() {
   // claude.ai의 커스텀 커넥터 추가 대화상자를 이름·MCP 주소를 채운 채로 연다.
