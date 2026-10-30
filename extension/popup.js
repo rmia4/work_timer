@@ -805,6 +805,18 @@ $("task-form").addEventListener("submit", (event) => {
   event.preventDefault();
   save(false);
 });
+// Ctrl+Enter로 폼의 주 버튼을 누른다. click()은 disabled 버튼을 무시하므로 기존 조건을 그대로 따른다.
+function ctrlEnter(form, button) {
+  $(form).addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+    if (event.isComposing || event.keyCode === 229) return; // 한글 조합 중에는 조합을 방해하지 않는다.
+    event.preventDefault();
+    if (!event.repeat) $(button()).click();
+  });
+}
+// 기록 수정 중에는 측정 재개가 아니라 수정 저장을 누른다.
+ctrlEnter("task-form", () => (edit ? "f-save" : "f-start"));
+ctrlEnter("finish-form", () => "finish-submit");
 $("f-cancel").addEventListener("click", () => {
   clearForm();
   render();
