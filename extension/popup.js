@@ -492,6 +492,22 @@ $("theme-toggle").addEventListener("click", () => {
   $("settings-menu").hidePopover();
 });
 
+// 확장 팝업은 페이지가 기본 동작을 막지 않은 Esc를 받으면 통째로 닫힌다.
+// 대화상자·설정 메뉴가 열려 있으면 Esc를 막고 맨 위의 것만 닫는다(대화상자는 기존 cancel 처리를 그대로 탄다).
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.isComposing) return;
+  if ($("settings-menu").matches(":popover-open")) {
+    event.preventDefault();
+    $("settings-menu").hidePopover();
+    return;
+  }
+  // 모달 바깥은 포커스를 받을 수 없으므로 포커스가 있는 대화상자가 맨 위다. 포커스가 없으면 겹쳐 여는 대화상자가 HTML 뒤쪽에 있다.
+  const dialog = document.activeElement?.closest("dialog[open]") || [...document.querySelectorAll("dialog[open]")].at(-1);
+  if (!dialog) return;
+  event.preventDefault();
+  if (dialog.dispatchEvent(new Event("cancel", { cancelable: true }))) dialog.close();
+});
+
 // 원본 웹앱을 새 탭으로 연다(팝업은 탭으로 포커스가 옮겨 가며 닫힌다).
 $("web-open").addEventListener("click", () => chrome.tabs.create({ url: APP_ORIGIN }));
 
