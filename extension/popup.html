@@ -24,9 +24,8 @@
     <div id="settings-menu" popover role="menu" aria-label="설정">
       <button type="button" role="menuitem" id="theme-toggle"></button>
       <button type="button" role="menuitem" id="web-open">웹페이지 방문</button>
-      <button type="button" role="menuitem" id="ai-open">AI 연결</button>
+      <button type="button" role="menuitem" id="advanced-open">고급</button>
       <hr role="separator" />
-      <button type="button" role="menuitem" id="account-open">계정 설정</button>
       <button type="button" role="menuitem" id="logout">로그아웃</button>
     </div>
     <main>
@@ -193,6 +192,35 @@
             <button value="remove">삭제</button>
           </div>
         </form>
+      </dialog>
+
+      <!-- 설정 메뉴의 "고급". 고른 항목의 대화상자로 바꿔 연다. -->
+      <dialog id="advanced-dialog" aria-labelledby="advanced-title">
+        <button type="button" class="dialog-close" aria-label="닫기">×</button>
+        <h2 id="advanced-title">고급</h2>
+        <div class="ai-choices">
+          <button type="button" class="outline" id="account-open">계정 설정</button>
+          <button type="button" class="outline" id="ai-open">AI 연결</button>
+        </div>
+        <div class="advanced-field">
+          <label for="start-view">처음 여는 화면</label>
+          <select id="start-view">
+            <option value="">기본</option>
+            <option value="timer">타이머</option>
+            <option value="log">일지</option>
+            <option value="memo">메모</option>
+            <option value="summary">요약</option>
+          </select>
+          <p class="hint">기본은 마지막으로 본 화면을 엽니다.</p>
+        </div>
+        <div class="advanced-field">
+          <label for="ctrl-enter">Ctrl+Enter 빠른 확인</label>
+          <select id="ctrl-enter">
+            <option value="">사용</option>
+            <option value="off">미사용</option>
+          </select>
+          <p class="hint">기록 폼에서는 측정 시작·수정 저장, 종료 창에서는 종료하고 저장을 누릅니다.</p>
+        </div>
       </dialog>
 
       <!-- 웹앱 설정 대화상자의 "계정" 탭을 옮겼다. 현재 비밀번호를 확인한 뒤 변경·삭제를 한다. -->

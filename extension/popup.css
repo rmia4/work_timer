@@ -162,6 +162,7 @@ h1 {
 }
 button,
 input,
+select,
 textarea {
   font: inherit;
   min-height: 36px;
@@ -333,6 +334,26 @@ dialog {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* 고급: 버튼을 글자 폭에 맞춘다. */
+#advanced-dialog .ai-choices {
+  align-items: flex-start;
+}
+.advanced-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 16px;
+}
+.advanced-field .hint {
+  margin: 0;
+}
+/* 펼친 목록도 테마 색을 따르게 배경을 칠한다. */
+#advanced-dialog select {
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
 }
 #claude-dialog .hint,
 #codex-dialog .hint {
