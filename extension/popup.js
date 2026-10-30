@@ -21,7 +21,9 @@ const $ = (id) => document.getElementById(id);
 const VIEWS = ["timer", "summary", "log", "memo"];
 let status = "loading"; // loading | login | ready
 const VIEW = "view"; // 마지막으로 연 화면(팝업을 다시 열면 그대로 보여 주고, 로그아웃하면 지운다)
-let view = VIEWS.includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "timer";
+const START_VIEW = "start-view"; // 고급에서 고른 처음 화면(비어 있으면 마지막으로 연 화면, 로그아웃해도 남긴다)
+const CTRL_ENTER = "ctrl-enter"; // 고급에서 Ctrl+Enter 빠른 확인을 끄면 "off"(비어 있으면 사용)
+let view = [localStorage.getItem(START_VIEW), localStorage.getItem(VIEW)].find((v) => VIEWS.includes(v)) || "timer";
 const first = view; // 팝업을 열 때 처음 보인 화면(이 화면만 캐시를 보여 준다)
 let day = today(); // 일지에서 보는 날짜
 let loading = false; // 날짜를 바꾼 뒤 그 날짜 기록을 아직 못 받았는지
@@ -224,6 +226,7 @@ function showLogin() {
   if (finishTask) closeFinish();
   if (remove) closeRemove();
   if ($("csv-dialog").open) $("csv-dialog").close();
+  if ($("advanced-dialog").open) $("advanced-dialog").close();
   closeAccount();
   closeDisconnect();
   closeAi();
@@ -489,8 +492,41 @@ $("theme-toggle").addEventListener("click", () => {
   $("settings-menu").hidePopover();
 });
 
+// 확장 팝업은 페이지가 기본 동작을 막지 않은 Esc를 받으면 통째로 닫힌다.
+// 대화상자·설정 메뉴가 열려 있으면 Esc를 막고 맨 위의 것만 닫는다(대화상자는 기존 cancel 처리를 그대로 탄다).
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || event.isComposing) return;
+  if ($("settings-menu").matches(":popover-open")) {
+    event.preventDefault();
+    $("settings-menu").hidePopover();
+    return;
+  }
+  // 모달 바깥은 포커스를 받을 수 없으므로 포커스가 있는 대화상자가 맨 위다. 포커스가 없으면 겹쳐 여는 대화상자가 HTML 뒤쪽에 있다.
+  const dialog = document.activeElement?.closest("dialog[open]") || [...document.querySelectorAll("dialog[open]")].at(-1);
+  if (!dialog) return;
+  event.preventDefault();
+  if (dialog.dispatchEvent(new Event("cancel", { cancelable: true }))) dialog.close();
+});
+
 // 원본 웹앱을 새 탭으로 연다(팝업은 탭으로 포커스가 옮겨 가며 닫힌다).
 $("web-open").addEventListener("click", () => chrome.tabs.create({ url: APP_ORIGIN }));
+
+// 계정 설정·AI 연결은 "고급" 대화상자에서 연다.
+$("advanced-open").addEventListener("click", () => {
+  $("settings-menu").hidePopover();
+  $("start-view").value = localStorage.getItem(START_VIEW) || "";
+  $("ctrl-enter").value = localStorage.getItem(CTRL_ENTER) || "";
+  $("advanced-dialog").showModal();
+});
+$("start-view").addEventListener("change", (event) => {
+  if (event.target.value) localStorage.setItem(START_VIEW, event.target.value);
+  else localStorage.removeItem(START_VIEW);
+});
+$("ctrl-enter").addEventListener("change", (event) => {
+  if (event.target.value) localStorage.setItem(CTRL_ENTER, event.target.value);
+  else localStorage.removeItem(CTRL_ENTER);
+});
+$("advanced-dialog").querySelector(".dialog-close").addEventListener("click", () => $("advanced-dialog").close());
 
 // 웹앱 workspace-parts.tsx의 AI 연결 메뉴(Claude·Codex 연결)와 settings-dialog.tsx의 연결된 앱 탭과 같다.
 const connectionTime = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium", timeStyle: "short" });
@@ -554,7 +590,7 @@ function closeDisconnect() {
   if ($("disconnect-dialog").open) $("disconnect-dialog").close();
 }
 $("ai-open").addEventListener("click", () => {
-  $("settings-menu").hidePopover();
+  $("advanced-dialog").close();
   $("ai-dialog").showModal();
 });
 // 고른 항목의 상세 대화상자로 바꿔 연다.
@@ -668,7 +704,7 @@ async function accountRequest(body) {
   }
 }
 $("account-open").addEventListener("click", () => {
-  $("settings-menu").hidePopover();
+  $("advanced-dialog").close();
   closeAccount();
   $("account-dialog").showModal();
 });
@@ -805,6 +841,19 @@ $("task-form").addEventListener("submit", (event) => {
   event.preventDefault();
   save(false);
 });
+// Ctrl+Enter로 폼의 주 버튼을 누른다. click()은 disabled 버튼을 무시하므로 기존 조건을 그대로 따른다.
+function ctrlEnter(form, button) {
+  $(form).addEventListener("keydown", (event) => {
+    if (localStorage.getItem(CTRL_ENTER) === "off") return; // 끄면 브라우저 기본 동작대로 둔다.
+    if (event.key !== "Enter" || !event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) return;
+    if (event.isComposing || event.keyCode === 229) return; // 한글 조합 중에는 조합을 방해하지 않는다.
+    event.preventDefault();
+    if (!event.repeat) $(button()).click();
+  });
+}
+// 기록 수정 중에는 측정 재개가 아니라 수정 저장을 누른다.
+ctrlEnter("task-form", () => (edit ? "f-save" : "f-start"));
+ctrlEnter("finish-form", () => "finish-submit");
 $("f-cancel").addEventListener("click", () => {
   clearForm();
   render();

@@ -49,7 +49,16 @@ export function activitySegments(tasks, day, now) {
       const start = Math.max(dayStart, span.start);
       const end = Math.min(dayEnd, span.end ?? now);
       if (end <= start) return [];
-      return [{ task, color: colors.get(task.id), start, end, startRatio: (start - dayStart) / DAY_MS, durationRatio: (end - start) / DAY_MS }];
+      return [{
+        task,
+        color: colors.get(task.id),
+        open: span.end === null,
+        spanCount: spans.length,
+        start,
+        end,
+        startRatio: (start - dayStart) / DAY_MS,
+        durationRatio: (end - start) / DAY_MS,
+      }];
     });
   });
   let previous = null;
@@ -66,6 +75,16 @@ const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
   minute: "2-digit",
   hourCycle: "h23",
 });
+
+// 툴팁의 걸린 시간. 웹앱 daily-activity-clock.tsx의 durationLabel·recordedDuration과 같다.
+function durationLabel(ms) {
+  const minutes = Math.max(1, Math.round(ms / 60000));
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (!hours) return `${remainder}분`;
+  return remainder ? `${hours}시간 ${remainder}분` : `${hours}시간`;
+}
+const recordedDuration = (task, now) => task.elapsed + (task.started === null ? 0 : Math.max(0, now - task.started));
 
 function el(name, attrs, parent) {
   const node = document.createElementNS(NS, name);
@@ -90,8 +109,13 @@ export function drawClock(svg, segments, now) {
       "stroke-dashoffset": -s.startRatio * c,
     }, svg);
     arc.dataset.task = s.task.id;
-    arc.dataset.tip =
-      `${s.task.title}\n${timeFormatter.format(s.start)}–${timeFormatter.format(s.end)}`;
+    // 일시정지로 나뉜 작업은 이 구간의 시간과 누적 시간을 함께 보여 준다.
+    const total = durationLabel(recordedDuration(s.task, now));
+    arc.dataset.tip = [
+      s.task.title,
+      `${timeFormatter.format(s.start)}–${s.open ? "진행 중" : timeFormatter.format(s.end)}`,
+      s.spanCount > 1 ? `${durationLabel(s.end - s.start)} · 누적 ${total}` : total,
+    ].join("\n");
   }
   const guide = el("g", { class: "clock-guide", "aria-hidden": "true" }, svg);
   el("circle", { class: "clock-guide-track", cx: 120, cy: 120, r: GUIDE_RADIUS }, guide);
