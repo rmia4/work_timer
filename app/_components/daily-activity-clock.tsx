@@ -61,10 +61,17 @@ function taskColors(tasks: ActivityTask[]) {
   const minGap = Math.min(30, 360 / Math.max(1, tasks.length) / 1.5);
   const used: number[] = [];
   const colors = new Map<string, string>();
-  for (const task of [...tasks].sort((a, b) => firstStart(a) - firstStart(b) || a.id.localeCompare(b.id))) {
+  for (const task of [...tasks].sort(
+    (a, b) => firstStart(a) - firstStart(b) || a.id.localeCompare(b.id),
+  )) {
     let hue = idHue(task.id);
     for (let attempt = 0; attempt < 24; attempt += 1) {
-      if (used.every((other) => Math.min(Math.abs(hue - other), 360 - Math.abs(hue - other)) >= minGap)) break;
+      if (
+        used.every(
+          (other) => Math.min(Math.abs(hue - other), 360 - Math.abs(hue - other)) >= minGap,
+        )
+      )
+        break;
       hue = (hue + GOLDEN_ANGLE) % 360;
     }
     used.push(hue);
@@ -84,24 +91,31 @@ function activitySegments(tasks: ActivityTask[], day: string, now: number) {
       ? task.sessions.map((session) => ({ start: session.start_at, end: session.end_at }))
       : task.started_at === null
         ? []
-        : [{ start: task.started_at, end: task.ended_at ?? (task.status === "done" ? task.started_at : null) }];
+        : [
+            {
+              start: task.started_at,
+              end: task.ended_at ?? (task.status === "done" ? task.started_at : null),
+            },
+          ];
 
     return spans.flatMap((span, spanIndex) => {
       const start = Math.max(dayStart, span.start);
       const clippedEnd = Math.min(dayEnd, span.end ?? now);
       if (clippedEnd <= start) return [];
 
-      return [{
-        ...task,
-        key: `${task.id}-${spanIndex}`,
-        color: colors.get(task.id) ?? "",
-        open: span.end === null,
-        spanCount: spans.length,
-        start,
-        end: clippedEnd,
-        startRatio: (start - dayStart) / DAY_MS,
-        durationRatio: (clippedEnd - start) / DAY_MS,
-      }];
+      return [
+        {
+          ...task,
+          key: `${task.id}-${spanIndex}`,
+          color: colors.get(task.id) ?? "",
+          open: span.end === null,
+          spanCount: spans.length,
+          start,
+          end: clippedEnd,
+          startRatio: (start - dayStart) / DAY_MS,
+          durationRatio: (clippedEnd - start) / DAY_MS,
+        },
+      ];
     });
   });
 
@@ -185,7 +199,9 @@ export default function DailyActivityClock({
     <section className="day-timeline-panel" aria-label={`${day} 하루 활동 시계`}>
       <div className="day-clock-heading">
         <div className="day-clock-heading-left">
-          <span className="day-clock-date">{month}.{date}</span>
+          <span className="day-clock-date">
+            {month}.{date}
+          </span>
           <strong>하루 요약</strong>
         </div>
         {preview ? (
@@ -206,7 +222,11 @@ export default function DailyActivityClock({
             return (
               <circle
                 key={segment.key}
-                className={tooltip?.segment.id === segment.id ? "day-clock-segment is-related" : "day-clock-segment"}
+                className={
+                  tooltip?.segment.id === segment.id
+                    ? "day-clock-segment is-related"
+                    : "day-clock-segment"
+                }
                 cx="120"
                 cy="120"
                 r={radius}
@@ -252,9 +272,7 @@ export default function DailyActivityClock({
             ))}
           </g>
         </svg>
-        <div className="day-clock-center" aria-hidden="true">
-        
-        </div>
+        <div className="day-clock-center" aria-hidden="true"></div>
         {tooltip && (
           <div
             className="day-clock-tooltip"
@@ -263,9 +281,8 @@ export default function DailyActivityClock({
           >
             <strong>{tooltip.segment.title}</strong>
             <span>
-              {timeFormatter.format(tooltip.segment.start)}–{tooltip.segment.open
-                ? "진행 중"
-                : timeFormatter.format(tooltip.segment.end)}
+              {timeFormatter.format(tooltip.segment.start)}–
+              {tooltip.segment.open ? "진행 중" : timeFormatter.format(tooltip.segment.end)}
             </span>
             <small>
               {tooltip.segment.spanCount > 1

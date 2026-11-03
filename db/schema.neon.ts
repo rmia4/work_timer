@@ -123,9 +123,7 @@ export const dailyMemos = pgTable(
     created: epoch("created").notNull(),
     updated: epoch("updated").notNull(),
   },
-  (table) => [
-    index("daily_memos_owner_day_position").on(table.owner, table.day, table.position),
-  ],
+  (table) => [index("daily_memos_owner_day_position").on(table.owner, table.day, table.position)],
 );
 
 // MCP 연동용 OAuth 2.1. 토큰과 인가 코드는 SHA-256 해시만 저장한다.

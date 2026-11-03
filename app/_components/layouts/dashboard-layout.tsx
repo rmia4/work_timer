@@ -1,7 +1,13 @@
 "use client";
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import MemoBoard from "../memo-board";
 import DailyActivityClock from "../daily-activity-clock";
 import { duration, statusLabel } from "../use-workspace";
@@ -36,7 +42,12 @@ export default function DashboardLayout(props: LayoutProps) {
           <strong>업무 기록</strong>
         </div>
         <div className="lay-top-right">
-          <button type="button" className="primary" disabled={ws.busy} onClick={() => setOpen(true)}>
+          <button
+            type="button"
+            className="primary"
+            disabled={ws.busy}
+            onClick={() => setOpen(true)}
+          >
             <Plus size={16} /> 새 작업
           </button>
           <HeaderActions {...props} />
@@ -88,13 +99,30 @@ export default function DashboardLayout(props: LayoutProps) {
               <strong>{ws.daily.length}개</strong>
             </div>
           </div>
-          <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
+          <DailyActivityClock
+            tasks={ws.daily}
+            day={ws.day}
+            now={ws.now + ws.offset}
+            onSelectDay={ws.chooseDay}
+          />
           <div className="lay-card lay-memo-tabs">
             <div className="lay-underline-tabs" role="tablist" aria-label="메모 종류">
-              <button type="button" role="tab" aria-selected={memoTab === "daily"} className={memoTab === "daily" ? "on" : ""} onClick={() => setMemoTab("daily")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={memoTab === "daily"}
+                className={memoTab === "daily" ? "on" : ""}
+                onClick={() => setMemoTab("daily")}
+              >
                 일일 메모
               </button>
-              <button type="button" role="tab" aria-selected={memoTab === "pinned"} className={memoTab === "pinned" ? "on" : ""} onClick={() => setMemoTab("pinned")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={memoTab === "pinned"}
+                className={memoTab === "pinned" ? "on" : ""}
+                onClick={() => setMemoTab("pinned")}
+              >
                 메모장
               </button>
             </div>

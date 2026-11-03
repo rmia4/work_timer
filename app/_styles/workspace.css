@@ -208,7 +208,7 @@ textarea {
   justify-content: center;
   text-align: left;
 }
-.summary h2{
+.summary h2 {
   font-size: 16px;
 }
 .summary-date {
@@ -474,21 +474,20 @@ footer {
   .summary-date {
     padding-right: 68px;
   }
-  .summary-yesterday{
-    position:absolute;
-    top : 7px;
+  .summary-yesterday {
+    position: absolute;
+    top: 7px;
     right: 10px;
   }
-  .summary-today{
-    position:absolute;
-    top : 54px;
+  .summary-today {
+    position: absolute;
+    top: 54px;
     right: 10px;
   }
-  .summary-nextday{
-    position:absolute;
-    top:100px;
-    right:10px;
-
+  .summary-nextday {
+    position: absolute;
+    top: 100px;
+    right: 10px;
   }
   .total {
     margin: 8px 0;
@@ -510,8 +509,8 @@ footer {
   .record {
     padding: 18px;
   }
-  .clock{
-    font-size: clamp(36px,10vw,55px);
+  .clock {
+    font-size: clamp(36px, 10vw, 55px);
   }
   h1 {
     font-size: 26px;

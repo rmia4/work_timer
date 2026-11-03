@@ -48,8 +48,7 @@ const channels: {
 function MiniTimer({ title }: { title: string }) {
   return (
     <div className="login-mini-timer">
-      <span className="login-mini-dot" /> 진행 중
-      <strong>01:42:18</strong>
+      <span className="login-mini-dot" /> 진행 중<strong>01:42:18</strong>
       <p>{title}</p>
       <div className="login-mini-actions">
         <span>일시정지</span>
@@ -145,7 +144,9 @@ export default function LoginShowcase() {
       <section className="login-section login-core" aria-labelledby="login-core-title">
         <div>
           <span className="login-eyebrow">모든 기록의 중심</span>
-          <h2 id="login-core-title" className="login-section-title">하루의 업무가 한 화면에</h2>
+          <h2 id="login-core-title" className="login-section-title">
+            하루의 업무가 한 화면에
+          </h2>
           <ul className="login-core-list">
             {features.map((f) => (
               <li key={f.title}>
@@ -162,7 +163,9 @@ export default function LoginShowcase() {
       </section>
 
       <section className="login-section" aria-labelledby="login-channel-title">
-        <h2 id="login-channel-title" className="login-section-title">같은 기록, 어디서든</h2>
+        <h2 id="login-channel-title" className="login-section-title">
+          같은 기록, 어디서든
+        </h2>
         <div className="login-feature-tabs" role="tablist" aria-label="사용 환경">
           {channels.map((x) => (
             <button

@@ -4,12 +4,33 @@ type Row = Record<string, unknown>;
 type Statement = NeonQueryFunction<false, false>;
 
 const numericColumns = new Set([
-  "attempts", "count", "created", "elapsed", "end_at", "ended_at", "expires", "last_used", "position", "refresh_after", "registered_at", "revoked", "running",
-  "start_at", "started", "started_at", "target", "total", "updated", "used", "version", "window",
+  "attempts",
+  "count",
+  "created",
+  "elapsed",
+  "end_at",
+  "ended_at",
+  "expires",
+  "last_used",
+  "position",
+  "refresh_after",
+  "registered_at",
+  "revoked",
+  "running",
+  "start_at",
+  "started",
+  "started_at",
+  "target",
+  "total",
+  "updated",
+  "used",
+  "version",
+  "window",
 ]);
 
 function connectionString() {
-  const url = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || process.env.CONNECTION_STRING;
+  const url =
+    process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || process.env.CONNECTION_STRING;
   if (!url) throw new Error("Set DATABASE_URL_POOLED, DATABASE_URL, or CONNECTION_STRING");
   return url;
 }
@@ -17,7 +38,7 @@ function connectionString() {
 function postgresSql(text: string) {
   let index = 0;
   return text
-    .replace(/'(?:''|[^'])*'|\?/g, (token) => token === "?" ? `$${++index}` : token)
+    .replace(/'(?:''|[^'])*'|\?/g, (token) => (token === "?" ? `$${++index}` : token))
     .replace(/MAX\(0,\s*\$(\d+)-started\)/g, "GREATEST(0, $$$1-started)");
 }
 
@@ -45,11 +66,14 @@ class PreparedStatement {
 
   toQuery() {
     const modifies = /^\s*(UPDATE|DELETE)\b/i.test(this.text);
-    return this.sql.query(postgresSql(
-      modifies && !/\bRETURNING\b/i.test(this.text)
-        ? `${this.text} RETURNING 1 AS _changed`
-        : this.text,
-    ), this.values);
+    return this.sql.query(
+      postgresSql(
+        modifies && !/\bRETURNING\b/i.test(this.text)
+          ? `${this.text} RETURNING 1 AS _changed`
+          : this.text,
+      ),
+      this.values,
+    );
   }
 
   batchResult(rows: Row[]) {

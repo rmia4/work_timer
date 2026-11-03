@@ -34,11 +34,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <button
-      type="button"
-      className="theme-toggle"
-      onClick={toggle}
-    >
+    <button type="button" className="theme-toggle" onClick={toggle}>
       {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
       {label}로 전환
     </button>

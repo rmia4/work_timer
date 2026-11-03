@@ -52,7 +52,9 @@
   font-size: 14px;
   color: var(--c-faint);
   border-bottom: 2px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 .login-feature-tabs button:hover,
 .login-mode-tabs button:hover {

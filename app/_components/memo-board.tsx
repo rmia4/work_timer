@@ -32,14 +32,11 @@ async function memoRequest(endpoint: string, body: unknown, keepalive = false) {
     currentVersion?: number;
   };
   if (!response.ok)
-    throw Object.assign(
-      new Error(data.error || "메모를 저장하지 못했습니다."),
-      {
-        status: response.status,
-        currentVersion: data.currentVersion,
-        memo: response.status === 409 ? data.memo : undefined,
-      },
-    );
+    throw Object.assign(new Error(data.error || "메모를 저장하지 못했습니다."), {
+      status: response.status,
+      currentVersion: data.currentVersion,
+      memo: response.status === 409 ? data.memo : undefined,
+    });
   return data;
 }
 
@@ -113,7 +110,11 @@ function MemoCard({
     const server = conflictRef.current;
     if (!server) return;
     versionRef.current = server.version;
-    persistedRef.current = { title: server.title, body: server.body, collapsed: server.collapsed ?? false };
+    persistedRef.current = {
+      title: server.title,
+      body: server.body,
+      collapsed: server.collapsed ?? false,
+    };
     conflictRef.current = null;
     setConflict(null);
     setState("saved");
@@ -145,12 +146,15 @@ function MemoCard({
       setError("");
     }
     try {
-      const data = await request({
-        action: "update",
-        id: memo.id,
-        version: versionRef.current,
-        ...snapshot,
-      }, keepalive);
+      const data = await request(
+        {
+          action: "update",
+          id: memo.id,
+          version: versionRef.current,
+          ...snapshot,
+        },
+        keepalive,
+      );
       if (data.memo) {
         versionRef.current = data.memo.version;
         persistedRef.current = snapshot;
@@ -217,11 +221,7 @@ function MemoCard({
   };
 
   const remove = async () => {
-    if (
-      (title.trim() || body.trim()) &&
-      !window.confirm("이 메모를 삭제하시겠습니까?")
-    )
-      return;
+    if ((title.trim() || body.trim()) && !window.confirm("이 메모를 삭제하시겠습니까?")) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = null;
     try {
@@ -237,15 +237,11 @@ function MemoCard({
   };
 
   return (
-    <article className={`memo-card${collapsible ? " is-collapsible" : ""}${collapsed ? " is-collapsed" : ""}`}>
+    <article
+      className={`memo-card${collapsible ? " is-collapsible" : ""}${collapsed ? " is-collapsed" : ""}`}
+    >
       <div className="memo-card-actions">
-        <span>
-          {state === "saving"
-            ? "저장 중"
-            : state === "error"
-              ? "저장 실패"
-              : "저장됨"}
-        </span>
+        <span>{state === "saving" ? "저장 중" : state === "error" ? "저장 실패" : "저장됨"}</span>
         <button
           type="button"
           aria-label="위로 이동"
@@ -366,9 +362,7 @@ function MemoBoard({ day }: { day?: string } = {}) {
   };
   const fetchMemos = async () => {
     try {
-      const response = await fetch(
-        day ? endpoint + "?day=" + encodeURIComponent(day) : endpoint,
-      );
+      const response = await fetch(day ? endpoint + "?day=" + encodeURIComponent(day) : endpoint);
       const data = (await response.json()) as {
         memos?: Memo[];
         error?: string;
@@ -449,11 +443,7 @@ function MemoBoard({ day }: { day?: string } = {}) {
         <p className="memo-placeholder">메모를 불러오는 중입니다.</p>
       ) : memos.length === 0 ? (
         <div className="memo-placeholder">
-          <p>
-            {day
-              ? "선택한 날짜에 메모를 남겨보세요."
-              : "항상 표시할 메모를 남겨보세요."}
-          </p>
+          <p>{day ? "선택한 날짜에 메모를 남겨보세요." : "항상 표시할 메모를 남겨보세요."}</p>
           <button type="button" onClick={() => void create()}>
             <Plus size={16} />첫 메모 만들기
           </button>
@@ -468,19 +458,13 @@ function MemoBoard({ day }: { day?: string } = {}) {
             canMoveUp={!moving && index > 0}
             canMoveDown={!moving && index < memos.length - 1}
             request={request}
-            onDeleted={(id) =>
-              setMemos((current) => current.filter((item) => item.id !== id))
-            }
+            onDeleted={(id) => setMemos((current) => current.filter((item) => item.id !== id))}
             onMove={(direction) => void move(memo.id, direction)}
           />
         ))
       )}
       {!loading && memos.length > 0 && (
-        <button
-          type="button"
-          className="memo-add"
-          onClick={() => void create()}
-        >
+        <button type="button" className="memo-add" onClick={() => void create()}>
           <Plus size={16} />새 메모
         </button>
       )}

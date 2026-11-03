@@ -72,7 +72,9 @@ export default function Consent({
       <h1>
         <strong>{clientName}</strong> 앱이 계정 연결을 요청합니다
       </h1>
-      <p className="oauth-muted">앱 이름은 앱이 스스로 밝힌 값입니다. 직접 시작한 연결인지 확인해 주세요.</p>
+      <p className="oauth-muted">
+        앱 이름은 앱이 스스로 밝힌 값입니다. 직접 시작한 연결인지 확인해 주세요.
+      </p>
       <dl className="oauth-facts">
         {clientHost && (
           <>
@@ -93,13 +95,16 @@ export default function Consent({
       </dl>
       {loopback && (
         <p className="notice">
-          이 컴퓨터에서 실행 중인 프로그램(예: Claude Code)으로 돌아갑니다. 직접 요청한 연결이 아니면 거부해 주세요.
+          이 컴퓨터에서 실행 중인 프로그램(예: Claude Code)으로 돌아갑니다. 직접 요청한 연결이
+          아니면 거부해 주세요.
         </p>
       )}
       <p className="notice">
         허용한 뒤 연결한 앱(예: Claude 데스크톱 앱)을 재시작해야 커넥터가 보일 수 있습니다.
       </p>
-      <p className="oauth-muted">연결은 설정에서 언제든 해제할 수 있습니다. 삭제와 계정 관련 기능은 허용되지 않습니다.</p>
+      <p className="oauth-muted">
+        연결은 설정에서 언제든 해제할 수 있습니다. 삭제와 계정 관련 기능은 허용되지 않습니다.
+      </p>
       <div className="form-actions">
         <button type="button" disabled={busy} onClick={() => decide(false)}>
           거부
