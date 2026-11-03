@@ -6,6 +6,7 @@ import ts from "typescript";
 import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import * as z from "zod/v4";
+import { loadChain, MCP_FILES, OAUTH_FILES, OAUTH_INJECTED } from "./helpers/load-chain.mjs";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 async function load(path, imports = "") {
@@ -73,13 +74,7 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
     validClientIdUrl: null,
   };
   const f = globalThis.mcpFixture;
-  Object.assign(
-    f,
-    await load(
-      "server/oauth/oauth.ts",
-      "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.mcpFixture;",
-    ),
-  );
+  await loadChain(load, "mcpFixture", OAUTH_FILES, OAUTH_INJECTED);
   Object.assign(f, await load("shared/like-search.ts"));
   Object.assign(
     f,
@@ -89,13 +84,24 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
     ),
   );
   Object.assign(f, await load("shared/stats.ts", "const {validDay}=globalThis.mcpFixture;"));
-  Object.assign(
-    f,
-    await load(
-      "server/mcp/mcp.ts",
-      "const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,exportRows,applyTaskAction,validRange,validScope,tasksCsv,summaryPrompt,weekStart,validDay,likePattern,likeAny}=globalThis.mcpFixture;",
-    ),
-  );
+  await loadChain(load, "mcpFixture", MCP_FILES, [
+    "McpServer",
+    "z",
+    "verifyAccessToken",
+    "resourceUrl",
+    "listTasks",
+    "dayTotals",
+    "exportRows",
+    "applyTaskAction",
+    "validRange",
+    "validScope",
+    "tasksCsv",
+    "summaryPrompt",
+    "weekStart",
+    "validDay",
+    "likePattern",
+    "likeAny",
+  ]);
   const route = await load(
     "app/api/mcp/route.ts",
     "const {createMcpHandler,database,appOrigin,oauthJson,corsPreflight,CORS,SCOPES,authenticate,createMcpServer}=globalThis.mcpFixture;",

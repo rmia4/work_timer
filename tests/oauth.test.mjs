@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
 import ts from "typescript";
+import { loadChain, OAUTH_FILES, OAUTH_INJECTED } from "./helpers/load-chain.mjs";
 
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 async function load(path, imports = "") {
@@ -97,9 +98,7 @@ test("OAuth: registration, consent, PKCE, code reuse and expiry, refresh rotatio
       return m ? { userId: m[1] } : null;
     },
   };
-  const libImports =
-    "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.oauthFixture;";
-  Object.assign(globalThis.oauthFixture, await load("server/oauth/oauth.ts", libImports));
+  await loadChain(load, "oauthFixture", OAUTH_FILES, OAUTH_INJECTED);
   const imports =
     "const {database,getCodeUser,clientAddress,hashToken,sameOrigin,protectedResourceMetadata,authorizationServerMetadata,oauthJson,oauthError,corsPreflight,readBody,registerClient,countRequest,exchangeToken,revokeToken,checkAuthorizeRequest,authorizeRedirect,approve}=globalThis.oauthFixture;";
   const oauth = globalThis.oauthFixture;
@@ -609,13 +608,7 @@ test("connections API lists and disconnects only the signed-in user's apps", asy
       return m ? { userId: m[1] } : null;
     },
   };
-  Object.assign(
-    globalThis.oauthFixture,
-    await load(
-      "server/oauth/oauth.ts",
-      "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.oauthFixture;",
-    ),
-  );
+  await loadChain(load, "oauthFixture", OAUTH_FILES, OAUTH_INJECTED);
   const route = await load(
     "app/api/connections/route.ts",
     "const {getCodeUser,trustedOrigin,database,listConnections,disconnect}=globalThis.oauthFixture;",

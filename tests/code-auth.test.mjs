@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { pbkdf2Sync, randomBytes } from "node:crypto";
 import ts from "typescript";
+import { loadChain, OAUTH_FILES, OAUTH_INJECTED } from "./helpers/load-chain.mjs";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 async function moduleFrom(path, imports = "") {
   const source = imports + "\n" + read(path).replace(/^import .*;\s*$/gm, "");
@@ -111,13 +112,7 @@ test("password auth: wrong password, secure session, old records, expiry, logout
       "const {validDay,validTimes}=globalThis.authFixture;",
     ),
   );
-  Object.assign(
-    globalThis.authFixture,
-    await moduleFrom(
-      "server/oauth/oauth.ts",
-      "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.authFixture;",
-    ),
-  );
+  await loadChain(moduleFrom, "authFixture", OAUTH_FILES, OAUTH_INJECTED);
   const tasks = await moduleFrom(
     "app/api/tasks/route.ts",
     "const {getCodeUser,env,trustedOrigin,database,validDay,listTasks,applyTaskAction}=globalThis.authFixture;",

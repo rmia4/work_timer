@@ -1,5 +1,6 @@
 import { database } from "@/server/db/raw";
-import { revokeToken, readBody, oauthJson, oauthError, corsPreflight } from "@/server/oauth/oauth";
+import { revokeToken } from "@/server/oauth/tokens";
+import { readBody, oauthJson, oauthError, corsPreflight } from "@/server/oauth/common";
 // RFC 7009 토큰 폐기.
 export async function POST(req: Request) {
   try {

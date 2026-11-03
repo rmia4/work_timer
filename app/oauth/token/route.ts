@@ -1,11 +1,6 @@
 import { database } from "@/server/db/raw";
-import {
-  exchangeToken,
-  readBody,
-  oauthJson,
-  oauthError,
-  corsPreflight,
-} from "@/server/oauth/oauth";
+import { exchangeToken } from "@/server/oauth/tokens";
+import { readBody, oauthJson, oauthError, corsPreflight } from "@/server/oauth/common";
 // 인가 코드 교환과 refresh 토큰 갱신. 본문은 application/x-www-form-urlencoded다.
 export async function POST(req: Request) {
   try {

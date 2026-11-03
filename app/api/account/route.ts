@@ -13,7 +13,7 @@ import {
   recordFailure,
   retryAfter,
 } from "@/server/auth/auth";
-import { revokeOwnerGrants } from "@/server/oauth/oauth";
+import { revokeOwnerGrants } from "@/server/oauth/tokens";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store", ...headers } });

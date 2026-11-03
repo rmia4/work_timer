@@ -1,4 +1,5 @@
-import { protectedResourceMetadata, oauthJson, corsPreflight } from "@/server/oauth/oauth";
+import { protectedResourceMetadata } from "@/server/oauth/metadata";
+import { oauthJson, corsPreflight } from "@/server/oauth/common";
 // RFC 9728: MCP 클라이언트가 이 문서로 인가 서버를 찾는다.
 export function GET() {
   try {

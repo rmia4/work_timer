@@ -1,7 +1,7 @@
 import { getCodeUser } from "@/server/auth/code-auth";
 import { trustedOrigin } from "@/server/auth/auth";
 import { database } from "@/server/db/raw";
-import { listConnections, disconnect } from "@/server/oauth/oauth";
+import { listConnections, disconnect } from "@/server/oauth/connections";
 
 const reply = (value: unknown, status = 200) =>
   Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
