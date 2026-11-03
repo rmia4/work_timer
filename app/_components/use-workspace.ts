@@ -221,12 +221,9 @@ export function useWorkspace() {
   }
   const active = tasks.find((t) => t.status !== "done");
   const elapsed = (t: Task) =>
-    t.elapsed +
-    (t.started === null ? 0 : Math.max(0, now + offset - t.started));
+    t.elapsed + (t.started === null ? 0 : Math.max(0, now + offset - t.started));
   const daily = tasks.filter((t) => t.day === day);
-  const total = daily
-    .filter((t) => t.status === "done")
-    .reduce((s, t) => s + t.elapsed, 0);
+  const total = daily.filter((t) => t.status === "done").reduce((s, t) => s + t.elapsed, 0);
   // 탭 제목에 타이머 상태와 기록 시간을 분 단위로 표시한다. 매초 렌더와 분리해 30초마다만 갱신한다.
   const activeStatus = active?.status,
     activeElapsed = active?.elapsed ?? 0,
@@ -244,9 +241,7 @@ export function useWorkspace() {
     const update = () => {
       const ms =
         activeElapsed +
-        (activeStarted === null
-          ? 0
-          : Math.max(0, Date.now() + offsetRef.current - activeStarted));
+        (activeStarted === null ? 0 : Math.max(0, Date.now() + offsetRef.current - activeStarted));
       const icon = activeStatus === "running" ? "▶" : "❚❚";
       document.title = `${icon} ${duration(ms).slice(0, 5)} · 업무 기록`;
     };
@@ -266,8 +261,7 @@ export function useWorkspace() {
       title,
       note,
       result,
-      target:
-        targetMinutes === "" ? 0 : Math.round(Number(targetMinutes) * 60000),
+      target: targetMinutes === "" ? 0 : Math.round(Number(targetMinutes) * 60000),
       // 바로 측정을 시작하면 보고 있는 날짜와 상관없이 오늘에 기록한다.
       day: run && !edit ? today() : day,
       elapsed: Math.round(Number(minutes) * 60000),
@@ -285,9 +279,7 @@ export function useWorkspace() {
     setTitle(t.title);
     setNote(t.note);
     setResult(t.result || "");
-    setTargetMinutes(
-      t.target > 0 ? String(Math.round(t.target / 600) / 100) : "",
-    );
+    setTargetMinutes(t.target > 0 ? String(Math.round(t.target / 600) / 100) : "");
     setMinutes(String(Math.round(t.elapsed / 600) / 100));
   }
   function toggleActive() {
@@ -331,14 +323,50 @@ export function useWorkspace() {
     void load();
   }
   return {
-    day, now, offset, error, auth, checking, loading, busy, message,
-    tasks, daily, active, total, elapsed,
-    title, setTitle, note, setNote, result, setResult,
-    targetMinutes, setTargetMinutes, minutes, setMinutes,
-    edit, clearForm, startEdit, save,
-    remove, setRemove, finishTask, setFinishTask, finishResult, setFinishResult,
-    calendarRefresh, memoReset, dailyMemoReset,
-    load, act, chooseDay, toggleActive, askFinish, logout, resetDeleted,
+    day,
+    now,
+    offset,
+    error,
+    auth,
+    checking,
+    loading,
+    busy,
+    message,
+    tasks,
+    daily,
+    active,
+    total,
+    elapsed,
+    title,
+    setTitle,
+    note,
+    setNote,
+    result,
+    setResult,
+    targetMinutes,
+    setTargetMinutes,
+    minutes,
+    setMinutes,
+    edit,
+    clearForm,
+    startEdit,
+    save,
+    remove,
+    setRemove,
+    finishTask,
+    setFinishTask,
+    finishResult,
+    setFinishResult,
+    calendarRefresh,
+    memoReset,
+    dailyMemoReset,
+    load,
+    act,
+    chooseDay,
+    toggleActive,
+    askFinish,
+    logout,
+    resetDeleted,
   };
 }
 

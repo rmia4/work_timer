@@ -1,7 +1,13 @@
 "use client";
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import MemoBoard from "../memo-board";
 import DailyActivityClock from "../daily-activity-clock";
 import { duration, statusLabel, weekday } from "../use-workspace";
@@ -64,7 +70,12 @@ export default function TabsLayout(props: LayoutProps) {
               {Number(ws.day.slice(5, 7))}월 {Number(ws.day.slice(8))}일 {weekday(ws.day)}요일
             </h1>
           </div>
-          <button type="button" className="primary lay-tabs-new" disabled={ws.busy} onClick={() => setOpen(true)}>
+          <button
+            type="button"
+            className="primary lay-tabs-new"
+            disabled={ws.busy}
+            onClick={() => setOpen(true)}
+          >
             <Plus size={16} /> 새 작업
           </button>
         </div>
@@ -102,7 +113,12 @@ export default function TabsLayout(props: LayoutProps) {
               <strong>{duration(ws.total)}</strong>
               <span className="lay-muted">기록 {ws.daily.length}개</span>
             </section>
-            <DailyActivityClock tasks={ws.daily} day={ws.day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
+            <DailyActivityClock
+              tasks={ws.daily}
+              day={ws.day}
+              now={ws.now + ws.offset}
+              onSelectDay={ws.chooseDay}
+            />
           </div>
         )}
         {tab === "업무 일지" && (

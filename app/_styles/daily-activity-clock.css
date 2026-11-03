@@ -82,7 +82,9 @@
   stroke-linecap: round;
   cursor: default;
   pointer-events: stroke;
-  transition: stroke-width 120ms ease, filter 120ms ease;
+  transition:
+    stroke-width 120ms ease,
+    filter 120ms ease;
 }
 .day-clock-segment:hover,
 .day-clock-segment:focus-visible,
@@ -108,7 +110,7 @@
   color: var(--c-text);
   white-space: nowrap;
 }
-.day-clock-date{
+.day-clock-date {
   font-size: 19px;
 }
 .day-clock-center strong {

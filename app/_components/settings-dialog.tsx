@@ -68,9 +68,7 @@ export default function SettingsDialog({
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [connections, setConnections] = useState<Connection[] | null>(null),
-    [confirmDisconnect, setConfirmDisconnect] = useState<Connection | null>(
-      null,
-    );
+    [confirmDisconnect, setConfirmDisconnect] = useState<Connection | null>(null);
 
   function reset() {
     setTab("layout");
@@ -94,13 +92,10 @@ export default function SettingsDialog({
         connections?: Connection[];
         error?: string;
       };
-      if (!r.ok || !data.connections)
-        throw Error(data.error || "연결된 앱을 불러오지 못했습니다.");
+      if (!r.ok || !data.connections) throw Error(data.error || "연결된 앱을 불러오지 못했습니다.");
       setConnections(data.connections);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "연결된 앱을 불러오지 못했습니다.",
-      );
+      setError(e instanceof Error ? e.message : "연결된 앱을 불러오지 못했습니다.");
     }
   }
   async function disconnect(connection: Connection) {
@@ -116,11 +111,8 @@ export default function SettingsDialog({
       });
       const data = (await r.json()) as { error?: string };
       // 이미 해제된 연결(404)도 목록에서 빼면 된다.
-      if (!r.ok && r.status !== 404)
-        throw Error(data.error || "처리하지 못했습니다.");
-      setConnections(
-        (list) => list?.filter((item) => item.id !== connection.id) ?? null,
-      );
+      if (!r.ok && r.status !== 404) throw Error(data.error || "처리하지 못했습니다.");
+      setConnections((list) => list?.filter((item) => item.id !== connection.id) ?? null);
       setMessage(`${connection.name} 연결을 해제했습니다.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "처리하지 못했습니다.");
@@ -155,15 +147,11 @@ export default function SettingsDialog({
   }
   async function changePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (
-      await request({ action: "change-password", newPassword, confirmation })
-    ) {
+    if (await request({ action: "change-password", newPassword, confirmation })) {
       setPassword(newPassword);
       setNewPassword("");
       setConfirmation("");
-      setMessage(
-        "비밀번호가 변경되었습니다. 다른 기기는 로그아웃되고 연결된 앱은 해제됩니다.",
-      );
+      setMessage("비밀번호가 변경되었습니다. 다른 기기는 로그아웃되고 연결된 앱은 해제됩니다.");
     }
   }
   async function chooseLayout(next: LayoutId) {
@@ -229,8 +217,8 @@ export default function SettingsDialog({
                 : tab === "connections"
                   ? "업무 기록에 접근하도록 허용한 AI 앱입니다. 해제하면 그 앱은 더 이상 접근할 수 없습니다."
                   : verified
-                  ? "계정 비밀번호를 변경하거나 기록을 일괄 삭제합니다."
-                  : "계속하려면 현재 비밀번호를 입력해 주세요."}
+                    ? "계정 비밀번호를 변경하거나 기록을 일괄 삭제합니다."
+                    : "계속하려면 현재 비밀번호를 입력해 주세요."}
             </DialogDescription>
           </DialogHeader>
           <Tabs
@@ -284,11 +272,8 @@ export default function SettingsDialog({
                         {connection.host && <span>{connection.host}</span>}
                         <span>권한: {connection.scopes.join(", ")}</span>
                         <span>
-                          연결 {dateTime.format(connection.created)} · 마지막
-                          사용{" "}
-                          {connection.lastUsed
-                            ? dateTime.format(connection.lastUsed)
-                            : "없음"}
+                          연결 {dateTime.format(connection.created)} · 마지막 사용{" "}
+                          {connection.lastUsed ? dateTime.format(connection.lastUsed) : "없음"}
                         </span>
                       </div>
                       <button
@@ -318,11 +303,7 @@ export default function SettingsDialog({
                       onChange={(e) => setPassword(e.target.value)}
                     />
                   </label>
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={busy || !password}
-                  >
+                  <button type="submit" className="primary" disabled={busy || !password}>
                     {busy ? "확인 중…" : "확인"}
                   </button>
                 </form>
@@ -403,12 +384,9 @@ export default function SettingsDialog({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogTitle>
-            {confirmDelete && deleteLabels[confirmDelete].button}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{confirmDelete && deleteLabels[confirmDelete].button}</AlertDialogTitle>
           <AlertDialogDescription>
-            {confirmDelete && deleteLabels[confirmDelete].target} 영구
-            삭제되며 되돌릴 수 없습니다.
+            {confirmDelete && deleteLabels[confirmDelete].target} 영구 삭제되며 되돌릴 수 없습니다.
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
@@ -431,8 +409,8 @@ export default function SettingsDialog({
         <AlertDialogContent>
           <AlertDialogTitle>연결 해제</AlertDialogTitle>
           <AlertDialogDescription>
-            {confirmDisconnect?.name} 연결을 해제할까요? 해제하면 그 앱은 더
-            이상 업무 기록에 접근할 수 없으며, 다시 쓰려면 새로 연결해야 합니다.
+            {confirmDisconnect?.name} 연결을 해제할까요? 해제하면 그 앱은 더 이상 업무 기록에 접근할
+            수 없으며, 다시 쓰려면 새로 연결해야 합니다.
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
@@ -458,9 +436,8 @@ export default function SettingsDialog({
         <AlertDialogContent>
           <AlertDialogTitle>계정 삭제</AlertDialogTitle>
           <AlertDialogDescription>
-            계정과 모든 업무일지·메모·일일메모가 영구 삭제되며 되돌릴 수
-            없습니다. 계속하려면 아래에 &lsquo;{DELETE_ACCOUNT_PHRASE}&rsquo;를
-            입력해 주세요.
+            계정과 모든 업무일지·메모·일일메모가 영구 삭제되며 되돌릴 수 없습니다. 계속하려면 아래에
+            &lsquo;{DELETE_ACCOUNT_PHRASE}&rsquo;를 입력해 주세요.
           </AlertDialogDescription>
           <label className="dialog-label">
             확인 문구

@@ -52,7 +52,12 @@ export default function DefaultLayout(props: LayoutProps) {
                 </span>
               </div>
             </section>
-            <DailyActivityClock tasks={ws.daily} day={day} now={ws.now + ws.offset} onSelectDay={ws.chooseDay} />
+            <DailyActivityClock
+              tasks={ws.daily}
+              day={day}
+              now={ws.now + ws.offset}
+              onSelectDay={ws.chooseDay}
+            />
           </div>
         </div>
         <div className="content-grid">
