@@ -1,7 +1,8 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { database } from "@/server/db/raw";
-import { appOrigin, oauthJson, corsPreflight, CORS, SCOPES } from "@/server/oauth/oauth";
-import { authenticate, createMcpServer } from "@/server/mcp/mcp";
+import { appOrigin, oauthJson, corsPreflight, CORS, SCOPES } from "@/server/oauth/common";
+import { authenticate } from "@/server/mcp/auth";
+import { createMcpServer } from "@/server/mcp/server";
 // MCP Streamable HTTP 엔드포인트(stateless). 쿠키는 보지 않고 OAuth Bearer 토큰만 인정한다.
 // 2026-07-28 사양 요청과 2025년 사양(initialize) 요청을 모두 받는다.
 const handler = createMcpHandler(({ authInfo }) => createMcpServer(database(), authInfo!), {

@@ -92,7 +92,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 
 ### AI 사용 규칙
 
-서버는 연결할 때 AI에게 다음 규칙을 전달합니다(`server/mcp/mcp.ts`의 `INSTRUCTIONS`).
+서버는 연결할 때 AI에게 다음 규칙을 전달합니다(`server/mcp/server.ts`의 `INSTRUCTIONS`).
 
 - 타이머 시작·종료와 기록 추가·수정은 사용자가 요청할 때만 합니다. 작업 요청이나 PR 생성, 커밋만으로 스스로 기록하지 않습니다.
 - 진행 중인 작업이 있으면 종료할지 사용자에게 묻습니다.
