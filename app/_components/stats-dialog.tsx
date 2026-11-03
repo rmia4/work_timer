@@ -30,9 +30,9 @@ import {
   summaryPrompt,
   type DayStat,
   type ExportScope,
-} from "../../lib/stats";
-import { findMatch } from "../../lib/like-search";
-import { timeLabel } from "../../lib/work-dates";
+} from "@/shared/stats";
+import { findMatch } from "@/shared/like-search";
+import { timeLabel } from "@/shared/work-dates";
 import { duration, statusLabel, type Task } from "./use-workspace";
 
 type Section = "summary" | "week" | "month" | "export" | "search";

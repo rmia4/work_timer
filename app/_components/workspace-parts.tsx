@@ -34,8 +34,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import WorkCalendar from "./work-calendar";
 import SettingsDialog from "./settings-dialog";
-import { timestampLabel, timeLabel } from "../../lib/work-dates";
-import type { LayoutId } from "../../lib/layouts";
+import { timestampLabel, timeLabel } from "@/shared/work-dates";
+import type { LayoutId } from "@/shared/layouts";
 import {
   duration,
   shiftDay,

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invalidateCalendarCache } from "./work-calendar";
-import { timeInput, parseTimeInput } from "../../lib/work-dates";
+import { timeInput, parseTimeInput } from "@/shared/work-dates";
 import type { DeleteKind } from "./settings-dialog";
 
 export type Task = {

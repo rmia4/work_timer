@@ -1,7 +1,7 @@
-import type { database } from "../db/raw";
-import { validDay, validTimes } from "./work-dates";
-import type { ExportRow } from "./stats";
-import { likePattern, likeAny, findMatch } from "./like-search";
+import type { database } from "@/server/db/raw";
+import { validDay, validTimes } from "@/shared/work-dates";
+import type { ExportRow } from "@/shared/stats";
+import { likePattern, likeAny, findMatch } from "@/shared/like-search";
 // 업무 기록의 검증·SQL·상태 전이. 웹 API(/api/tasks)와 MCP가 같은 규칙을 쓰도록 여기에 모은다.
 type Db = ReturnType<typeof database>;
 type TaskRow = Record<string, unknown> & {

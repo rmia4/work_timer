@@ -1,7 +1,7 @@
-import { getCodeUser } from "../../_auth/code-auth";
-import { sameOrigin } from "../../../lib/auth";
-import { database } from "../../../db/raw";
-import { DEFAULT_LAYOUT, isLayoutId } from "../../../lib/layouts";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { sameOrigin } from "@/server/auth/auth";
+import { database } from "@/server/db/raw";
+import { DEFAULT_LAYOUT, isLayoutId } from "@/shared/layouts";
 
 const reply = (value: unknown, status = 200) =>
   Response.json(value, { status, headers: { "Cache-Control": "no-store" } });

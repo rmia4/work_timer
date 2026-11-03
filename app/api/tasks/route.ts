@@ -1,8 +1,8 @@
-import { getCodeUser } from "../../_auth/code-auth";
-import { trustedOrigin } from "../../../lib/auth";
-import { database } from "../../../db/raw";
-import { validDay } from "../../../lib/work-dates";
-import { listTasks, applyTaskAction, type TaskBody } from "../../../lib/task-service";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { trustedOrigin } from "@/server/auth/auth";
+import { database } from "@/server/db/raw";
+import { validDay } from "@/shared/work-dates";
+import { listTasks, applyTaskAction, type TaskBody } from "@/server/tasks/task-service";
 const reply = (x: unknown, status = 200) =>
   Response.json(x, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET(req: Request) {

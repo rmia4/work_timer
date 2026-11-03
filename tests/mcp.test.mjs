@@ -58,7 +58,10 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
     },
   };
   process.env.APP_ORIGIN = ORIGIN;
-  const [auth, dates] = await Promise.all([load("lib/auth.ts"), load("lib/work-dates.ts")]);
+  const [auth, dates] = await Promise.all([
+    load("server/auth/auth.ts"),
+    load("shared/work-dates.ts"),
+  ]);
   globalThis.mcpFixture = {
     ...auth,
     ...dates,
@@ -73,23 +76,23 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   Object.assign(
     f,
     await load(
-      "lib/oauth.ts",
+      "server/oauth/oauth.ts",
       "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.mcpFixture;",
     ),
   );
-  Object.assign(f, await load("lib/like-search.ts"));
+  Object.assign(f, await load("shared/like-search.ts"));
   Object.assign(
     f,
     await load(
-      "lib/task-service.ts",
+      "server/tasks/task-service.ts",
       "const {validDay,validTimes,likePattern,likeAny,findMatch}=globalThis.mcpFixture;",
     ),
   );
-  Object.assign(f, await load("lib/stats.ts", "const {validDay}=globalThis.mcpFixture;"));
+  Object.assign(f, await load("shared/stats.ts", "const {validDay}=globalThis.mcpFixture;"));
   Object.assign(
     f,
     await load(
-      "lib/mcp.ts",
+      "server/mcp/mcp.ts",
       "const {McpServer,z,verifyAccessToken,resourceUrl,listTasks,dayTotals,exportRows,applyTaskAction,validRange,validScope,tasksCsv,summaryPrompt,weekStart,validDay,likePattern,likeAny}=globalThis.mcpFixture;",
     ),
   );

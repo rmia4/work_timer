@@ -1,7 +1,7 @@
-import { getCodeUser } from "../../../_auth/code-auth";
-import { clientAddress, sameOrigin } from "../../../../lib/auth";
-import { database } from "../../../../db/raw";
-import { checkAuthorizeRequest, authorizeRedirect, approve, readBody } from "../../../../lib/oauth";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { clientAddress, sameOrigin } from "@/server/auth/auth";
+import { database } from "@/server/db/raw";
+import { checkAuthorizeRequest, authorizeRedirect, approve, readBody } from "@/server/oauth/oauth";
 const reply = (x: unknown, status = 200) =>
   Response.json(x, { status, headers: { "Cache-Control": "no-store" } });
 // 동의 화면의 허용·거부. 인가 요청을 다시 검증하고 앱으로 돌아갈 주소를 돌려준다.

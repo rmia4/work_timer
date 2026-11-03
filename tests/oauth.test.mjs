@@ -30,7 +30,7 @@ const loadCimd = async () => {
   };
   try {
     return await load(
-      "lib/oauth-cimd.ts",
+      "server/oauth/cimd.ts",
       "const {BlockList,isIP,lookup,request}=globalThis.cimdFixture;",
     );
   } finally {
@@ -76,7 +76,7 @@ test("OAuth: registration, consent, PKCE, code reuse and expiry, refresh rotatio
     },
   };
   process.env.APP_ORIGIN = ORIGIN;
-  const auth = await load("lib/auth.ts");
+  const auth = await load("server/auth/auth.ts");
   // CIMD 문서는 네트워크 대신 이 표에서 돌려준다. 실제 가져오기의 SSRF 방어는 아래 별도 테스트에서 확인한다.
   const documents = new Map(),
     fetched = [];
@@ -99,7 +99,7 @@ test("OAuth: registration, consent, PKCE, code reuse and expiry, refresh rotatio
   };
   const libImports =
     "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.oauthFixture;";
-  Object.assign(globalThis.oauthFixture, await load("lib/oauth.ts", libImports));
+  Object.assign(globalThis.oauthFixture, await load("server/oauth/oauth.ts", libImports));
   const imports =
     "const {database,getCodeUser,clientAddress,hashToken,sameOrigin,protectedResourceMetadata,authorizationServerMetadata,oauthJson,oauthError,corsPreflight,readBody,registerClient,countRequest,exchangeToken,revokeToken,checkAuthorizeRequest,authorizeRedirect,approve}=globalThis.oauthFixture;";
   const oauth = globalThis.oauthFixture;
@@ -600,7 +600,7 @@ test("connections API lists and disconnects only the signed-in user's apps", asy
     },
   };
   process.env.APP_ORIGIN = ORIGIN;
-  const auth = await load("lib/auth.ts");
+  const auth = await load("server/auth/auth.ts");
   globalThis.oauthFixture = {
     ...auth,
     database: () => adapter,
@@ -612,7 +612,7 @@ test("connections API lists and disconnects only the signed-in user's apps", asy
   Object.assign(
     globalThis.oauthFixture,
     await load(
-      "lib/oauth.ts",
+      "server/oauth/oauth.ts",
       "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.oauthFixture;",
     ),
   );

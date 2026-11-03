@@ -1,7 +1,7 @@
-import { getCodeUser } from "../../_auth/code-auth";
-import { database } from "../../../db/raw";
-import { tasksCsv, validRange, validScope } from "../../../lib/stats";
-import { exportRows } from "../../../lib/task-service";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { database } from "@/server/db/raw";
+import { tasksCsv, validRange, validScope } from "@/shared/stats";
+import { exportRows } from "@/server/tasks/task-service";
 const reply = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET(req: Request) {

@@ -1,8 +1,13 @@
 import { McpServer, type AuthInfo } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
-import type { database } from "../db/raw";
-import { verifyAccessToken, resourceUrl } from "./oauth";
-import { dayTotals, exportRows, applyTaskAction, type TaskFailure } from "./task-service";
+import type { database } from "@/server/db/raw";
+import { verifyAccessToken, resourceUrl } from "@/server/oauth/oauth";
+import {
+  dayTotals,
+  exportRows,
+  applyTaskAction,
+  type TaskFailure,
+} from "@/server/tasks/task-service";
 import {
   validRange,
   validScope,
@@ -10,9 +15,9 @@ import {
   summaryPrompt,
   weekStart,
   type ExportScope,
-} from "./stats";
-import { validDay } from "./work-dates";
-import { likePattern, likeAny } from "./like-search";
+} from "@/shared/stats";
+import { validDay } from "@/shared/work-dates";
+import { likePattern, likeAny } from "@/shared/like-search";
 // MCP 서버(/api/mcp)의 인증과 도구. 요청마다 서버를 새로 만들고(stateless), 토큰 주인의 기록만 다룬다.
 // 시각은 한국 시간 ISO 문자열, 시간 길이는 분 단위 정수로 내보내고 내부 epoch ms는 노출하지 않는다.
 type Db = ReturnType<typeof database>;

@@ -1,4 +1,4 @@
-import { database } from "../../../db/raw";
+import { database } from "@/server/db/raw";
 import {
   clientAddress,
   hashToken,
@@ -13,7 +13,7 @@ import {
   blockedUntil,
   recordFailure,
   retryAfter,
-} from "../../../lib/auth";
+} from "@/server/auth/auth";
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store", ...headers } });
 export async function POST(req: Request) {

@@ -10,9 +10,9 @@ const load = (path, replace = (s) => s) => {
   }).outputText;
   return "data:text/javascript;base64," + Buffer.from(js).toString("base64");
 };
-const datesUrl = load("../lib/work-dates.ts");
+const datesUrl = load("../shared/work-dates.ts");
 const stats = await import(
-  load("../lib/stats.ts", (s) => s.replace('"./work-dates"', JSON.stringify(datesUrl)))
+  load("../shared/stats.ts", (s) => s.replace('"./work-dates"', JSON.stringify(datesUrl)))
 );
 
 test("csvCell neutralizes formula prefixes only for strings and then escapes CSV", () => {
