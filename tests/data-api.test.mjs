@@ -55,7 +55,7 @@ test("task batches guard stale writes and data APIs bound bodies before parsing"
       return results;
     },
   };
-  const dates = await load("lib/work-dates.ts");
+  const dates = await load("shared/work-dates.ts");
   globalThis.dataApiFixture = {
     ...dates,
     getCodeUser: async () => ({ userId: "owner" }),
@@ -66,7 +66,10 @@ test("task batches guard stale writes and data APIs bound bodies before parsing"
     "const {getCodeUser,trustedOrigin,database,validDay,validTimes,listTasks,applyTaskAction}=globalThis.dataApiFixture;";
   Object.assign(
     globalThis.dataApiFixture,
-    await load("lib/task-service.ts", "const {validDay,validTimes}=globalThis.dataApiFixture;"),
+    await load(
+      "server/tasks/task-service.ts",
+      "const {validDay,validTimes}=globalThis.dataApiFixture;",
+    ),
   );
   const tasks = await load("app/api/tasks/route.ts", imports);
   const memos = await load("app/api/memos/route.ts", imports);

@@ -8,7 +8,7 @@ if (!connectionString) {
 
 export default defineConfig({
   out: "./drizzle-neon",
-  schema: "./db/schema.neon.ts",
+  schema: "./server/db/schema.neon.ts",
   dialect: "postgresql",
   dbCredentials: { url: connectionString },
 });

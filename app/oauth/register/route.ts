@@ -1,5 +1,5 @@
-import { database } from "../../../db/raw";
-import { clientAddress, hashToken } from "../../../lib/auth";
+import { database } from "@/server/db/raw";
+import { clientAddress, hashToken } from "@/server/auth/auth";
 import {
   registerClient,
   countRequest,
@@ -7,7 +7,7 @@ import {
   oauthJson,
   oauthError,
   corsPreflight,
-} from "../../../lib/oauth";
+} from "@/server/oauth/oauth";
 const REGISTRATIONS_PER_HOUR = 20;
 // RFC 7591 동적 클라이언트 등록. 누구나 호출할 수 있으므로 IP마다 시간당 등록 수를 제한한다.
 export async function POST(req: Request) {

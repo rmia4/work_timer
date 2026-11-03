@@ -39,19 +39,19 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
     },
   };
   const fx = (globalThis.searchFixture = {
-    ...(await load("lib/work-dates.ts")),
-    ...(await load("lib/like-search.ts")),
+    ...(await load("shared/work-dates.ts")),
+    ...(await load("shared/like-search.ts")),
     database: () => adapter,
     getCodeUser: async () => {
       if (authDown) throw Error("auth db down");
       return user;
     },
   });
-  Object.assign(fx, await load("lib/stats.ts", "const {validDay}=globalThis.searchFixture;"));
+  Object.assign(fx, await load("shared/stats.ts", "const {validDay}=globalThis.searchFixture;"));
   Object.assign(
     fx,
     await load(
-      "lib/task-service.ts",
+      "server/tasks/task-service.ts",
       "const {validDay,validTimes,likePattern,likeAny,findMatch}=globalThis.searchFixture;",
     ),
   );
@@ -236,7 +236,7 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
   // Postgres 변환: 자리표시자 순서와 GREATEST, ESCAPE 리터럴 유지
   globalThis.rawFixture = { neon: () => null };
   const raw = await load(
-    "db/raw.ts",
+    "server/db/raw.ts",
     "const {neon}=globalThis.rawFixture;",
     "\nexport {postgresSql};",
   );

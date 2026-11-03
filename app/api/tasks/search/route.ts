@@ -1,7 +1,7 @@
-import { getCodeUser } from "../../../_auth/code-auth";
-import { database } from "../../../../db/raw";
-import { validRange } from "../../../../lib/stats";
-import { searchTasks } from "../../../../lib/task-service";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { database } from "@/server/db/raw";
+import { validRange } from "@/shared/stats";
+import { searchTasks } from "@/server/tasks/task-service";
 const reply = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 // 통계 > 검색. 인증 조회도 DB를 쓰므로 그 오류까지 503으로 응답한다.

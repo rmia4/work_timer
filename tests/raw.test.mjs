@@ -13,7 +13,7 @@ const sql = {
 };
 globalThis.rawFixture = { neon: () => sql };
 const source =
-  readFileSync(new URL("../db/raw.ts", import.meta.url), "utf8").replace(
+  readFileSync(new URL("../server/db/raw.ts", import.meta.url), "utf8").replace(
     /^import .*;\s*$/gm,
     "const {neon}=globalThis.rawFixture;",
   ) + "\nexport {postgresSql};";

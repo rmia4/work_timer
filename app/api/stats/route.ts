@@ -1,7 +1,7 @@
-import { getCodeUser } from "../../_auth/code-auth";
-import { database } from "../../../db/raw";
-import { validRange } from "../../../lib/stats";
-import { dayTotals } from "../../../lib/task-service";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { database } from "@/server/db/raw";
+import { validRange } from "@/shared/stats";
+import { dayTotals } from "@/server/tasks/task-service";
 const reply = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET(req: Request) {

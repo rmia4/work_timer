@@ -1,5 +1,5 @@
-import { getCodeUser } from "../../_auth/code-auth";
-import { database } from "../../../db/raw";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { database } from "@/server/db/raw";
 import {
   createPasswordHash,
   hashToken,
@@ -12,8 +12,8 @@ import {
   blockedUntil,
   recordFailure,
   retryAfter,
-} from "../../../lib/auth";
-import { revokeOwnerGrants } from "../../../lib/oauth";
+} from "@/server/auth/auth";
+import { revokeOwnerGrants } from "@/server/oauth/oauth";
 
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store", ...headers } });

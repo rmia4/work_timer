@@ -1,5 +1,5 @@
-import { database } from "../../db/raw";
-import { hashToken, sessionToken } from "../../lib/auth";
+import { database } from "@/server/db/raw";
+import { hashToken, sessionToken } from "./auth";
 export async function getCodeUser(req: Request) {
   const token = sessionToken(req);
   if (!token) return null;

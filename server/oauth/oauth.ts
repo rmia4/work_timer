@@ -1,6 +1,6 @@
-import type { database } from "../db/raw";
-import { hashToken } from "./auth";
-import { fetchClientDocument, validClientIdUrl } from "./oauth-cimd";
+import type { database } from "@/server/db/raw";
+import { hashToken } from "@/server/auth/auth";
+import { fetchClientDocument, validClientIdUrl } from "./cimd";
 // MCP 연동용 OAuth 2.1 인가 서버. Work Timer가 인가 서버와 리소스 서버(/api/mcp)를 겸한다.
 // 클라이언트는 공개 클라이언트만 받고 PKCE(S256)를 반드시 요구한다. 클라이언트 식별은 두 방식을 지원한다.
 // - Client ID Metadata Document(CIMD): https URL이 곧 client_id. 문서를 가져와 oauth_clients에 캐시한다.

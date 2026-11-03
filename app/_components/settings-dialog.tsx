@@ -18,7 +18,7 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { LAYOUTS, type LayoutId } from "../../lib/layouts";
+import { LAYOUTS, type LayoutId } from "@/shared/layouts";
 import ThemeToggle from "./theme-toggle";
 
 export type DeleteKind = "tasks" | "memos" | "daily-memos";

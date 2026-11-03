@@ -88,8 +88,8 @@ test("password auth: wrong password, secure session, old records, expiry, logout
   ).run();
   const env = { APP_ORIGIN: "https://diary.test" };
   process.env.APP_ORIGIN = env.APP_ORIGIN;
-  const helpers = await moduleFrom("lib/auth.ts");
-  const dates = await moduleFrom("lib/work-dates.ts");
+  const helpers = await moduleFrom("server/auth/auth.ts");
+  const dates = await moduleFrom("shared/work-dates.ts");
   globalThis.authFixture = { ...helpers, ...dates, env, database: () => adapter };
   const auth = await moduleFrom(
     "app/api/auth/route.ts",
@@ -100,18 +100,21 @@ test("password auth: wrong password, secure session, old records, expiry, logout
     "const {database,clientAddress,createPasswordHash,hashToken,normalizeUsername,sessionCookie,trustedOrigin,SESSION_SECONDS,MIN_PASSWORD_LENGTH,MAX_PASSWORD_LENGTH,blockedUntil,recordFailure,retryAfter}=globalThis.authFixture;",
   );
   const user = await moduleFrom(
-    "app/_auth/code-auth.ts",
+    "server/auth/code-auth.ts",
     "const {database,hashToken,sessionToken}=globalThis.authFixture;",
   );
   globalThis.authFixture.getCodeUser = user.getCodeUser;
   Object.assign(
     globalThis.authFixture,
-    await moduleFrom("lib/task-service.ts", "const {validDay,validTimes}=globalThis.authFixture;"),
+    await moduleFrom(
+      "server/tasks/task-service.ts",
+      "const {validDay,validTimes}=globalThis.authFixture;",
+    ),
   );
   Object.assign(
     globalThis.authFixture,
     await moduleFrom(
-      "lib/oauth.ts",
+      "server/oauth/oauth.ts",
       "const {hashToken,fetchClientDocument,validClientIdUrl}=globalThis.authFixture;",
     ),
   );

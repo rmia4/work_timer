@@ -1,7 +1,7 @@
-import { getCodeUser } from "../../_auth/code-auth";
-import { trustedOrigin } from "../../../lib/auth";
-import { validDay } from "../../../lib/work-dates";
-import { database } from "../../../db/raw";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { trustedOrigin } from "@/server/auth/auth";
+import { validDay } from "@/shared/work-dates";
+import { database } from "@/server/db/raw";
 
 const reply = (value: unknown, status = 200) =>
   Response.json(value, { status, headers: { "Cache-Control": "no-store" } });
