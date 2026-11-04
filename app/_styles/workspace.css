@@ -74,28 +74,10 @@ textarea:focus-visible {
   color: #6b7890;
   margin-left: 10px;
 }
-.private {
-  font-size: 14px;
-  color: #69778c;
-}
 main {
   max-width: 1180px;
   margin: auto;
   padding: 25px 24px 44px;
-}
-.heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 20px;
-  margin-bottom: 28px;
-}
-.eyebrow {
-  font-size: 12px;
-  letter-spacing: 1.6px;
-  color: #63738e;
-  font-weight: 700;
-  margin: 0 0 8px;
 }
 h1 {
   font-size: 30px;
@@ -464,10 +446,6 @@ footer {
   .content-grid {
     grid-template-columns: 1fr;
   }
-  .heading {
-    align-items: right;
-    flex-direction: column;
-  }
   .summary {
     padding: 24px;
   }
@@ -514,9 +492,6 @@ footer {
   }
   h1 {
     font-size: 26px;
-  }
-  .private {
-    font-size: 12px;
   }
   .record-head {
     flex-wrap: wrap;

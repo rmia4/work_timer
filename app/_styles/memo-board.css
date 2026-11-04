@@ -3,12 +3,6 @@ main {
   margin-left: auto;
   margin-right: auto;
 }
-.heading {
-  max-width: 1180px;
-}
-.heading.heading-controls {
-  justify-content: flex-end;
-}
 .top-panels {
   margin-bottom: 32px;
 }
