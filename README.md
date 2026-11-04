@@ -154,6 +154,8 @@ pnpm db:neon:import -- path/to/d1-export.json
 
 `drizzle/` 폴더는 이전 D1(SQLite)용 마이그레이션입니다. 운영 DB에는 사용하지 않으며, `pnpm test`의 SQLite 메모리 DB 테스트에서 사용합니다.
 
+스키마를 바꿀 때는 `drizzle-neon/`에 다음 번호의 SQL 파일을 직접 추가하고 `pnpm db:neon:apply`로 적용합니다. `drizzle`이 들어간 폴더 이름은 예전에 Drizzle을 쓰던 때의 이름입니다.
+
 ## 검사
 
 ```powershell
