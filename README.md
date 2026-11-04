@@ -153,6 +153,7 @@ pnpm db:neon:apply
 ```powershell
 pnpm build
 pnpm test
+pnpm format:check
 ```
 
 프로덕션 빌드는 TypeScript 검사와 페이지 생성을 함께 수행합니다.
