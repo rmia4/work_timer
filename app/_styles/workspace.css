@@ -74,28 +74,10 @@ textarea:focus-visible {
   color: #6b7890;
   margin-left: 10px;
 }
-.private {
-  font-size: 14px;
-  color: #69778c;
-}
 main {
   max-width: 1180px;
   margin: auto;
   padding: 25px 24px 44px;
-}
-.heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 20px;
-  margin-bottom: 28px;
-}
-.eyebrow {
-  font-size: 12px;
-  letter-spacing: 1.6px;
-  color: #63738e;
-  font-weight: 700;
-  margin: 0 0 8px;
 }
 h1 {
   font-size: 30px;
@@ -208,7 +190,7 @@ textarea {
   justify-content: center;
   text-align: left;
 }
-.summary h2{
+.summary h2 {
   font-size: 16px;
 }
 .summary-date {
@@ -464,31 +446,26 @@ footer {
   .content-grid {
     grid-template-columns: 1fr;
   }
-  .heading {
-    align-items: right;
-    flex-direction: column;
-  }
   .summary {
     padding: 24px;
   }
   .summary-date {
     padding-right: 68px;
   }
-  .summary-yesterday{
-    position:absolute;
-    top : 7px;
+  .summary-yesterday {
+    position: absolute;
+    top: 7px;
     right: 10px;
   }
-  .summary-today{
-    position:absolute;
-    top : 54px;
+  .summary-today {
+    position: absolute;
+    top: 54px;
     right: 10px;
   }
-  .summary-nextday{
-    position:absolute;
-    top:100px;
-    right:10px;
-
+  .summary-nextday {
+    position: absolute;
+    top: 100px;
+    right: 10px;
   }
   .total {
     margin: 8px 0;
@@ -510,14 +487,11 @@ footer {
   .record {
     padding: 18px;
   }
-  .clock{
-    font-size: clamp(36px,10vw,55px);
+  .clock {
+    font-size: clamp(36px, 10vw, 55px);
   }
   h1 {
     font-size: 26px;
-  }
-  .private {
-    font-size: 12px;
   }
   .record-head {
     flex-wrap: wrap;

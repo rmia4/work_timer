@@ -2,11 +2,7 @@
 import { useState } from "react";
 import LoginShowcase from "./login-showcase";
 
-export default function Login({
-  onSuccess,
-}: {
-  onSuccess: () => Promise<void>;
-}) {
+export default function Login({ onSuccess }: { onSuccess: () => Promise<void> }) {
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [confirmation, setConfirmation] = useState(""),
@@ -73,29 +69,22 @@ export default function Login({
                 setBusy(true);
                 setError("");
                 try {
-                  const r = await fetch(
-                    mode === "login" ? "/api/auth" : "/api/auth/signup",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ username, password, confirmation }),
-                    },
-                  );
+                  const r = await fetch(mode === "login" ? "/api/auth" : "/api/auth/signup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password, confirmation }),
+                  });
                   const data = (await r.json()) as { error?: string };
                   if (!r.ok)
                     throw Error(
                       data.error ||
-                        (mode === "login"
-                          ? "로그인하지 못했습니다."
-                          : "가입하지 못했습니다."),
+                        (mode === "login" ? "로그인하지 못했습니다." : "가입하지 못했습니다."),
                     );
                   setPassword("");
                   setConfirmation("");
                   await onSuccess();
                 } catch (e) {
-                  setError(
-                    e instanceof Error ? e.message : "연결을 확인해 주세요.",
-                  );
+                  setError(e instanceof Error ? e.message : "연결을 확인해 주세요.");
                 } finally {
                   setBusy(false);
                 }
@@ -128,9 +117,7 @@ export default function Login({
                   required
                   minLength={mode === "signup" ? 8 : undefined}
                   maxLength={128}
-                  autoComplete={
-                    mode === "login" ? "current-password" : "new-password"
-                  }
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />

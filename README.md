@@ -16,7 +16,7 @@
 ## 기술적 특징
 
 - **서버 기준 시간 계산과 낙관적 동시성 제어:** 타이머는 누적 시간(`elapsed`)과 마지막 시작 시각(`started`)을 DB에 저장하고, 화면은 이 값으로 진행 시간을 계산합니다. 모든 수정은 `WHERE ... AND version=?` 조건으로 `version`을 비교해 갱신하며, 다른 기기에서 먼저 바뀐 기록은 409로 거절합니다. 사용자당 진행 중 작업 한 개 제한은 `status <> 'done'` 조건의 부분 고유 인덱스(`tasks_one_active`)로 DB가 보장합니다.
-- **DB 접근 계층 분리:** `db/raw.ts`가 `prepare().bind().all()/first()/run()`, `batch()` 형태의 인터페이스를 Neon 서버리스 드라이버 위에 구현합니다. `?` 자리표시자를 PostgreSQL의 `$n`으로 바꾸고, `batch()`는 하나의 트랜잭션으로 실행하며, `UPDATE`·`DELETE`에는 `RETURNING`을 붙여 변경 행 수를 확인합니다. API 라우트는 이 인터페이스만 사용합니다.
+- **DB 접근 계층 분리:** `server/db/raw.ts`가 `prepare().bind().all()/first()/run()`, `batch()` 형태의 인터페이스를 Neon 서버리스 드라이버 위에 구현합니다. `?` 자리표시자를 PostgreSQL의 `$n`으로 바꾸고, `batch()`는 하나의 트랜잭션으로 실행하며, `UPDATE`·`DELETE`에는 `RETURNING`을 붙여 변경 행 수를 확인합니다. API 라우트는 이 인터페이스만 사용합니다.
 - **Web Crypto 기반 인증:** 비밀번호는 PBKDF2-SHA256(100,000회, 16바이트 솔트)로 해시해 저장합니다. 해시 비교는 상수 시간 방식으로 수행하고, 없는 아이디도 같은 해시 계산을 거쳐 응답 시간으로 아이디 존재 여부를 알 수 없게 했으며, 세션 토큰은 SHA-256 해시만 DB에 저장합니다. 로그인 실패 횟수에 따라 차단 시간이 늘어나는 제한 로직을 직접 구현했습니다.
 - **24시간 활동 시계 직접 구현:** 외부 차트 라이브러리 없이 SVG 원호로 그립니다. 업무 구간을 한국 시간 기준 하루 범위로 잘라 비율로 변환하고, 앞 업무와 40분 이내로 가까운 업무는 안쪽 트랙으로 번갈아 배치해 겹침을 줄입니다.
 - **별도 프레임워크 없는 테스트:** `node:test`와 Node 내장 `node:sqlite` 메모리 DB로 단일 진행 작업 제약, 오래된 버전 쓰기 거절, 소유자 확인, 일시정지·재개 누적 시간을 검사합니다. 인증 테스트는 `typescript`로 소스 파일을 바로 변환해 불러온 뒤 잘못된 비밀번호, 세션 만료, 로그아웃, 시도 제한, Origin 검사를 확인합니다. 테스트 DB는 PostgreSQL이 아닌 SQLite 마이그레이션(`drizzle/`)을 사용합니다.
@@ -92,7 +92,7 @@ Work Timer는 원격 MCP 서버(`<APP_ORIGIN>/api/mcp`)를 제공합니다. Clau
 
 ### AI 사용 규칙
 
-서버는 연결할 때 AI에게 다음 규칙을 전달합니다(`lib/mcp.ts`의 `INSTRUCTIONS`).
+서버는 연결할 때 AI에게 다음 규칙을 전달합니다(`server/mcp/server.ts`의 `INSTRUCTIONS`).
 
 - 타이머 시작·종료와 기록 추가·수정은 사용자가 요청할 때만 합니다. 작업 요청이나 PR 생성, 커밋만으로 스스로 기록하지 않습니다.
 - 진행 중인 작업이 있으면 종료할지 사용자에게 묻습니다.
@@ -144,21 +144,16 @@ pnpm db:neon:apply
 
 `drizzle-neon/0000_initial.sql`은 빈 데이터베이스용입니다. 기존 Work Timer 테이블과 데이터가 있는 DB에는 적용하지 않습니다.
 
-이전 Cloudflare D1 데이터를 옮길 때는 `tasks`, `memos`, `daily_memos` 배열을 담은 JSON 내보내기 파일을 가져옵니다.
-
-```powershell
-pnpm db:neon:import -- path/to/d1-export.json
-```
-
-가져온 기록은 `personal-workspace` 사용자에게 연결되며, 내보내기 파일에 소유자가 둘 이상이면 중단합니다. 세션과 로그인 시도 제한 기록은 옮기지 않습니다. 자세한 절차는 `docs/neon-vercel-migration.md`를 참고합니다.
-
 `drizzle/` 폴더는 이전 D1(SQLite)용 마이그레이션입니다. 운영 DB에는 사용하지 않으며, `pnpm test`의 SQLite 메모리 DB 테스트에서 사용합니다.
+
+스키마를 바꿀 때는 `drizzle-neon/`에 다음 번호의 SQL 파일을 직접 추가하고 `pnpm db:neon:apply`로 적용합니다. `drizzle`이 들어간 폴더 이름은 예전에 Drizzle을 쓰던 때의 이름입니다.
 
 ## 검사
 
 ```powershell
 pnpm build
 pnpm test
+pnpm format:check
 ```
 
 프로덕션 빌드는 TypeScript 검사와 페이지 생성을 함께 수행합니다.

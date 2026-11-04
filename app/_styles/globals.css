@@ -93,8 +93,8 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: Arial, Helvetica, sans-serif;
   --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 :root[data-theme="dark"] {

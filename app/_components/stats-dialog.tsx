@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
@@ -23,9 +30,9 @@ import {
   summaryPrompt,
   type DayStat,
   type ExportScope,
-} from "../../lib/stats";
-import { findMatch } from "../../lib/like-search";
-import { timeLabel } from "../../lib/work-dates";
+} from "@/shared/stats";
+import { findMatch } from "@/shared/like-search";
+import { timeLabel } from "@/shared/work-dates";
 import { duration, statusLabel, type Task } from "./use-workspace";
 
 type Section = "summary" | "week" | "month" | "export" | "search";
@@ -88,8 +95,21 @@ function useDayStats(from: string, to: string) {
   };
 }
 
-function LoadState({ ready, error, children }: { ready: boolean; error: string; children: ReactNode }) {
-  if (error) return <p className="stats-message stats-error" role="alert">{error}</p>;
+function LoadState({
+  ready,
+  error,
+  children,
+}: {
+  ready: boolean;
+  error: string;
+  children: ReactNode;
+}) {
+  if (error)
+    return (
+      <p className="stats-message stats-error" role="alert">
+        {error}
+      </p>
+    );
   if (!ready) return <p className="stats-message">불러오는 중…</p>;
   return <>{children}</>;
 }
@@ -108,14 +128,26 @@ function PeriodBar({ label, onMove }: { label: string; onMove: (offset: number) 
   );
 }
 
-function BarChart({ bars, max }: { bars: { key: string; value: number; label: ReactNode }[]; max: number }) {
+function BarChart({
+  bars,
+  max,
+}: {
+  bars: { key: string; value: number; label: ReactNode }[];
+  max: number;
+}) {
   return (
-    <div className="stats-bars" style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}>
+    <div
+      className="stats-bars"
+      style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
+    >
       {bars.map((bar) => (
         <div key={bar.key} className="stats-bar">
           <span className="stats-bar-value">{bar.value > 0 ? hoursLabel(bar.value) : ""}</span>
           <div className="stats-bar-track">
-            <div className="stats-bar-fill" style={{ height: `${Math.min(100, (bar.value / max) * 100)}%` }} />
+            <div
+              className="stats-bar-fill"
+              style={{ height: `${Math.min(100, (bar.value / max) * 100)}%` }}
+            />
           </div>
           <span className="stats-bar-label">{bar.label}</span>
         </div>
@@ -128,7 +160,9 @@ function SummaryView() {
   const [today] = useState(todayKst);
   const weeks = heatmapWeeks(today);
   const { days, ready, error } = useDayStats(weeks[0][0], today);
-  const [hover, setHover] = useState<{ day: string; x: number; y: number; below: boolean } | null>(null);
+  const [hover, setHover] = useState<{ day: string; x: number; y: number; below: boolean } | null>(
+    null,
+  );
   const box = useRef<HTMLDivElement>(null);
   function showTip(event: MouseEvent<HTMLSpanElement>, day: string) {
     if (!box.current) return;
@@ -164,25 +198,33 @@ function SummaryView() {
                 })}
               </div>
               <div className="heatmap-grid" onMouseLeave={() => setHover(null)}>
-                {weeks.flat().map((day) =>
-                  day > today ? (
-                    <span key={day} className="heat-cell heat-empty" />
-                  ) : (
-                    <span
-                      key={day}
-                      className="heat-cell"
-                      data-level={heatLevel(days[day]?.total ?? 0)}
-                      aria-label={label(day)}
-                      onMouseEnter={(e) => showTip(e, day)}
-                    />
-                  ),
-                )}
+                {weeks
+                  .flat()
+                  .map((day) =>
+                    day > today ? (
+                      <span key={day} className="heat-cell heat-empty" />
+                    ) : (
+                      <span
+                        key={day}
+                        className="heat-cell"
+                        data-level={heatLevel(days[day]?.total ?? 0)}
+                        aria-label={label(day)}
+                        onMouseEnter={(e) => showTip(e, day)}
+                      />
+                    ),
+                  )}
               </div>
             </div>
           </div>
           {hover && (
-            <div className={hover.below ? "heat-tip below" : "heat-tip"} role="tooltip" style={{ left: hover.x, top: hover.y }}>
-              <strong>{dotted(hover.day)} ({HEAT_WEEKDAYS[(weekdayIndex(hover.day) + 1) % 7]})</strong>
+            <div
+              className={hover.below ? "heat-tip below" : "heat-tip"}
+              role="tooltip"
+              style={{ left: hover.x, top: hover.y }}
+            >
+              <strong>
+                {dotted(hover.day)} ({HEAT_WEEKDAYS[(weekdayIndex(hover.day) + 1) % 7]})
+              </strong>
               <span>
                 {hoursLabel(days[hover.day]?.total ?? 0)} · 작업 {days[hover.day]?.count ?? 0}개
               </span>
@@ -245,7 +287,8 @@ function MonthView({ day }: { day: string }) {
   const weeks = monthWeeks(anchor);
   const { days: stats, ready, error } = useDayStats(range.from, range.to);
   const sums = weeks.map((week) => {
-    let total = 0, count = 0;
+    let total = 0,
+      count = 0;
     for (let day = week.from; day <= week.to; day = addDays(day, 1)) {
       total += stats[day]?.total ?? 0;
       count += stats[day]?.count ?? 0;
@@ -368,10 +411,20 @@ function ExportView({ anchor }: { anchor: string }) {
           </label>
         ))}
       </fieldset>
-      <p className="stats-message">세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기와 AI 작업량이 늘어납니다.</p>
-      <p className="stats-message">CSV를 AI에 첨부할 때 같은 범위로 복사한 프롬프트를 함께 붙여넣으세요.</p>
-      {invalid && from && to &&<p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
-      {error && <p className="stats-message stats-error" role="alert">{error}</p>}
+      <p className="stats-message">
+        세부내용(업무 내용·결과)이 들어가는 범위를 고르면 파일 크기와 AI 작업량이 늘어납니다.
+      </p>
+      <p className="stats-message">
+        CSV를 AI에 첨부할 때 같은 범위로 복사한 프롬프트를 함께 붙여넣으세요.
+      </p>
+      {invalid && from && to && (
+        <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>
+      )}
+      {error && (
+        <p className="stats-message stats-error" role="alert">
+          {error}
+        </p>
+      )}
     </>
   );
 }
@@ -410,7 +463,12 @@ function TaskDetail({
   onClose: () => void;
   onSelect?: (day: string) => void;
 }) {
-  const [state, setState] = useState<{ id: string; task: Task | null; now: number; error: string } | null>(null);
+  const [state, setState] = useState<{
+    id: string;
+    task: Task | null;
+    now: number;
+    error: string;
+  } | null>(null);
   useEffect(() => {
     if (!item) return;
     let cancelled = false;
@@ -421,10 +479,20 @@ function TaskDetail({
         if (!r.ok || !data.tasks) throw Error(data.error || "기록을 불러오지 못했습니다.");
         const task = data.tasks.find((t) => t.id === item.id) ?? null;
         if (!cancelled)
-          setState({ id: item.id, task, now: data.now ?? Date.now(), error: task ? "" : "기록을 찾을 수 없습니다. 삭제되었을 수 있습니다." });
+          setState({
+            id: item.id,
+            task,
+            now: data.now ?? Date.now(),
+            error: task ? "" : "기록을 찾을 수 없습니다. 삭제되었을 수 있습니다.",
+          });
       } catch (e) {
         if (!cancelled)
-          setState({ id: item.id, task: null, now: 0, error: e instanceof Error ? e.message : "기록을 불러오지 못했습니다." });
+          setState({
+            id: item.id,
+            task: null,
+            now: 0,
+            error: e instanceof Error ? e.message : "기록을 불러오지 못했습니다.",
+          });
       }
     };
     void load();
@@ -439,7 +507,9 @@ function TaskDetail({
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="stats-detail">
         <DialogHeader>
-          <DialogTitle>{item && `${dotted(item.day)} (${WEEKDAYS[weekdayIndex(item.day)]})`}</DialogTitle>
+          <DialogTitle>
+            {item && `${dotted(item.day)} (${WEEKDAYS[weekdayIndex(item.day)]})`}
+          </DialogTitle>
           <DialogDescription className="sr-only">검색한 업무 기록의 전체 내용</DialogDescription>
         </DialogHeader>
         <LoadState ready={!!current} error={current?.error ?? ""}>
@@ -456,7 +526,11 @@ function TaskDetail({
                   )}
                   <span>
                     <small>소요</small>
-                    <strong>{duration(t.elapsed + (t.started === null ? 0 : Math.max(0, now - t.started)))}</strong>
+                    <strong>
+                      {duration(
+                        t.elapsed + (t.started === null ? 0 : Math.max(0, now - t.started)),
+                      )}
+                    </strong>
                   </span>
                 </div>
               </div>
@@ -502,9 +576,12 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
   const [q, setQ] = useState(""),
     [from, setFrom] = useState(() => addDays(anchor, -89)),
     [to, setTo] = useState(anchor),
-    [found, setFound] = useState<{ query: SearchQuery; results: SearchResult[]; more: boolean; total: number } | null>(
-      null,
-    ),
+    [found, setFound] = useState<{
+      query: SearchQuery;
+      results: SearchResult[];
+      more: boolean;
+      total: number;
+    } | null>(null),
     [busy, setBusy] = useState(false),
     [loadingMore, setLoadingMore] = useState(false),
     [detail, setDetail] = useState<SearchResult | null>(null),
@@ -513,8 +590,15 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
   const term = q.trim();
   const invalid = !from || !to || from > to || dayCount(from, to) > 366;
   async function fetchPage(query: SearchQuery, offset: number) {
-    const r = await fetch(`/api/tasks/search?${new URLSearchParams({ ...query, offset: String(offset) })}`);
-    const data = (await r.json()) as { results?: SearchResult[]; more?: boolean; total?: number; error?: string };
+    const r = await fetch(
+      `/api/tasks/search?${new URLSearchParams({ ...query, offset: String(offset) })}`,
+    );
+    const data = (await r.json()) as {
+      results?: SearchResult[];
+      more?: boolean;
+      total?: number;
+      error?: string;
+    };
     if (!r.ok || !data.results) throw Error(data.error || "검색하지 못했습니다.");
     return { results: data.results, more: !!data.more, total: data.total ?? 0 };
   }
@@ -576,7 +660,9 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
           검색
         </button>
       </form>
-      {invalid && from && to && <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>}
+      {invalid && from && to && (
+        <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>
+      )}
       {busy ? (
         <p className="stats-message stats-search-state">검색 중…</p>
       ) : (
@@ -590,7 +676,8 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
                   <div className="stats-search-body">
                     <span className="stats-search-meta">
                       {dotted(t.day)} ({WEEKDAYS[weekdayIndex(t.day)]}) · {hoursLabel(t.elapsed)}
-                      {t.status !== "done" && ` · ${t.status === "running" ? "측정 중" : "일시정지"}`}
+                      {t.status !== "done" &&
+                        ` · ${t.status === "running" ? "측정 중" : "일시정지"}`}
                     </span>
                     <strong>
                       <Highlight text={t.title} query={found.query.q} />
@@ -609,7 +696,12 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
               ))}
             </ul>
             {found.more && (
-              <button type="button" className="stats-search-more" disabled={loadingMore} onClick={loadMore}>
+              <button
+                type="button"
+                className="stats-search-more"
+                disabled={loadingMore}
+                onClick={loadMore}
+              >
                 {loadingMore ? "불러오는 중…" : "더 보기"}
               </button>
             )}
@@ -619,13 +711,23 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
         ))
       )}
       {/* 「더 보기」 실패도 버튼 가까이 보이도록 목록 뒤에 둔다. */}
-      {error && <p className="stats-message stats-error stats-search-state" role="alert">{error}</p>}
+      {error && (
+        <p className="stats-message stats-error stats-search-state" role="alert">
+          {error}
+        </p>
+      )}
       <TaskDetail item={detail} onClose={() => setDetail(null)} onSelect={onSelect} />
     </>
   );
 }
 
-export default function StatsDialog({ day, onSelectDay }: { day: string; onSelectDay?: (day: string) => void }) {
+export default function StatsDialog({
+  day,
+  onSelectDay,
+}: {
+  day: string;
+  onSelectDay?: (day: string) => void;
+}) {
   const [open, setOpen] = useState(false),
     [section, setSection] = useState<Section>("summary");
   return (
@@ -643,7 +745,9 @@ export default function StatsDialog({ day, onSelectDay }: { day: string; onSelec
         <DialogContent className="stats-dialog">
           <DialogHeader>
             <DialogTitle>통계</DialogTitle>
-            <DialogDescription className="sr-only">작업 기록 통계, 기록 검색과 데이터 내보내기</DialogDescription>
+            <DialogDescription className="sr-only">
+              작업 기록 통계, 기록 검색과 데이터 내보내기
+            </DialogDescription>
           </DialogHeader>
           <div className="stats-layout">
             <nav className="stats-nav" role="tablist" aria-orientation="vertical">

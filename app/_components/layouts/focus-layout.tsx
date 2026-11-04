@@ -50,7 +50,12 @@ export default function FocusLayout(props: LayoutProps) {
           <img src="/favicon.svg" alt="" width="20" height="20" />
           <strong>업무 기록</strong>
         </div>
-        <button type="button" className="lay-focus-cmd" disabled={ws.busy} onClick={() => setOpen(true)}>
+        <button
+          type="button"
+          className="lay-focus-cmd"
+          disabled={ws.busy}
+          onClick={() => setOpen(true)}
+        >
           <Search size={15} /> 새 작업 시작하기 <kbd>N</kbd>
         </button>
         <HeaderActions {...props} />
@@ -59,7 +64,9 @@ export default function FocusLayout(props: LayoutProps) {
         <ErrorNotice ws={ws} />
         <section className="lay-focus-hero">
           <span className="lay-label">
-            {active ? `${statusLabel(active.status)} — ${active.title}` : "준비 — N을 눌러 새 작업을 시작하세요"}
+            {active
+              ? `${statusLabel(active.status)} — ${active.title}`
+              : "준비 — N을 눌러 새 작업을 시작하세요"}
           </span>
           <div className="lay-focus-clock" role="timer">
             {duration(active ? ws.elapsed(active) : 0)}
@@ -111,7 +118,12 @@ export default function FocusLayout(props: LayoutProps) {
             </div>
           ) : (
             <>
-              <QuickStart ws={ws} autoFocus onDone={close} placeholder="무엇에 집중할까요? Enter로 측정 시작" />
+              <QuickStart
+                ws={ws}
+                autoFocus
+                onDone={close}
+                placeholder="무엇에 집중할까요? Enter로 측정 시작"
+              />
               <div className="lay-palette-foot">
                 <button type="button" onClick={() => setMore(true)}>
                   내용·목표 시간 추가

@@ -9,7 +9,7 @@ import DashboardLayout from "./layouts/dashboard-layout";
 import SidebarLayout from "./layouts/sidebar-layout";
 import TabsLayout from "./layouts/tabs-layout";
 import FocusLayout from "./layouts/focus-layout";
-import { DEFAULT_LAYOUT, isLayoutId, type LayoutId } from "../../lib/layouts";
+import { DEFAULT_LAYOUT, isLayoutId, type LayoutId } from "@/shared/layouts";
 
 const LAYOUT_COMPONENTS: Record<LayoutId, (props: LayoutProps) => React.ReactNode> = {
   default: DefaultLayout,

@@ -30,7 +30,7 @@ Work Timer를 **MCP 서버**로 공개해 Claude 같은 AI 앱이 사용자의 �
 ```
 [Claude 앱] ──OAuth 2.1──> /oauth/*, /.well-known/*   (Work Timer가 인가 서버 역할도 겸함)
      │
-     └──Bearer 액세스 토큰──> POST /api/mcp ──> lib/task-service.ts ──> Neon DB
+     └──Bearer 액세스 토큰──> POST /api/mcp ──> server/tasks/task-service.ts ──> Neon DB
                                                      ▲
 웹 화면 ──쿠키 세션──> /api/tasks ───────────────────┘   (같은 로직 공유)
 ```
@@ -57,7 +57,7 @@ Work Timer를 **MCP 서버**로 공개해 Claude 같은 AI 앱이 사용자의 �
 - **PKCE(S256) 필수**, plain 거부. implicit·password grant는 지원하지 않는다.
 - `resource` 파라미터(RFC 8707)를 받고, 발급한 토큰은 이 MCP 서버(`<APP_ORIGIN>/api/mcp`) 전용으로 묶는다. 다른 audience용 토큰은 거절한다.
 - **클라이언트 식별은 CIMD와 DCR을 모두 지원한다**(2단계 결정). MCP 사양(2026-07-28)은 Client ID Metadata Document(CIMD)를 권장하고 DCR을 하위 호환용으로 남겼다. Claude는 인가 서버 메타데이터에 `client_id_metadata_document_supported: true`와 `token_endpoint_auth_methods_supported`의 `none`이 모두 있을 때 CIMD를 쓴다. 둘 다 광고하므로 Claude 제품은 CIMD로, CIMD를 모르는 클라이언트는 DCR로 연결된다.
-- **CIMD 처리**(`lib/oauth.ts`의 `findClient`, `lib/oauth-cimd.ts`)
+- **CIMD 처리**(`server/oauth/clients.ts`의 `findClient`, `server/oauth/cimd.ts`)
   - `https://`로 시작하는 `client_id`는 CIMD로 본다. 경로가 있고, 기본 포트이고, 사용자 정보·fragment가 없고, 호스트가 IP 주소가 아닌 URL만 받는다. 형식이 맞지 않으면 아예 가져오지 않는다.
   - 문서의 `client_id`가 URL과 정확히 같아야 하고, `client_name`·`redirect_uris`가 있어야 하며, `token_endpoint_auth_method`는 없거나 `none`이어야 한다.
   - 문서는 `oauth_clients`에 URL을 id로 캐시한다(`refresh_after`). `Cache-Control: max-age`를 따르되 5분~24시간으로 제한한다. 만료되면 다시 가져와 이름·redirect 목록을 갱신한다. grant 외래키와 토큰 흐름은 DCR 클라이언트와 같다.
@@ -153,7 +153,7 @@ oauth_tokens
 - 라이브러리(3단계 결정): 공식 SDK v2 `@modelcontextprotocol/server` + `zod`(v4). v1 단일 패키지 `@modelcontextprotocol/sdk`는 v2로 대체되었고, `mcp-handler`도 v2 SDK 위의 어댑터라 따로 쓰지 않는다.
   - `createMcpHandler(factory)`가 웹 표준 `Request → Response` 핸들러를 만든다. 요청마다 `factory`가 `McpServer`를 새로 만든다(stateless).
   - 2026-07-28 사양(요청마다 `_meta` 봉투, `server/discover`)과 2025년 사양(`initialize` 핸드셰이크)을 **둘 다** 받는다(`legacy: 'stateless'` 기본값). 어느 쪽인지는 SDK가 요청마다 판별한다.
-  - 핸들러는 토큰을 검사하지 않는다. 라우트가 먼저 Bearer 토큰을 확인하고 결과를 `fetch(req, {authInfo})`로 넘긴다. 사용자 id는 `authInfo.extra.owner`에 담는다(`lib/mcp.ts`의 `authenticate`).
+  - 핸들러는 토큰을 검사하지 않는다. 라우트가 먼저 Bearer 토큰을 확인하고 결과를 `fetch(req, {authInfo})`로 넘긴다. 사용자 id는 `authInfo.extra.owner`에 담는다(`server/mcp/auth.ts`의 `authenticate`).
   - 토큰에 `tasks:read`가 없으면 조회 도구를 등록하지 않는다(`tools/list`가 비고, 호출은 알 수 없는 도구 오류).
   - 401 응답의 `WWW-Authenticate`에는 `resource_metadata`와 `scope`를 넣고, 토큰이 있었지만 유효하지 않으면 `error="invalid_token"`을 더한다.
 - 요청마다: Bearer 토큰 해시 조회 → 만료·폐기·audience 확인 → `owner`, `scope` 확보 → grant `last_used` 갱신(분 단위로만 갱신해 쓰기 줄이기) → 도구 실행.
@@ -161,7 +161,7 @@ oauth_tokens
 
 ### 5.2 공통 로직 분리 (구현 1단계의 핵심)
 
-지금 `app/api/tasks/route.ts` 안에 검증·SQL·상태 전이가 직접 들어 있다. MCP가 같은 규칙을 쓰도록 **`lib/task-service.ts`로 꺼내** 웹 API와 MCP가 함께 호출한다. 동작을 바꾸지 않는 리팩터링이며 기존 `tests/timer-db.test.mjs`가 그대로 통과해야 한다. 메모·통계·캘린더도 필요한 만큼 같은 방식으로 분리한다.
+지금 `app/api/tasks/route.ts` 안에 검증·SQL·상태 전이가 직접 들어 있다. MCP가 같은 규칙을 쓰도록 **`server/tasks/task-service.ts`로 꺼내** 웹 API와 MCP가 함께 호출한다. 동작을 바꾸지 않는 리팩터링이며 기존 `tests/timer-db.test.mjs`가 그대로 통과해야 한다. 메모·통계·캘린더도 필요한 만큼 같은 방식으로 분리한다.
 
 ### 5.3 도구 목록
 
@@ -191,7 +191,7 @@ oauth_tokens
 |---|---|---|
 | `summarize_work` | `from`, `to`, `scope?`(기본 `time`, 웹과 같음) | AI 요약 프롬프트 + 그 기간 CSV를 사용자 메시지 하나로 넣는다. 기간·크기 한도는 `export_tasks`와 같다 |
 
-- 내보내기 SQL은 웹 API(`app/api/export`)와 같은 `exportRows`(`lib/task-service.ts`)를 쓴다. CSV와 프롬프트도 `lib/stats.ts`의 `tasksCsv`·`summaryPrompt`를 그대로 쓰고, MCP에서는 첫 문장만 "첨부한 CSV"가 아니라 "아래 CSV"로 바꾼다. 파일·다운로드 링크는 만들지 않는다.
+- 내보내기 SQL은 웹 API(`app/api/export`)와 같은 `exportRows`(`server/tasks/task-service.ts`)를 쓴다. CSV와 프롬프트도 `shared/stats.ts`의 `tasksCsv`·`summaryPrompt`를 그대로 쓰고, MCP에서는 첫 문장만 "첨부한 CSV"가 아니라 "아래 CSV"로 바꾼다. 파일·다운로드 링크는 만들지 않는다.
 - CSV는 자르지 않는다. 기간이 길고 업무 내용이 많으면 호스트가 결과를 자를 수 있으므로, 그럴 때는 기간을 줄이거나 `scope: "time"`으로 부르게 한다.
 
 **작업 단위 (`tasks:write`)**: 요구사항 4의 주 도구
@@ -219,14 +219,14 @@ oauth_tokens
   - 쓰기 도구는 모두 웹 API와 같은 `applyTaskAction`을 거친다. `finish_work`의 `append_note`를 같은 UPDATE에 담으려고 `finish` 동작에 선택 항목 `note`를 추가했다(웹 화면은 보내지 않으므로 동작 변화 없음).
   - `start_work`의 `finish_previous`는 기존 작업을 결과 그대로 종료한 뒤 새 작업을 만든다(두 단계). 그 사이 다른 기기에서 시작하면 `tasks_one_active` 충돌로 409가 난다.
   - `update_task`는 날짜·시작·종료 시각을 바꾸지 않는다. 생략한 항목은 기존 값을 쓴다.
-  - `save_daily_memo`는 `memo_id`가 없으면 새로 만들고, 있으면 `version`이 필수다. 날짜별 메모 SQL은 웹 API(`app/api/daily-memos`)와 같은 조건(`owner`, `day`, `version`)으로 `lib/mcp.ts`에 직접 둔다.
+  - `save_daily_memo`는 `memo_id`가 없으면 새로 만들고, 있으면 `version`이 필수다. 날짜별 메모 SQL은 웹 API(`app/api/daily-memos`)와 같은 조건(`owner`, `day`, `version`)으로 `server/mcp/tools/write.ts`에 직접 둔다.
   - `save_global_memo`도 같은 방식이다. 전역 메모 SQL은 웹 API(`app/api/memos`)와 같은 조건(`owner`, `version`)을 쓰고, 접힘 상태(`collapsed`)는 건드리지 않는다.
   - 메모 저장 도구는 처음에 `update_daily_memo`·`update_global_memo`였으나, 새로 만들기도 한다는 점이 이름에 드러나도록 2026-10-15에 `save_*`로 바꿨다.
   - `tasks:write`가 없으면 쓰기 도구를 등록하지 않는다. 서버 instructions(§5.4)는 scope와 관계없이 보낸다.
 
 ### 5.4 서버 instructions (initialize 응답)
 
-AI에게 도구 사용 규칙을 전달한다. 실제 문구는 `lib/mcp.ts`의 `INSTRUCTIONS`이다. 처음에는 작업 요청 시 자동 시작, PR·커밋 시 자동 종료 규칙을 넣었으나(4단계), 사용자가 요청하지 않은 기록이 생기므로 2026-10-15에 제거했다. 지금은 사용자가 요청할 때만 기록한다:
+AI에게 도구 사용 규칙을 전달한다. 실제 문구는 `server/mcp/server.ts`의 `INSTRUCTIONS`이다. 처음에는 작업 요청 시 자동 시작, PR·커밋 시 자동 종료 규칙을 넣었으나(4단계), 사용자가 요청하지 않은 기록이 생기므로 2026-10-15에 제거했다. 지금은 사용자가 요청할 때만 기록한다:
 
 ```
 Work Timer는 사용자의 업무 시간을 기록하는 서비스다.
@@ -276,7 +276,7 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 - **토큰**: 해시 저장, 짧은 수명, refresh rotation, 사용자별 폐기, 비밀번호 변경 시 전체 폐기.
 - **소유권**: 모든 쿼리에 `owner=?` 조건을 유지한다(기존 규칙 그대로).
 - **DCR 남용**: 등록 요청 제한, 클라이언트 이름 길이 제한, 동의 화면에 redirect 도메인을 반드시 표시.
-- **CIMD 문서 가져오기(SSRF)**: `client_id` URL은 누구나 정할 수 있으므로 서버가 내부망으로 요청하지 않게 막는다(`lib/oauth-cimd.ts`).
+- **CIMD 문서 가져오기(SSRF)**: `client_id` URL은 누구나 정할 수 있으므로 서버가 내부망으로 요청하지 않게 막는다(`server/oauth/cimd.ts`).
   - 모든 도메인을 허용하되, 사설·루프백·링크로컬·CGNAT·멀티캐스트 등 공인이 아닌 IP로는 연결하지 않는다.
   - 검사는 `https.request`의 `lookup` 훅에서 **실제로 연결하는 순간** 조회한 주소에 한다. DNS 조회와 연결 사이에 주소를 바꾸는 DNS rebinding이 통하지 않는다. 조회된 주소 중 하나라도 공인이 아니면 거부한다.
   - IP 주소를 직접 쓴 URL, 기본 포트가 아닌 URL은 받지 않는다.
@@ -295,14 +295,14 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 
 기존 방식(`node:test` + `node:sqlite` 메모리 DB, TypeScript 소스 직접 변환)을 따른다.
 
-- `tests/task-service.test.mjs`: 분리한 공통 로직(기존 `timer-db` 테스트를 옮기거나 함께 실행)
+- `tests/timer-db.test.mjs`, `tests/data-api.test.mjs`: 분리한 공통 로직
 - `tests/oauth.test.mjs`: PKCE 검증 실패, redirect URI 불일치, 코드 재사용 거부, 코드 만료, refresh rotation과 재사용 감지, 폐기된 grant 거부, audience 불일치 거부, 비밀번호 변경 시 grant 폐기
 - `tests/mcp.test.mjs`: 토큰 없음 → 401 + `WWW-Authenticate`, `tasks:read`만 있을 때 쓰기 도구 거부, `start_work` 충돌, `finish_work` 요약 저장, 남의 작업 접근 불가
 - 수동 확인: `npx @modelcontextprotocol/inspector`로 OAuth 흐름과 도구 호출 확인 → Claude Code 연결 → claude.ai 커스텀 커넥터 연결
 
 ## 10. 구현 단계 (PR 단위, 각 PR은 `dev` 대상)
 
-1. **공통 로직 분리**: `lib/task-service.ts`. 동작 변경 없음, 기존 테스트 통과.
+1. **공통 로직 분리**: `server/tasks/task-service.ts`. 동작 변경 없음, 기존 테스트 통과.
 2. **OAuth 기반**: 테이블 마이그레이션, well-known, register, authorize(동의 화면), token, revoke, 테스트.
 3. **MCP 엔드포인트**: `/api/mcp`, 조회 도구, 토큰 검증, 테스트. Inspector와 Claude Code로 확인.
 4. **쓰기 도구와 instructions**: `start_work`, `finish_work`, pause/resume, update 계열.

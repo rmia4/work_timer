@@ -1,0 +1,13 @@
+# 문서는 포맷 대상에서 제외한다.
+*.md
+
+# 생성된 마이그레이션 이력
+drizzle/
+drizzle-neon/
+
+# 외부에서 가져온 코드: 원본을 유지한다.
+vendor/
+components/ui/
+
+# 자동 생성 파일
+pnpm-lock.yaml

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getCodeUser } from "../../_auth/code-auth";
-import { clientAddress } from "../../../lib/auth";
-import { database } from "../../../db/raw";
-import { appOrigin, checkAuthorizeRequest, isLoopback, SCOPE_LABELS } from "../../../lib/oauth";
+import { getCodeUser } from "@/server/auth/code-auth";
+import { clientAddress } from "@/server/auth/auth";
+import { database } from "@/server/db/raw";
+import { checkAuthorizeRequest } from "@/server/oauth/authorize";
+import { isLoopback } from "@/server/oauth/clients";
+import { appOrigin, SCOPE_LABELS } from "@/server/oauth/common";
 import Consent, { ConsentError } from "./consent";
 
 export const metadata: Metadata = { title: "앱 연결 · Work Timer" };

@@ -34,8 +34,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import WorkCalendar from "./work-calendar";
 import SettingsDialog from "./settings-dialog";
-import { timestampLabel, timeLabel } from "../../lib/work-dates";
-import type { LayoutId } from "../../lib/layouts";
+import { timestampLabel, timeLabel } from "@/shared/work-dates";
+import type { LayoutId } from "@/shared/layouts";
 import {
   duration,
   shiftDay,
@@ -59,8 +59,7 @@ const CODEX_MARKETPLACE_FIELDS = [
 ];
 // Codex 앱 딥링크. 마켓플레이스를 아직 추가하지 않았으면 설치 링크도 플러그인 화면을 연다.
 const CODEX_PLUGINS_URL = "codex://plugins";
-const CODEX_INSTALL_URL =
-  "codex://plugins/install/work-timer?marketplace=work-timer-local";
+const CODEX_INSTALL_URL = "codex://plugins/install/work-timer?marketplace=work-timer-local";
 const CHROME_EXTENSION_URL =
   "https://chromewebstore.google.com/detail/work-timer/jmjmjgjgfoohdccinophdpejdobhnfoi";
 const MOBILE_APP_URL = "https://m.onestore.co.kr/v2/ko-kr/app/0001011397";
@@ -72,11 +71,7 @@ export function openClaudeConnect() {
     connectorName: "Work Timer",
     connectorUrl: `${window.location.origin}/api/mcp`,
   });
-  window.open(
-    `https://claude.ai/customize/connectors?${params}`,
-    "_blank",
-    "noopener",
-  );
+  window.open(`https://claude.ai/customize/connectors?${params}`, "_blank", "noopener");
 }
 
 export function CodexConnectDialog({
@@ -107,8 +102,7 @@ export function CodexConnectDialog({
         <DialogHeader>
           <DialogTitle>Codex에 연결</DialogTitle>
           <DialogDescription>
-            Codex 앱에 Work Timer 마켓플레이스를 추가한 뒤 플러그인을
-            설치합니다.
+            Codex 앱에 Work Timer 마켓플레이스를 추가한 뒤 플러그인을 설치합니다.
           </DialogDescription>
         </DialogHeader>
         <ol className="codex-steps">
@@ -120,9 +114,8 @@ export function CodexConnectDialog({
           </li>
           <li>
             <p>
-              <strong>관리 &gt; 마켓플레이스</strong> 탭에서{" "}
-              <strong>마켓플레이스 추가</strong>를 누르고 아래 값을 입력합니다.
-              Sparse 경로는 비워 둡니다.
+              <strong>관리 &gt; 마켓플레이스</strong> 탭에서 <strong>마켓플레이스 추가</strong>를
+              누르고 아래 값을 입력합니다. Sparse 경로는 비워 둡니다.
             </p>
             <dl className="codex-fields">
               {CODEX_MARKETPLACE_FIELDS.map(({ label, value }) => (
@@ -140,14 +133,9 @@ export function CodexConnectDialog({
           </li>
           <li>
             <p>
-              Work Timer 플러그인을 열어 설치하고, Work Timer 로그인·동의 화면이
-              열리면 허용합니다.
+              Work Timer 플러그인을 열어 설치하고, Work Timer 로그인·동의 화면이 열리면 허용합니다.
             </p>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => openCodex(CODEX_INSTALL_URL)}
-            >
+            <button type="button" className="primary" onClick={() => openCodex(CODEX_INSTALL_URL)}>
               Work Timer 플러그인 열기
             </button>
           </li>
@@ -192,10 +180,7 @@ function ConnectMenu() {
             크롬 웹 스토어에서 설치
           </button>
           <p className="connect-menu-heading">모바일 애플리케이션</p>
-          <button
-            type="button"
-            onClick={() => window.open(MOBILE_APP_URL, "_blank", "noopener")}
-          >
+          <button type="button" onClick={() => window.open(MOBILE_APP_URL, "_blank", "noopener")}>
             모바일 앱 다운로드
           </button>
         </PopoverContent>
@@ -289,7 +274,13 @@ export function CalendarButton({ ws, label = true }: { ws: Workspace; label?: bo
 }
 
 // 타이머 일시정지·재개 / 종료·저장 버튼
-export function TimerButtons({ ws, classes = ["light", "outline"] }: { ws: Workspace; classes?: [string, string] | string[] }) {
+export function TimerButtons({
+  ws,
+  classes = ["light", "outline"],
+}: {
+  ws: Workspace;
+  classes?: [string, string] | string[];
+}) {
   const active = ws.active;
   if (!active) return null;
   return (
@@ -396,12 +387,15 @@ export function TaskForm({
             onChange={(e) => ws.setMinutes(e.target.value)}
           />
         </label>
-        <p className="hint">
-          직접 기록할 때 입력하세요. 측정 시작 시에는 0부터 시작합니다.
-        </p>
+        <p className="hint">직접 기록할 때 입력하세요. 측정 시작 시에는 0부터 시작합니다.</p>
       </details>
       <div className="form-actions">
-        <button className="primary" type="button" disabled={disabledStart} onClick={() => void submit(true)}>
+        <button
+          className="primary"
+          type="button"
+          disabled={disabledStart}
+          onClick={() => void submit(true)}
+        >
           <Play size={16} />
           {ws.edit ? "수정 후 측정 재개" : "측정 시작"}
         </button>
@@ -454,7 +448,9 @@ export function QuickStart({
         maxLength={200}
         value={ws.title}
         onChange={(e) => ws.setTitle(e.target.value)}
-        placeholder={ws.active ? "측정 중인 작업을 종료하면 새 작업을 시작할 수 있습니다." : placeholder}
+        placeholder={
+          ws.active ? "측정 중인 작업을 종료하면 새 작업을 시작할 수 있습니다." : placeholder
+        }
       />
       <button
         className="primary"
@@ -507,7 +503,8 @@ export function RecordList({ ws, variant = "card" }: { ws: Workspace; variant?: 
             <div className="record-row-side">
               <span className="record-row-time">{duration(ws.elapsed(t))}</span>
               <span className="record-row-range">
-                {timeLabel(t.started_at)} – {t.status === "done" ? timeLabel(t.ended_at) : "진행 중"}
+                {timeLabel(t.started_at)} –{" "}
+                {t.status === "done" ? timeLabel(t.ended_at) : "진행 중"}
                 {t.target > 0 && ` · 목표 ${duration(t.target)}`}
               </span>
             </div>
@@ -569,8 +566,7 @@ const DAY_MS = 86400000;
 export function ActivityStrip({ ws }: { ws: Workspace }) {
   const dayStart = Date.parse(`${ws.day}T00:00:00+09:00`),
     current = ws.now + ws.offset;
-  const ratio = (value: number) =>
-    Math.min(1, Math.max(0, (value - dayStart) / DAY_MS)) * 100;
+  const ratio = (value: number) => Math.min(1, Math.max(0, (value - dayStart) / DAY_MS)) * 100;
   const spans = ws.daily.flatMap((t) => {
     const sessions =
       t.sessions && t.sessions.length
@@ -629,8 +625,7 @@ export function WorkspaceDialogs({ ws }: { ws: Workspace }) {
           <DialogHeader>
             <DialogTitle>업무 결과 저장</DialogTitle>
             <DialogDescription>
-              “{finishTask?.title}” 작업을 종료합니다. 완료한 결과를 기록해
-              주세요.
+              “{finishTask?.title}” 작업을 종료합니다. 완료한 결과를 기록해 주세요.
             </DialogDescription>
           </DialogHeader>
           <label className="dialog-label">
@@ -644,9 +639,7 @@ export function WorkspaceDialogs({ ws }: { ws: Workspace }) {
               rows={7}
             />
           </label>
-          <div className="result-counter">
-            {finishResult.length.toLocaleString()} / 20,000
-          </div>
+          <div className="result-counter">{finishResult.length.toLocaleString()} / 20,000</div>
           <DialogFooter>
             <button
               type="button"

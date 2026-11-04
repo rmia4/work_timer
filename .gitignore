@@ -38,9 +38,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /dist/
-/.vinext/
-/.wrangler/
-/.sites-runtime/
 /.pnpm-store/
 /.agents/
 /.codex/

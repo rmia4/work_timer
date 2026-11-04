@@ -11,7 +11,7 @@ import {
 import type { DayButton } from "react-day-picker";
 import { ko } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
-import { localDay, clockDuration } from "../../lib/work-dates";
+import { localDay, clockDuration } from "@/shared/work-dates";
 type Summary = { day: string; count: number; total: number; running: number };
 type CachedMonth = { days: Record<string, Summary>; now: number };
 const monthCache = new Map<string, CachedMonth>();
@@ -21,8 +21,7 @@ export function invalidateCalendarCache(day?: string) {
   else monthCache.clear();
 }
 
-const summaryDuration = (ms: number) =>
-  clockDuration(ms).split(":").slice(0, 2).join(":");
+const summaryDuration = (ms: number) => clockDuration(ms).split(":").slice(0, 2).join(":");
 const Context = createContext<{
   days: Record<string, Summary>;
   now: number;
@@ -51,11 +50,8 @@ function SummaryDay({
     if (modifiers.focused) ref.current?.focus();
   }, [modifiers.focused]);
   const count = data?.count || 0,
-    total =
-      (data?.total || 0) + (data?.running || 0) * Math.max(0, now - loadedAt);
-  const text = ready
-    ? `작업 ${count}개 · 총 ${clockDuration(total)}`
-    : "기록 확인 중";
+    total = (data?.total || 0) + (data?.running || 0) * Math.max(0, now - loadedAt);
+  const text = ready ? `작업 ${count}개 · 총 ${clockDuration(total)}` : "기록 확인 중";
   return (
     <button
       {...props}
@@ -137,9 +133,7 @@ function WorkCalendar({
       } catch (e) {
         if (!cancelled) {
           setReady(false);
-          setError(
-            e instanceof Error ? e.message : "캘린더를 불러오지 못했습니다.",
-          );
+          setError(e instanceof Error ? e.message : "캘린더를 불러오지 못했습니다.");
         }
       }
     };

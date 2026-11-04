@@ -4,9 +4,7 @@ import DailyActivityClock from "./daily-activity-clock";
 // 로그인 화면 기능 미리보기: 실제 작업공간 마크업·클래스를 예시 데이터로 정적 재현
 const previewDay = "2026-10-08";
 const at = (h: number, m = 0) =>
-  Date.parse(
-    `${previewDay}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+09:00`,
-  );
+  Date.parse(`${previewDay}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+09:00`);
 const session = (id: string, title: string, start: number, end: number) => ({
   id,
   title,
@@ -78,7 +76,5 @@ export function TimerPreview() {
 }
 
 export function ClockPreview() {
-  return (
-    <DailyActivityClock tasks={previewTasks} day={previewDay} now={previewNow} preview />
-  );
+  return <DailyActivityClock tasks={previewTasks} day={previewDay} now={previewNow} preview />;
 }
