@@ -75,9 +75,9 @@ export async function POST(req: Request) {
     try {
       await db
         .prepare(
-          "INSERT INTO users (id,email,username,password_hash,display_name,role,status,created,updated) VALUES (?,NULL,?,?,?,'user','active',?,?)",
+          "INSERT INTO users (id,username,password_hash,status,created,updated) VALUES (?,?,?,'active',?,?)",
         )
-        .bind(owner, username, await createPasswordHash(body.password), "", now, now)
+        .bind(owner, username, await createPasswordHash(body.password), now, now)
         .run();
     } catch (error) {
       const duplicate = await db
