@@ -53,8 +53,6 @@
   border-bottom-color: var(--dk-border);
 }
 :where(:root[data-theme="dark"]) .brand span,
-:where(:root[data-theme="dark"]) .private,
-:where(:root[data-theme="dark"]) .eyebrow,
 :where(:root[data-theme="dark"]) .date-controls label,
 :where(:root[data-theme="dark"]) .summary > p:last-child,
 :where(:root[data-theme="dark"]) .section-title > span,

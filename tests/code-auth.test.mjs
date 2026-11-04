@@ -38,7 +38,6 @@ test("password auth: wrong password, secure session, old records, expiry, logout
   db.exec(
     "CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT, username TEXT UNIQUE, password_hash TEXT, display_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'user', status TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL)",
   );
-  db.exec("CREATE TABLE signup_limits (id TEXT PRIMARY KEY, registered_at INTEGER NOT NULL)");
   db.exec(
     "CREATE TABLE task_sessions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, owner TEXT NOT NULL, start_at INTEGER NOT NULL, end_at INTEGER)",
   );
