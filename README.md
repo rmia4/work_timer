@@ -144,14 +144,6 @@ pnpm db:neon:apply
 
 `drizzle-neon/0000_initial.sql`은 빈 데이터베이스용입니다. 기존 Work Timer 테이블과 데이터가 있는 DB에는 적용하지 않습니다.
 
-이전 Cloudflare D1 데이터를 옮길 때는 `tasks`, `memos`, `daily_memos` 배열을 담은 JSON 내보내기 파일을 가져옵니다.
-
-```powershell
-pnpm db:neon:import -- path/to/d1-export.json
-```
-
-가져온 기록은 `personal-workspace` 사용자에게 연결되며, 내보내기 파일에 소유자가 둘 이상이면 중단합니다. 세션과 로그인 시도 제한 기록은 옮기지 않습니다. 자세한 절차는 `docs/neon-vercel-migration.md`를 참고합니다.
-
 `drizzle/` 폴더는 이전 D1(SQLite)용 마이그레이션입니다. 운영 DB에는 사용하지 않으며, `pnpm test`의 SQLite 메모리 DB 테스트에서 사용합니다.
 
 스키마를 바꿀 때는 `drizzle-neon/`에 다음 번호의 SQL 파일을 직접 추가하고 `pnpm db:neon:apply`로 적용합니다. `drizzle`이 들어간 폴더 이름은 예전에 Drizzle을 쓰던 때의 이름입니다.

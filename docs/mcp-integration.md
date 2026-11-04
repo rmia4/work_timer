@@ -295,7 +295,7 @@ AI가 instructions를 항상 지킨다는 보장은 없다. 그래서 호스트�
 
 기존 방식(`node:test` + `node:sqlite` 메모리 DB, TypeScript 소스 직접 변환)을 따른다.
 
-- `tests/task-service.test.mjs`: 분리한 공통 로직(기존 `timer-db` 테스트를 옮기거나 함께 실행)
+- `tests/timer-db.test.mjs`, `tests/data-api.test.mjs`: 분리한 공통 로직
 - `tests/oauth.test.mjs`: PKCE 검증 실패, redirect URI 불일치, 코드 재사용 거부, 코드 만료, refresh rotation과 재사용 감지, 폐기된 grant 거부, audience 불일치 거부, 비밀번호 변경 시 grant 폐기
 - `tests/mcp.test.mjs`: 토큰 없음 → 401 + `WWW-Authenticate`, `tasks:read`만 있을 때 쓰기 도구 거부, `start_work` 충돌, `finish_work` 요약 저장, 남의 작업 접근 불가
 - 수동 확인: `npx @modelcontextprotocol/inspector`로 OAuth 흐름과 도구 호출 확인 → Claude Code 연결 → claude.ai 커스텀 커넥터 연결

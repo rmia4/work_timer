@@ -13,8 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --test \"tests/*.test.mjs\"",
-    "db:neon:apply": "node --env-file-if-exists=.env.local scripts/apply-neon-schema.mjs",
-    "db:neon:import": "node --env-file-if-exists=.env.local scripts/import-d1-export.mjs"
+    "db:neon:apply": "node --env-file-if-exists=.env.local scripts/apply-neon-schema.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.3.1",
