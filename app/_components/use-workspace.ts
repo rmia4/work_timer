@@ -51,15 +51,15 @@ export const statusLabel = (status: string) =>
   status === "done" ? "완료" : status === "running" ? "측정 중" : "일시정지";
 
 // 작업공간의 상태와 동작. 모든 레이아웃이 같은 값을 공유한다.
-export function useWorkspace() {
+export function useWorkspace(signedOut: boolean) {
   const [day, setDay] = useState(today),
     [tasks, setTasks] = useState<Task[]>([]),
     [now, setNow] = useState(() => Date.now()),
     [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
     [auth, setAuth] = useState(true),
-    // 첫 로그인 확인이 끝나기 전에는 로그인 화면을 보여 주지 않는다.
-    [checking, setChecking] = useState(true),
+    // 세션 쿠키가 있으면 첫 로그인 확인이 끝나기 전에는 로그인 화면을 보여 주지 않는다.
+    [checking, setChecking] = useState(!signedOut),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false);
   const [title, setTitle] = useState(""),
