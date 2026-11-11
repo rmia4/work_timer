@@ -20,8 +20,8 @@ const LAYOUT_COMPONENTS: Record<LayoutId, (props: LayoutProps) => React.ReactNod
   focus: FocusLayout,
 };
 
-export default function Workspace() {
-  const ws = useWorkspace();
+export default function Workspace({ signedOut }: { signedOut: boolean }) {
+  const ws = useWorkspace(signedOut);
   // 계정에 저장된 화면 레이아웃. 불러오기 전에는 화면을 그리지 않아 기본 화면이 잠깐 보이지 않게 한다.
   const [layout, setLayout] = useState<LayoutId | null>(null);
   const signedIn = !ws.auth;
