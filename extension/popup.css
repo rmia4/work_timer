@@ -208,7 +208,7 @@ textarea {
 [hidden] {
   display: none !important;
 }
-/* 기록 중인 작업과 새 기록 추가 폼은 둘 중 하나만 보이며 각각 박스로 감싼다. */
+/* 기록 중인 작업과 새 기록 추가 폼은 각각 박스로 감싼다. */
 #active,
 #task-form {
   padding: 16px;
@@ -228,12 +228,18 @@ textarea {
 #active .hint {
   margin-bottom: 12px;
 }
-/* 끝나지 않은 작업이 여러 개일 때 큰 타이머에서 넘겨 보는 버튼(웹앱 .timer-switch) */
+/* 끝나지 않은 작업이 여러 개일 때 넘겨 보는 버튼(웹앱 .timer-switch). 카드 오른쪽 위에 둔다. */
+#active {
+  position: relative;
+}
 .timer-switch {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .timer-switch[hidden] {
@@ -241,7 +247,9 @@ textarea {
 }
 .timer-switch button {
   flex: none;
-  width: 32px;
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
 }
 /* 기록 중 카드 아래에 새 기록 추가 폼을 함께 둘 때의 간격 */
 #active:not([hidden]) ~ #task-form {
