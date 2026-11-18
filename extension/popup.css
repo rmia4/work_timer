@@ -228,6 +228,25 @@ textarea {
 #active .hint {
   margin-bottom: 12px;
 }
+/* 끝나지 않은 작업이 여러 개일 때 큰 타이머에서 넘겨 보는 버튼(웹앱 .timer-switch) */
+.timer-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.timer-switch[hidden] {
+  display: none;
+}
+.timer-switch button {
+  flex: none;
+  width: 32px;
+}
+/* 기록 중 카드 아래에 새 기록 추가 폼을 함께 둘 때의 간격 */
+#active:not([hidden]) ~ #task-form {
+  margin-top: 12px;
+}
 /* 기록 중 카드는 웹앱 .timer-panel처럼 회색 바탕에 흰 글자로 둔다. */
 #active {
   border: none;

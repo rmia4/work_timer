@@ -57,6 +57,11 @@
           <p class="clock" id="clock" role="timer">00:00:00</p>
           <p class="hint" id="active-note"></p>
           <div class="row">
+            <span id="task-switch" class="timer-switch" hidden>
+              <button type="button" id="task-prev" class="outline" aria-label="이전 작업">‹</button>
+              <span id="task-pos" aria-live="polite"></span>
+              <button type="button" id="task-next" class="outline" aria-label="다음 작업">›</button>
+            </span>
             <button id="toggle"></button>
             <button id="finish" class="outline">종료·저장</button>
           </div>
