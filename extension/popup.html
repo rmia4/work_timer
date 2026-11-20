@@ -51,11 +51,7 @@
       <section id="view-timer" hidden>
         <p id="timer-loading" class="hint spinner" hidden>기록을 불러오는 중입니다.</p>
         <section id="active">
-          <span id="task-switch" class="timer-switch" hidden>
-            <button type="button" id="task-prev" class="outline" aria-label="이전 작업">‹</button>
-            <span id="task-pos" aria-live="polite"></span>
-            <button type="button" id="task-next" class="outline" aria-label="다음 작업">›</button>
-          </span>
+          <select id="task-switch" class="timer-switch" aria-label="타이머에 보여 줄 작업" hidden></select>
           <p class="state"><span>작업 스톱워치</span> · <span id="state"></span></p>
           <h1 id="title"></h1>
           <p class="state" id="target"></p>
@@ -70,6 +66,7 @@
           <strong>업무 내용</strong>
           <p class="note" id="active-work-text"></p>
         </div>
+        <button type="button" id="form-open" class="memo-add" hidden>+ 새 기록 추가</button>
 
         <form id="task-form">
           <h2 id="form-title">새 기록 추가</h2>
