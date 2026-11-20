@@ -120,10 +120,21 @@ export const detailsInput = z
   .describe("true면 내용·결과 전문. 기본은 앞 200자");
 export const badDay = "날짜는 YYYY-MM-DD 형식이어야 합니다.";
 export type Ctx = { db: Db; owner: string; now: () => number };
+// 측정 중인 작업(최대 한 개)을, 없으면 가장 최근에 만든 일시정지 작업을 돌려준다.
 export const currentTask = ({ db, owner }: Ctx) =>
   db
-    .prepare("SELECT * FROM tasks WHERE owner=? AND status<>'done' ORDER BY created DESC")
+    .prepare(
+      "SELECT * FROM tasks WHERE owner=? AND status<>'done' ORDER BY CASE WHEN status='running' THEN 0 ELSE 1 END,created DESC",
+    )
     .bind(owner)
     .first<TaskRow>();
+// 일시정지된 작업 전체. 새 작업을 시작하면 측정 중이던 작업이 일시정지되므로 여러 개일 수 있다.
+export const pausedTasks = async ({ db, owner }: Ctx) =>
+  (
+    await db
+      .prepare("SELECT * FROM tasks WHERE owner=? AND status='paused' ORDER BY created DESC")
+      .bind(owner)
+      .all<TaskRow>()
+  ).results;
 export const taskById = ({ db, owner }: Ctx, id: string) =>
   db.prepare("SELECT * FROM tasks WHERE id=? AND owner=?").bind(id, owner).first<TaskRow>();

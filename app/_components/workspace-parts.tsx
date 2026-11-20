@@ -293,6 +293,21 @@ export function TimerButtons({
         <Square size={16} />
         종료·저장
       </button>
+      {ws.open.length > 1 && (
+        <select
+          className="timer-switch"
+          aria-label="타이머에 보여 줄 작업"
+          value={active.id}
+          disabled={ws.busy}
+          onChange={(e) => ws.selectActive(e.target.value)}
+        >
+          {ws.open.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+      )}
     </>
   );
 }
@@ -307,7 +322,7 @@ export function TaskForm({
   onDone?: () => void;
   autoFocus?: boolean;
 }) {
-  const disabledStart = ws.busy || ws.auth || ws.loading || !!ws.active || !ws.title.trim();
+  const disabledStart = ws.busy || ws.auth || ws.loading || !ws.title.trim();
   async function submit(run: boolean) {
     if (await ws.save(run)) onDone?.();
   }
@@ -439,7 +454,7 @@ export function QuickStart({
       className="quick-start"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (ws.title.trim() && !ws.active && !ws.busy && (await ws.save(true))) onDone?.();
+        if (ws.title.trim() && !ws.busy && (await ws.save(true))) onDone?.();
       }}
     >
       <input
@@ -449,13 +464,13 @@ export function QuickStart({
         value={ws.title}
         onChange={(e) => ws.setTitle(e.target.value)}
         placeholder={
-          ws.active ? "측정 중인 작업을 종료하면 새 작업을 시작할 수 있습니다." : placeholder
+          ws.running ? "새 작업을 시작하면 측정 중인 작업은 일시정지됩니다." : placeholder
         }
       />
       <button
         className="primary"
         type="submit"
-        disabled={ws.busy || ws.loading || !!ws.active || !ws.title.trim()}
+        disabled={ws.busy || ws.loading || !ws.title.trim()}
       >
         <Play size={15} /> 측정 시작
       </button>

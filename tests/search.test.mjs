@@ -16,7 +16,7 @@ async function load(path, imports = "", exports = "") {
 test("task search: fields, owner and range isolation, literal LIKE, snippets, paging and route validation", async () => {
   const db = new DatabaseSync(":memory:");
   for (const name of readdirSync(new URL("../drizzle", import.meta.url))
-    .filter((name) => /^000[0-7]_.*\.sql$/.test(name))
+    .filter((name) => /^000[0-8]_.*\.sql$/.test(name))
     .sort())
     db.exec(read("drizzle/" + name));
   const sqlLog = [];

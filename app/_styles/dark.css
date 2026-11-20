@@ -72,6 +72,12 @@
   color: white;
   border-color: #5d6570;
 }
+:where(:root[data-theme="dark"]) .timer-panel .timer-switch {
+  border-color: #5d6570;
+}
+:where(:root[data-theme="dark"]) .timer-panel .timer-switch option {
+  background: #262b33;
+}
 :where(:root[data-theme="dark"]) .summary-bottom {
   border-top-color: var(--dk-border);
 }
@@ -300,7 +306,8 @@
   color: var(--dk-text-strong);
   box-shadow: 0 1px 3px var(--dk-shadow);
 }
-:where(:root[data-theme="dark"]) .lay-tabs-timer .lay-buttons button {
+:where(:root[data-theme="dark"]) .lay-tabs-timer .lay-buttons button,
+:where(:root[data-theme="dark"]) .lay-tabs-timer .timer-switch {
   border-color: var(--dk-tint-border);
 }
 :where(:root[data-theme="dark"]) .lay-focus-cmd {
