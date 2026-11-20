@@ -33,10 +33,12 @@ let memoSyncing = false; // 처음 보인 메모 화면에 캐시를 보여 주�
 const stalePane = (v) => stale && v !== first;
 let tasks = [];
 let edit = null; // 수정 중인 기록
+let formOpen = false; // 기록 중 카드 아래에 새 기록 추가 폼을 펼쳤는지
 let editTimes = { first: "", last: "" }; // 수정 중인 기록의 시작·종료 시각(웹앱 first·last)
 let remove = null; // 삭제 확인 중인 기록
 let logMode = "records"; // 일지 화면에서 보는 것: records(업무 일지) | memos(일일 메모)
-let task = null;
+let task = null; // 큰 타이머가 보여 주는 끝나지 않은 작업
+let selectedId = null; // 목록에서 고른 작업(없거나 끝났으면 맨 앞 작업을 보여 준다)
 let finishTask = null; // 종료·저장 대화상자를 열 때의 진행 작업
 let offset = 0;
 let busy = false;
@@ -46,6 +48,14 @@ const CACHES = ["tasks-cache", "memos-cache"]; // 예전 버전이 localStorage�
 
 const elapsed = (t) =>
   t.elapsed + (t.started === null ? 0 : Math.max(0, Date.now() + offset - t.started));
+
+// 웹앱 use-workspace.ts의 open과 같다. 측정 중인 작업(최대 한 개)이 맨 앞이고, 나머지는 목록 순서(최근에 만든 순)다.
+const openTasks = () =>
+  tasks.filter((t) => t.status !== "done").sort((a, b) => Number(b.status === "running") - Number(a.status === "running"));
+function pickTask() {
+  const open = openTasks();
+  task = open.find((t) => t.id === selectedId) || open[0] || null;
+}
 
 function el(tag, className, text) {
   const e = document.createElement(tag);
@@ -182,10 +192,18 @@ function renderTimer() {
   $("title").textContent = task?.title || "지금 집중할 작업";
   $("target").textContent = task && task.target > 0 ? `목표 ${duration(task.target)}` : "";
   $("clock").textContent = duration(task ? elapsed(task) : 0);
-  // 기록 중인 작업이 있으면 그 작업만, 없으면 새 기록 추가 폼만 보여 준다. 기록 수정 중에는 폼만 보여 준다.
+  // 끝나지 않은 작업이 있으면 그 작업을 보여 주고, 새 기록 추가 폼은 버튼을 눌렀을 때만 그 아래에 펼친다
+  // (측정을 시작하면 서버가 측정 중인 작업을 일시정지한다). 작업이 없거나 기록 수정 중이면 폼을 바로 보여 준다.
   $("timer-loading").hidden = !stalePane("timer");
   $("active").hidden = !task || !!edit || stalePane("timer");
-  $("task-form").hidden = (!!task && !edit) || stalePane("timer");
+  const showForm = !task || !!edit || formOpen;
+  $("task-form").hidden = !showForm || stalePane("timer");
+  $("form-open").hidden = showForm || stalePane("timer");
+  // 웹앱 TimerButtons의 작업 목록(select)과 같다. 끝나지 않은 작업이 여러 개면 보여 줄 작업을 고른다.
+  const open = openTasks();
+  $("task-switch").hidden = open.length < 2;
+  $("task-switch").replaceChildren(...open.map((t) => new Option(t.title, t.id)));
+  if (task) $("task-switch").value = task.id;
   // 기록 중일 때 박스 아래 빈 공간에 그 작업의 업무 내용을 보여 준다.
   $("active-work").hidden = $("active").hidden || !task.note;
   $("active-work-text").textContent = task?.note || "";
@@ -193,10 +211,10 @@ function renderTimer() {
     ? `${timestampLabel(task.started_at)} 시작 · 브라우저를 닫아도 기록이 유지됩니다.`
     : "";
   $("toggle").textContent = task?.status === "running" ? "일시정지" : "다시 시작";
-  for (const id of ["toggle", "finish", "f-save", "logout"]) $(id).disabled = busy;
-  $("f-start").disabled = busy || !!task || !$("f-title").value.trim();
+  for (const id of ["toggle", "finish", "task-switch", "f-save", "logout"]) $(id).disabled = busy;
+  $("f-start").disabled = busy || !$("f-title").value.trim();
   $("form-title").textContent = edit ? "기록 수정" : "새 기록 추가";
-  $("f-cancel").hidden = !edit;
+  $("f-cancel").hidden = !edit && !(task && formOpen);
   $("f-start").textContent = edit ? "수정 후 측정 재개" : "측정 시작";
   $("f-save").textContent = edit ? "수정 저장" : "기록 저장";
   $("finish-submit").disabled = busy || !finishTask;
@@ -216,6 +234,7 @@ function showLogin() {
   logMode = "records";
   if ($("memo-remove-dialog").open) $("memo-remove-dialog").close();
   task = null;
+  selectedId = null;
   view = "timer";
   day = today();
   loading = false;
@@ -255,7 +274,7 @@ async function load() {
     // 이미 보여 주고 있는 기록과 같으면 다시 그리지 않는다(팝업을 열 때·10초 갱신 때 화면을 새로 만들지 않도록).
     const changed = status !== "ready" || loading || stale || JSON.stringify(data.tasks) !== JSON.stringify(tasks);
     tasks = data.tasks;
-    task = tasks.find((t) => t.status !== "done") || null;
+    pickTask();
     offset = data.now - Date.now();
     loading = false;
     stale = false;
@@ -311,6 +330,7 @@ function clearForm() {
   showWork("note");
   edit = null;
   editTimes = { first: "", last: "" };
+  formOpen = false;
 }
 
 // 웹앱 startEdit(): 완료 기록을 타이머 화면의 폼에 채운다.
@@ -429,7 +449,14 @@ async function save(run) {
     ended_at: parseTimeInput(editTimes.last),
     run,
   });
-  if (ok) clearForm();
+  if (!ok) return;
+  clearForm();
+  // 측정을 시작했으면 큰 타이머가 새로 측정 중인 작업을 보여 주게 한다.
+  if (run) {
+    selectedId = null;
+    pickTask();
+    render();
+  }
 }
 
 for (const b of document.querySelectorAll("nav button[data-view]"))
@@ -800,9 +827,22 @@ $("logout").addEventListener("click", async () => {
     showError(e);
   }
 });
-$("toggle").addEventListener("click", () =>
-  act({ action: task.status === "running" ? "pause" : "resume", id: task.id, version: task.version }),
-);
+$("toggle").addEventListener("click", () => {
+  // 일시정지하면 정렬 순서가 바뀌므로, 조작한 작업을 계속 보여 주도록 고정한다.
+  selectedId = task.id;
+  act({ action: task.status === "running" ? "pause" : "resume", id: task.id, version: task.version });
+});
+// 웹앱 selectActive(): 목록에서 고른 작업을 큰 타이머에 보여 준다.
+$("task-switch").addEventListener("change", (event) => {
+  selectedId = event.target.value;
+  pickTask();
+  render();
+});
+$("form-open").addEventListener("click", () => {
+  formOpen = true;
+  render();
+  $("f-title").focus();
+});
 $("finish").addEventListener("click", () => {
   finishTask = task;
   $("finish-desc").textContent = `“${task.title}” 작업을 종료합니다. 완료한 결과를 기록해 주세요.`;
@@ -974,7 +1014,7 @@ const cachedMemos = first === "memo" && Array.isArray(cache[MEMOS]) ? cache[MEMO
 if (first === "memo" ? cachedMemos : cachedTasks) {
   if (first !== "memo") {
     ({ tasks, offset } = cachedTasks);
-    task = tasks.find((t) => t.status !== "done") || null;
+    pickTask();
   }
   status = "ready";
   stale = true;
