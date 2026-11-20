@@ -16,7 +16,7 @@ async function load(path, imports = "") {
 test("task batches guard stale writes and data APIs bound bodies before parsing", async () => {
   const db = new DatabaseSync(":memory:");
   for (const name of readdirSync(new URL("../drizzle", import.meta.url))
-    .filter((name) => /^000[0-7]_.*\.sql$/.test(name))
+    .filter((name) => /^000[0-8]_.*\.sql$/.test(name))
     .sort())
     db.exec(read("drizzle/" + name));
   db.exec(
@@ -146,6 +146,58 @@ test("task batches guard stale writes and data APIs bound bodies before parsing"
       1,
       "stale finish must not close a session",
     );
+
+    // 측정은 한 번에 하나다. 새로 시작하거나 다시 시작하면 측정 중이던 작업은 일시정지된다.
+    const open = (id) =>
+      db
+        .prepare("SELECT COUNT(*) AS count FROM task_sessions WHERE task_id=? AND end_at IS NULL")
+        .get(id).count;
+    const row = (id) =>
+      db.prepare("SELECT status,started,elapsed,version FROM tasks WHERE id=?").get(id);
+    const idOf = (title) => db.prepare("SELECT id FROM tasks WHERE title=?").get(title).id;
+    const before = row(task.id);
+    assert.equal((await post({ ...create, title: "두 번째", run: true })).status, 200);
+    const second = idOf("두 번째");
+    const paused = row(task.id);
+    assert.equal(paused.status, "paused", "starting a new task pauses the running one");
+    assert.equal(paused.started, null);
+    assert.ok(paused.elapsed >= before.elapsed, "paused task keeps the measured time");
+    assert.equal(paused.version, before.version + 1);
+    assert.equal(open(task.id), 0, "paused task's session is closed");
+    assert.equal(row(second).status, "running");
+    assert.equal(open(second), 1);
+    beforeBatch = () => db.prepare("UPDATE tasks SET version=version+1 WHERE id=?").run(task.id);
+    assert.equal(
+      (await post({ action: "resume", id: task.id, version: paused.version })).status,
+      409,
+    );
+    assert.equal(row(second).status, "running", "stale resume must not pause another task");
+    assert.equal(open(second), 1);
+    assert.equal(
+      (await post({ action: "resume", id: task.id, version: paused.version + 1 })).status,
+      200,
+    );
+    assert.equal(row(task.id).status, "running");
+    assert.equal(row(second).status, "paused", "resuming pauses the running task");
+    assert.equal(open(second), 0);
+    assert.equal(open(task.id), 1);
+    assert.equal((await post({ ...create, title: "세 번째" })).status, 200);
+    const third = idOf("세 번째");
+    assert.equal(
+      (
+        await post({
+          ...create,
+          title: "세 번째",
+          action: "edit",
+          id: third,
+          version: 0,
+          run: true,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(row(task.id).status, "paused", "reopening a record pauses the running task");
+    assert.equal(row(third).status, "running");
 
     for (const route of [tasks, memos, daily]) {
       let readBody = false;

@@ -35,6 +35,7 @@ test("password auth: wrong password, secure session, old records, expiry, logout
   );
   assert.ok(collapsedMemoMigration, "collapsed memo migration is missing");
   db.exec(read("drizzle/" + collapsedMemoMigration));
+  db.exec(read("drizzle/0008_one_running.sql"));
   db.exec(
     "CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT, status TEXT NOT NULL, created INTEGER NOT NULL, updated INTEGER NOT NULL)",
   );

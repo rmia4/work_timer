@@ -10,6 +10,7 @@ import {
   kstToday,
   minutesInput,
   ok,
+  pausedTasks,
   taskById,
   taskView,
   toolError,
@@ -25,12 +26,28 @@ export function writeTools(server: McpServer, ctx: Ctx) {
     taskView({ ...t, version: t.version + 1, ...change }, at, "compact");
   const spent = (t: TaskRow, at: number) =>
     t.elapsed + (t.started === null ? 0 : Math.max(0, at - t.started));
+  const running = async () => {
+    const t = await currentTask(ctx);
+    return t?.status === "running" ? t : undefined;
+  };
+  // task_id를 생략했을 때의 대상. runningFirst면 측정 중인 작업이 먼저다. 그다음은 일시정지 작업이
+  // 하나일 때만 고르고, 여럿이면 목록을 담은 오류 문구(string)를 돌려준다.
+  async function defaultTarget(runningFirst: boolean): Promise<TaskRow | null | string> {
+    const current = runningFirst ? await running() : undefined;
+    if (current) return current;
+    const paused = await pausedTasks(ctx);
+    if (paused.length <= 1) return paused[0] ?? null;
+    return (
+      "일시정지된 작업이 여러 개입니다. 사용자에게 어느 작업인지 묻고 task_id를 넣어 다시 호출하세요.\n" +
+      JSON.stringify({ paused_tasks: paused.map((p) => taskView(p, now(), "compact")) })
+    );
+  }
   server.registerTool(
     "start_work",
     {
       title: "작업 시작",
       description:
-        '오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 시작만 하며 결과는 넣지 않는다(결과는 finish_work). 진행 중이거나 일시정지된 작업이 있으면 기본값(if_running: "fail")으로는 그 작업 정보와 함께 오류를 돌려준다. 사용자가 동의하면 "finish_previous"로 기존 작업을 종료하고 시작한다.',
+        '오늘(한국 시간) 날짜로 작업을 만들고 바로 타이머를 시작한다. 시작만 하며 결과는 넣지 않는다(결과는 finish_work). 측정 중인 작업이 있으면 기본값(if_running: "pause_previous")으로 그 작업을 일시정지하고 시작한다. "finish_previous"는 그 작업을 종료하고 시작하며, "fail"은 시작하지 않고 그 작업 정보와 함께 오류를 돌려준다. 일시정지된 작업은 그대로 둔다.',
       inputSchema: z.object({
         title: z.string().min(1).max(200).describe("작업 제목(한국어, 40자 이내 권장)"),
         note: z
@@ -39,18 +56,19 @@ export function writeTools(server: McpServer, ctx: Ctx) {
           .optional()
           .describe("할 일·목표. 이미 한 일과 결과는 적지 않는다"),
         target_minutes: minutesInput.optional().describe("목표 시간(분)"),
-        if_running: z.enum(["fail", "finish_previous"]).optional(),
+        if_running: z.enum(["pause_previous", "finish_previous", "fail"]).optional(),
       }),
       annotations: write,
     },
-    async ({ title, note, target_minutes, if_running }) => {
-      const previous = await currentTask(ctx);
-      if (previous) {
-        if (if_running !== "finish_previous")
-          return toolError(
-            '이미 진행 중인 작업이 있습니다. 사용자에게 이 작업을 종료할지 묻고, 동의하면 if_running: "finish_previous"로 다시 호출하세요.\n' +
-              JSON.stringify({ task: taskView(previous, now(), "compact") }),
-          );
+    async ({ title, note, target_minutes, if_running = "pause_previous" }) => {
+      const previous = await running();
+      if (previous && if_running === "fail")
+        return toolError(
+          '측정 중인 작업이 있습니다. 사용자에게 이 작업을 일시정지할지 종료할지 묻고, if_running: "pause_previous" 또는 "finish_previous"로 다시 호출하세요.\n' +
+            JSON.stringify({ task: taskView(previous, now(), "compact") }),
+        );
+      // 일시정지(pause_previous)는 작업을 만들 때 서버가 같은 트랜잭션에서 처리한다.
+      if (previous && if_running === "finish_previous") {
         const failure = await applyTaskAction(
           db,
           owner,
@@ -77,9 +95,18 @@ export function writeTools(server: McpServer, ctx: Ctx) {
       );
       if (failure) return failed(failure);
       const task = taskView((await currentTask(ctx))!, now(), "compact");
+      const paused = previous && if_running === "pause_previous";
       return ok(
-        previous ? "이전 작업을 종료하고 타이머를 시작했습니다." : "타이머를 시작했습니다.",
-        { task, finished_task_id: previous?.id ?? null },
+        !previous
+          ? "타이머를 시작했습니다."
+          : paused
+            ? "이전 작업을 일시정지하고 타이머를 시작했습니다."
+            : "이전 작업을 종료하고 타이머를 시작했습니다.",
+        {
+          task,
+          paused_task_id: paused ? previous.id : null,
+          finished_task_id: previous && !paused ? previous.id : null,
+        },
       );
     },
   );
@@ -88,7 +115,7 @@ export function writeTools(server: McpServer, ctx: Ctx) {
     {
       title: "작업 종료",
       description:
-        "작업의 타이머를 종료하고 결과 요약을 저장한다. 사용자가 작업을 마치라고 하거나 진행 중인 작업에 결과를 넣으라고 하면 이 도구를 쓴다. task_id를 생략하면 진행 중이거나 일시정지된 작업이다. 결과가 이미 있으면 덮어쓰지 않고 구분선 뒤에 이어 붙인다.",
+        "작업의 타이머를 종료하고 결과 요약을 저장한다. 사용자가 작업을 마치라고 하거나 진행 중인 작업에 결과를 넣으라고 하면 이 도구를 쓴다. task_id를 생략하면 측정 중인 작업이고, 없으면 일시정지된 작업이다(일시정지 작업이 여러 개면 task_id가 필요하다). 결과가 이미 있으면 덮어쓰지 않고 구분선 뒤에 이어 붙인다.",
       inputSchema: z.object({
         task_id: z.string().optional(),
         summary: z
@@ -101,7 +128,8 @@ export function writeTools(server: McpServer, ctx: Ctx) {
       annotations: write,
     },
     async ({ task_id, summary, append_note }) => {
-      const t = task_id === undefined ? await currentTask(ctx) : await taskById(ctx, task_id);
+      const t = task_id === undefined ? await defaultTarget(true) : await taskById(ctx, task_id);
+      if (typeof t === "string") return toolError(t);
       if (!t)
         return toolError(task_id === undefined ? "진행 중인 작업이 없습니다." : "작업이 없습니다.");
       if (t.status === "done")
@@ -131,52 +159,73 @@ export function writeTools(server: McpServer, ctx: Ctx) {
       return ok(`작업을 종료했습니다: ${task.minutes}분`, { task });
     },
   );
-  for (const [name, action, from, title] of [
-    ["pause_work", "pause", "running", "작업 일시정지"],
-    ["resume_work", "resume", "paused", "작업 재개"],
-  ] as const) {
-    server.registerTool(
-      name,
+  // 일시정지·재개를 적용하고 저장한 값으로 결과를 만든다.
+  async function toggle(
+    t: TaskRow,
+    action: "pause" | "resume",
+    message: (minutes: number) => string,
+    extra: object = {},
+  ) {
+    const at = now();
+    const failure = await applyTaskAction(db, owner, { action, id: t.id, version: t.version }, at);
+    if (failure) return failed(failure);
+    const task = after(
+      t,
       {
-        title,
-        description:
-          action === "pause"
-            ? "진행 중인 작업의 타이머를 일시정지한다."
-            : "일시정지된 작업의 타이머를 다시 시작한다.",
-        annotations: write,
+        elapsed: spent(t, at),
+        started: action === "resume" ? at : null,
+        status: action === "pause" ? "paused" : "running",
       },
-      async () => {
-        const t = await currentTask(ctx);
-        if (t?.status !== from)
-          return toolError(
-            action === "pause" ? "진행 중인 작업이 없습니다." : "일시정지된 작업이 없습니다.",
-          );
-        const at = now();
-        const failure = await applyTaskAction(
-          db,
-          owner,
-          { action, id: t.id, version: t.version },
-          at,
-        );
-        if (failure) return failed(failure);
-        const task = after(
-          t,
-          {
-            elapsed: spent(t, at),
-            started: action === "resume" ? at : null,
-            status: action === "pause" ? "paused" : "running",
-          },
-          at,
-        );
-        return ok(
-          action === "pause"
-            ? `일시정지했습니다: ${task.minutes}분 경과`
-            : "타이머를 다시 시작했습니다.",
-          { task },
-        );
-      },
+      at,
     );
+    return ok(message(task.minutes), { task, ...extra });
   }
+  server.registerTool(
+    "pause_work",
+    {
+      title: "작업 일시정지",
+      description: "측정 중인 작업의 타이머를 일시정지한다.",
+      annotations: write,
+    },
+    async () => {
+      const t = await running();
+      if (!t) return toolError("진행 중인 작업이 없습니다.");
+      return toggle(t, "pause", (m) => `일시정지했습니다: ${m}분 경과`);
+    },
+  );
+  server.registerTool(
+    "resume_work",
+    {
+      title: "작업 재개",
+      description:
+        "일시정지된 작업의 타이머를 다시 시작한다. 측정 중인 작업이 있으면 그 작업은 일시정지된다. task_id를 생략하면 하나뿐인 일시정지 작업이다(여러 개면 task_id가 필요하다).",
+      inputSchema: z.object({
+        task_id: z
+          .string()
+          .optional()
+          .describe("다시 시작할 작업(get_current_work의 paused_tasks)"),
+      }),
+      annotations: write,
+    },
+    async ({ task_id }) => {
+      const t = task_id === undefined ? await defaultTarget(false) : await taskById(ctx, task_id);
+      if (typeof t === "string") return toolError(t);
+      if (t?.status !== "paused")
+        return toolError(
+          task_id === undefined ? "일시정지된 작업이 없습니다." : "일시정지된 작업이 아닙니다.",
+        );
+      const previous = await running();
+      return toggle(
+        t,
+        "resume",
+        () =>
+          previous
+            ? "측정 중이던 작업을 일시정지하고 타이머를 다시 시작했습니다."
+            : "타이머를 다시 시작했습니다.",
+        { paused_task_id: previous?.id ?? null },
+      );
+    },
+  );
   server.registerTool(
     "update_task",
     {

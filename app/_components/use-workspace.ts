@@ -76,7 +76,8 @@ export function useWorkspace(signedOut: boolean) {
     [memoReset, setMemoReset] = useState(0),
     [dailyMemoReset, setDailyMemoReset] = useState(0);
   const [finishTask, setFinishTask] = useState<Task | null>(null),
-    [finishResult, setFinishResult] = useState("");
+    [finishResult, setFinishResult] = useState(""),
+    [selectedId, setSelectedId] = useState<string | null>(null);
   const request = useRef(0),
     lock = useRef(false);
   const clearForm = useCallback(() => {
@@ -219,15 +220,23 @@ export function useWorkspace(signedOut: boolean) {
       setBusy(false);
     }
   }
-  const active = tasks.find((t) => t.status !== "done");
+  // 끝나지 않은 작업. 측정 중인 작업(최대 한 개)이 맨 앞이고, 나머지는 목록 순서(최근에 만든 순)다.
+  const open = tasks
+    .filter((t) => t.status !== "done")
+    .sort((a, b) => Number(b.status === "running") - Number(a.status === "running"));
+  const running = open.find((t) => t.status === "running");
+  // 큰 타이머가 보여 주는 작업. 넘겨서 고른 작업이 없거나 끝났으면 맨 앞 작업이다.
+  const active = open.find((t) => t.id === selectedId) ?? open[0];
   const elapsed = (t: Task) =>
     t.elapsed + (t.started === null ? 0 : Math.max(0, now + offset - t.started));
   const daily = tasks.filter((t) => t.day === day);
   const total = daily.filter((t) => t.status === "done").reduce((s, t) => s + t.elapsed, 0);
   // 탭 제목에 타이머 상태와 기록 시간을 분 단위로 표시한다. 매초 렌더와 분리해 30초마다만 갱신한다.
-  const activeStatus = active?.status,
-    activeElapsed = active?.elapsed ?? 0,
-    activeStarted = active?.started ?? null;
+  // 큰 타이머에서 다른 작업을 보고 있어도 측정 중인 작업을 표시한다.
+  const titled = running ?? active;
+  const activeStatus = titled?.status,
+    activeElapsed = titled?.elapsed ?? 0,
+    activeStarted = titled?.started ?? null;
   const offsetRef = useRef(offset);
   useEffect(() => {
     offsetRef.current = offset;
@@ -269,7 +278,11 @@ export function useWorkspace(signedOut: boolean) {
       ended_at: parseTimeInput(last),
       run,
     });
-    if (ok) clearForm();
+    if (ok) {
+      clearForm();
+      // 측정을 시작했으면 큰 타이머가 새로 측정 중인 작업을 보여 주게 한다.
+      if (run) setSelectedId(null);
+    }
     return ok;
   }
   function startEdit(t: Task) {
@@ -282,8 +295,12 @@ export function useWorkspace(signedOut: boolean) {
     setTargetMinutes(t.target > 0 ? String(Math.round(t.target / 600) / 100) : "");
     setMinutes(String(Math.round(t.elapsed / 600) / 100));
   }
+  // 큰 타이머의 목록에서 끝나지 않은 작업 하나를 골라 보여 준다.
+  const selectActive = (id: string) => setSelectedId(id);
   function toggleActive() {
     if (!active) return;
+    // 일시정지하면 정렬 순서가 바뀌므로, 조작한 작업을 계속 보여 주도록 고정한다.
+    setSelectedId(active.id);
     void act({
       action: active.status === "running" ? "pause" : "resume",
       id: active.id,
@@ -334,7 +351,10 @@ export function useWorkspace(signedOut: boolean) {
     message,
     tasks,
     daily,
+    open,
+    running,
     active,
+    selectActive,
     total,
     elapsed,
     title,

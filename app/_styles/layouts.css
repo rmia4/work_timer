@@ -245,6 +245,7 @@
 }
 .lay-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
 }
@@ -631,9 +632,13 @@
   background: var(--c-accent-fill);
   border-radius: 999px;
 }
-.lay-tabs-timer .lay-buttons button {
+.lay-tabs-timer .lay-buttons button,
+.lay-tabs-timer .timer-switch {
   border-radius: 12px;
   border-color: #fff;
+}
+.lay-tabs-timer .timer-switch option {
+  background: var(--c-tint);
 }
 .lay-tabs-card {
   background: var(--c-surface);
