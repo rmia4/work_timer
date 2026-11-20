@@ -23,6 +23,10 @@ let status = "loading"; // loading | login | ready
 const VIEW = "view"; // 마지막으로 연 화면(팝업을 다시 열면 그대로 보여 주고, 로그아웃하면 지운다)
 const START_VIEW = "start-view"; // 고급에서 고른 처음 화면(비어 있으면 마지막으로 연 화면, 로그아웃해도 남긴다)
 const CTRL_ENTER = "ctrl-enter"; // 고급에서 Ctrl+Enter 빠른 확인을 끄면 "off"(비어 있으면 사용)
+// 팝업을 닫아도 남기는 임시 저장본. 저장·측정 시작·종료에 성공하거나, 취소하거나, 로그아웃하면 지운다.
+const TASK_DRAFT = "task-draft"; // 새 기록 폼 입력 { 입력 칸 id: 값 }
+const FINISH_DRAFT = "finish-draft"; // 종료·저장 대화상자의 업무 결과 { id, result }
+const DRAFT_FIELDS = ["f-title", "f-note", "f-result", "f-target", "f-minutes"];
 let view = [localStorage.getItem(START_VIEW), localStorage.getItem(VIEW)].find((v) => VIEWS.includes(v)) || "timer";
 const first = view; // 팝업을 열 때 처음 보인 화면(이 화면만 캐시를 보여 준다)
 let day = today(); // 일지에서 보는 날짜
@@ -226,6 +230,7 @@ function renderTimer() {
 function showLogin() {
   clearCache();
   localStorage.removeItem(VIEW);
+  localStorage.removeItem(FINISH_DRAFT); // 새 기록 폼 임시 저장본은 아래 clearForm()이 지운다.
   invalidateCalendarCache();
   status = "login";
   tasks = [];
@@ -325,8 +330,18 @@ function showWork(name) {
   $("f-result").hidden = name !== "result";
 }
 
+// 임시 저장본을 읽는다(없거나 깨졌으면 null).
+function readDraft(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
 function clearForm() {
   $("task-form").reset();
+  localStorage.removeItem(TASK_DRAFT);
   showWork("note");
   edit = null;
   editTimes = { first: "", last: "" };
@@ -429,6 +444,7 @@ function closeRemove() {
 
 function closeFinish() {
   finishTask = null;
+  localStorage.removeItem(FINISH_DRAFT);
   $("finish-dialog").close();
 }
 
@@ -846,7 +862,9 @@ $("form-open").addEventListener("click", () => {
 $("finish").addEventListener("click", () => {
   finishTask = task;
   $("finish-desc").textContent = `“${task.title}” 작업을 종료합니다. 완료한 결과를 기록해 주세요.`;
-  $("finish-result").value = task.result || "";
+  // 같은 작업을 종료하다 팝업을 닫았으면 쓰던 업무 결과를 채운다.
+  const draft = readDraft(FINISH_DRAFT);
+  $("finish-result").value = draft?.id === task.id ? draft.result : task.result || "";
   countResult();
   $("finish-error").textContent = "";
   render();
@@ -855,6 +873,10 @@ $("finish").addEventListener("click", () => {
 const countResult = () =>
   ($("finish-count").textContent = `${$("finish-result").value.length.toLocaleString()} / 20,000`);
 $("finish-result").addEventListener("input", countResult);
+$("finish-result").addEventListener("input", () => {
+  if (finishTask)
+    localStorage.setItem(FINISH_DRAFT, JSON.stringify({ id: finishTask.id, result: $("finish-result").value }));
+});
 $("finish-cancel").addEventListener("click", closeFinish);
 // Esc로 닫을 때도 저장 중이면 닫지 않는다.
 $("finish-dialog").addEventListener("cancel", (event) => {
@@ -874,6 +896,12 @@ $("finish-form").addEventListener("submit", async (event) => {
 });
 for (const b of document.querySelectorAll("[data-work]")) b.addEventListener("click", () => showWork(b.dataset.work));
 $("f-title").addEventListener("input", renderTimer);
+// 새 기록 폼에 쓰던 내용을 남긴다(기록 수정 중에는 남기지 않는다). 처음 값 그대로면 지운다.
+$("task-form").addEventListener("input", () => {
+  if (edit) return;
+  if (DRAFT_FIELDS.every((id) => $(id).value === $(id).defaultValue)) return localStorage.removeItem(TASK_DRAFT);
+  localStorage.setItem(TASK_DRAFT, JSON.stringify(Object.fromEntries(DRAFT_FIELDS.map((id) => [id, $(id).value]))));
+});
 $("f-start").addEventListener("click", () => {
   if ($("task-form").reportValidity()) save(true);
 });
@@ -1006,6 +1034,13 @@ setInterval(() => {
   if (status === "ready" && !busy) load();
 }, 10000);
 for (const key of CACHES) localStorage.removeItem(key);
+// 지난번에 쓰다 닫은 새 기록 폼을 되살린다. 기록 중인 작업이 있어도 폼을 펼쳐 보여 준다.
+const taskDraft = readDraft(TASK_DRAFT);
+if (taskDraft) {
+  for (const id of DRAFT_FIELDS) if (typeof taskDraft[id] === "string") $(id).value = taskDraft[id];
+  if (!taskDraft["f-note"] && taskDraft["f-result"]) showWork("result"); // 결과만 썼으면 결과 칸을 보여 준다.
+  formOpen = true;
+}
 // 처음 보인 화면만 background.js가 갱신해 둔 캐시를 바로 보여 주고(동기화 표시와 함께),
 // 다른 화면은 뒤에서 받는 최신 데이터가 올 때까지 로딩 표시를 보여 준다. 메모장도 뒤에서 미리 받는다.
 const cache = await readCache().catch(() => ({}));
