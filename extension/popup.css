@@ -208,7 +208,7 @@ textarea {
 [hidden] {
   display: none !important;
 }
-/* 기록 중인 작업과 새 기록 추가 폼은 둘 중 하나만 보이며 각각 박스로 감싼다. */
+/* 기록 중인 작업과 새 기록 추가 폼은 각각 박스로 감싼다. */
 #active,
 #task-form {
   padding: 16px;
@@ -227,6 +227,44 @@ textarea {
 }
 #active .hint {
   margin-bottom: 12px;
+}
+/* 끝나지 않은 작업이 여러 개일 때 큰 타이머에 보여 줄 작업을 고르는 목록(웹앱 .timer-switch). 카드 오른쪽 위에 둔다. */
+#active {
+  position: relative;
+}
+.timer-switch {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  max-width: 150px;
+  min-height: 26px;
+  padding: 2px 6px;
+  border: 1px solid #858c95;
+  /* 카드 색이 비치게 두고, 펼친 목록(option)은 카드 색으로 칠한다. */
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.timer-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.timer-switch option {
+  background: #4b5058;
+  color: #f7f8f9;
+}
+[data-theme="dark"] .timer-switch {
+  border-color: #5d6570;
+}
+[data-theme="dark"] .timer-switch option {
+  background: #262b33;
+}
+/* 기록 중 카드 아래의 새 기록 추가 버튼과, 눌러서 펼친 폼의 간격 */
+#form-open,
+#active:not([hidden]) ~ #task-form {
+  margin-top: 12px;
 }
 /* 기록 중 카드는 웹앱 .timer-panel처럼 회색 바탕에 흰 글자로 둔다. */
 #active {
