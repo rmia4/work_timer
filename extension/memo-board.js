@@ -193,6 +193,10 @@ function createCard(memo, { request, collapsible, confirmRemove, onDeleted, onMo
   };
 }
 
+// 화면에 보이는 값과 저장에 쓰는 version만 비교한다(updated·position은 카드가 갱신하지 않는다).
+const memoKey = (list) =>
+  JSON.stringify(list?.map(({ id, title, body, collapsed, version }) => [id, title, body, collapsed ?? false, version]));
+
 // endpoint: /api/memos(메모장) 또는 /api/daily-memos(일일 메모, show(day)로 날짜를 준다).
 // onLoad(memos)는 불러오기가 끝날 때마다 받은 메모 목록(실패하면 null)으로 불린다.
 export function createMemoBoard(root, { endpoint, collapsible, emptyText, confirmRemove, onLoad }) {
@@ -259,20 +263,23 @@ export function createMemoBoard(root, { endpoint, collapsible, emptyText, confir
     loading = !saved;
     error = "";
     render();
-    let memos = null;
+    let memos = null,
+      unchanged = false;
     try {
       const r = await authed(day ? `${endpoint}?day=${day}` : endpoint);
       if (n !== seq || !r) return;
       if (!r.ok) throw Error(r.data.error);
       memos = r.data.memos;
       // 먼저 보여 준 저장본과 같으면 카드를 그대로 둔다(입력 중 포커스 유지).
-      if (JSON.stringify(memos) !== JSON.stringify(saved)) cards = memos.map(makeCard);
+      unchanged = memoKey(memos) === memoKey(saved);
+      if (!unchanged) cards = memos.map(makeCard);
     } catch (e) {
       if (n !== seq) return;
       error = e.message || "메모를 불러오지 못했습니다.";
     }
     loading = false;
-    render();
+    // 같으면 DOM을 건드리지 않는다(replaceChildren은 포커스된 입력 칸을 떼어 내 포커스를 잃게 한다).
+    if (!unchanged) render();
     onLoad?.(memos);
   }
 
