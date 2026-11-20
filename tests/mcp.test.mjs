@@ -24,7 +24,7 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   db.exec("PRAGMA foreign_keys=ON");
   db.exec("CREATE TABLE users (id TEXT PRIMARY KEY)");
   for (const name of readdirSync(new URL("../drizzle", import.meta.url))
-    .filter((name) => /^000[0-7]_.*\.sql$/.test(name))
+    .filter((name) => /^000[0-8]_.*\.sql$/.test(name))
     .sort())
     db.exec(read("drizzle/" + name));
   db.exec(
@@ -534,39 +534,10 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE owner='other'").get().n, 1);
   await readOnlyClient.close();
 
-  // 쓰기 도구: 시작 충돌 → 이전 작업 종료 후 시작 → 일시정지·재개 → 요약과 함께 종료 → 수정.
+  // 쓰기 도구: fail은 시작하지 않음 → 이전 작업 일시정지 후 시작 → 일시정지 작업 재개·종료
+  // → 일시정지·재개 → 요약과 함께 종료 → 수정.
   const writer = await connect(ownerToken, "legacy");
-  let result = await writer.callTool({ name: "start_work", arguments: { title: "쓰기 도구" } });
-  assert.equal(result.isError, true, "conflict with the running task");
-  assert.match(result.content[0].text, /run1/);
-  assert.equal(
-    db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status,
-    "running",
-    "fail leaves the running task alone",
-  );
-  const started = await data(writer, "start_work", {
-    title: "쓰기 도구",
-    note: "계획",
-    target_minutes: 90,
-    if_running: "finish_previous",
-  });
-  assert.equal(started.finished_task_id, "run1");
-  assert.equal(started.task.status, "running");
-  assert.equal(started.task.target_minutes, 90);
-  assert.equal("note" in started.task, false, "write results are compact");
-  assert.equal(db.prepare("SELECT note FROM tasks WHERE id=?").get(started.task.id).note, "계획");
-  assert.equal(
-    started.task.day,
-    new Date(Date.now() + 9 * HOUR).toISOString().slice(0, 10),
-    "today in KST",
-  );
-  assert.equal(db.prepare("SELECT status FROM tasks WHERE id='run1'").get().status, "done");
-  assert.equal((await data(writer, "get_current_work")).task.id, started.task.id);
-  assert.equal(
-    (await writer.callTool({ name: "resume_work", arguments: {} })).isError,
-    true,
-    "not paused",
-  );
+  const status = (id) => db.prepare("SELECT status FROM tasks WHERE id=?").get(id).status;
   // 쓰기 결과는 다시 조회하지 않고 만든다. DB에 저장된 값과 같아야 한다.
   const matchesDb = (task) => {
     const row = db
@@ -580,6 +551,51 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
     );
     return task;
   };
+  let result = await writer.callTool({
+    name: "start_work",
+    arguments: { title: "쓰기 도구", if_running: "fail" },
+  });
+  assert.equal(result.isError, true, "fail refuses while a task is running");
+  assert.match(result.content[0].text, /run1/);
+  assert.equal(status("run1"), "running", "fail leaves the running task alone");
+  const started = await data(writer, "start_work", {
+    title: "쓰기 도구",
+    note: "계획",
+    target_minutes: 90,
+  });
+  assert.equal(started.paused_task_id, "run1", "default pauses the running task");
+  assert.equal(started.finished_task_id, null);
+  assert.equal(started.task.status, "running");
+  assert.equal(started.task.target_minutes, 90);
+  assert.equal("note" in started.task, false, "write results are compact");
+  assert.equal(db.prepare("SELECT note FROM tasks WHERE id=?").get(started.task.id).note, "계획");
+  assert.equal(
+    started.task.day,
+    new Date(Date.now() + 9 * HOUR).toISOString().slice(0, 10),
+    "today in KST",
+  );
+  assert.equal(status("run1"), "paused");
+  const current = await data(writer, "get_current_work");
+  assert.equal(current.task.id, started.task.id, "running task comes first");
+  assert.deepEqual(
+    current.paused_tasks.map((t) => t.id),
+    ["run1"],
+  );
+  // 하나뿐인 일시정지 작업은 task_id 없이 재개되고, 측정 중이던 작업은 일시정지된다.
+  const resumed = await data(writer, "resume_work");
+  assert.equal(matchesDb(resumed.task).id, "run1");
+  assert.equal(resumed.task.status, "running");
+  assert.equal(resumed.paused_task_id, started.task.id);
+  assert.equal(status(started.task.id), "paused");
+  // task_id 없는 종료는 측정 중인 작업이 대상이다.
+  assert.equal((await data(writer, "finish_work", { summary: "MCP 끝" })).task.id, "run1");
+  assert.equal(status("run1"), "done");
+  assert.equal(matchesDb((await data(writer, "resume_work")).task).id, started.task.id);
+  assert.equal(
+    (await writer.callTool({ name: "resume_work", arguments: {} })).isError,
+    true,
+    "not paused",
+  );
   assert.equal(matchesDb((await data(writer, "pause_work")).task).status, "paused");
   assert.equal(matchesDb((await data(writer, "resume_work")).task).status, "running");
   const finished = await data(writer, "finish_work", {
@@ -642,6 +658,34 @@ test("MCP: bearer auth, both protocol eras, read tools, scope and owner isolatio
     "not my task",
   );
   assert.equal(db.prepare("SELECT status FROM tasks WHERE id='x1'").get().status, "done");
+  // 일시정지 작업이 여러 개면 task_id 없이 고르지 않는다.
+  const wait1 = (await data(writer, "start_work", { title: "대기 1" })).task.id;
+  const wait2 = (await data(writer, "start_work", { title: "대기 2" })).task.id;
+  await data(writer, "pause_work");
+  result = await writer.callTool({ name: "resume_work", arguments: {} });
+  assert.equal(result.isError, true, "ambiguous resume");
+  assert.match(
+    result.content[0].text,
+    new RegExp(`${wait1}[\\s\\S]*${wait2}|${wait2}[\\s\\S]*${wait1}`),
+  );
+  assert.equal(
+    (await writer.callTool({ name: "finish_work", arguments: { summary: "어느 것?" } })).isError,
+    true,
+    "ambiguous finish",
+  );
+  const waiting = await data(writer, "get_current_work");
+  assert.deepEqual(
+    [waiting.task.id, ...waiting.paused_tasks.map((t) => t.id)].sort(),
+    [wait1, wait2].sort(),
+  );
+  assert.equal((await data(writer, "resume_work", { task_id: wait1 })).task.id, wait1);
+  assert.equal(
+    (await writer.callTool({ name: "resume_work", arguments: { task_id: wait1 } })).isError,
+    true,
+    "already running",
+  );
+  await data(writer, "finish_work", { task_id: wait2, summary: "대기 2 끝" });
+  assert.equal((await data(writer, "finish_work", { summary: "대기 1 끝" })).task.id, wait1);
 
   const edited = await data(writer, "update_task", {
     task_id: finished.task.id,

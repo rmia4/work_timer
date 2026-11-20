@@ -39,6 +39,24 @@ const closeSession = (db: Db, task: string, owner: string, end: number, version:
       `UPDATE task_sessions SET end_at=? WHERE task_id=? AND owner=? AND end_at IS NULL AND ${sessionGuard}`,
     )
     .bind(end, task, owner, task, owner, version);
+// 측정 중인 업무는 사용자당 한 개다(tasks_one_running). 측정을 시작하기 전에 다른 측정 중 업무를
+// 일시정지하고 열린 구간을 닫는다. version을 주면 시작할 업무(except)의 버전이 그대로일 때만 바꾼다.
+function pauseRunning(db: Db, owner: string, now: number, except: string, version?: number) {
+  const guard = version === undefined ? "" : ` AND ${sessionGuard}`,
+    guardArgs = version === undefined ? [] : [except, owner, version];
+  return [
+    db
+      .prepare(
+        `UPDATE task_sessions SET end_at=? WHERE owner=? AND end_at IS NULL AND task_id IN (SELECT id FROM tasks WHERE owner=? AND status='running' AND id<>?)${guard}`,
+      )
+      .bind(now, owner, owner, except, ...guardArgs),
+    db
+      .prepare(
+        `UPDATE tasks SET elapsed=elapsed+MAX(0,?-started),started=NULL,status='paused',version=version+1 WHERE owner=? AND status='running' AND id<>?${guard}`,
+      )
+      .bind(now, owner, except, ...guardArgs),
+  ];
+}
 // 구간 기록 이전에 만든 업무를 다시 측정하면, 기존 시작–종료 범위를 첫 구간으로 남긴다.
 function seedLegacy(
   db: Db,
@@ -181,7 +199,7 @@ export async function applyTaskAction(
     return await apply(db, owner, b, now);
   } catch (e) {
     if ((e as { code?: string })?.code === "23505")
-      return fail("진행 중인 작업을 먼저 종료해 주세요.", 409);
+      return fail("다른 기기에서 측정을 시작했습니다. 다시 시도해 주세요.", 409);
     throw e;
   }
 }
@@ -215,6 +233,7 @@ async function apply(db: Db, owner: string, b: TaskBody, now: number): Promise<T
     // 바로 측정을 시작하는 기록은 보고 있는 날짜와 상관없이 오늘(KST)에 저장한다.
     const day = b.run ? new Date(now + 9 * 3600000).toISOString().slice(0, 10) : b.day;
     const statements = [
+      ...(b.run ? pauseRunning(db, owner, now, taskId) : []),
       db
         .prepare(
           "INSERT INTO tasks (id,owner,day,title,note,result,target,elapsed,started,status,created,started_at,ended_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -305,6 +324,7 @@ async function apply(db: Db, owner: string, b: TaskBody, now: number): Promise<T
       );
     if (run)
       sessions.push(
+        ...pauseRunning(db, owner, now, t.id, version),
         ...seedLegacy(db, t.id, owner, first, t.ended_at, version),
         addSession(db, t.id, owner, now, null, version),
       );
@@ -357,6 +377,7 @@ async function apply(db: Db, owner: string, b: TaskBody, now: number): Promise<T
       );
     if (b.action === "resume")
       sessions.push(
+        ...pauseRunning(db, owner, now, t.id, version),
         ...seedLegacy(
           db,
           t.id,

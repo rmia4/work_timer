@@ -21,6 +21,7 @@ import {
   memoView,
   minutes,
   ok,
+  pausedTasks,
   queryInput,
   readOnly,
   searchResults,
@@ -37,18 +38,21 @@ export function readTools(server: McpServer, ctx: Ctx) {
     {
       title: "진행 중인 작업",
       description:
-        "진행 중이거나 일시정지된 작업 1건과 경과 시간(분)을 돌려준다. 없으면 task가 null이다. 내용·결과는 앞 200자만 오고, 전문은 include_details: true.",
+        "측정 중인 작업 1건(없으면 가장 최근 일시정지 작업)과 경과 시간(분)을 task로 돌려준다. 없으면 task가 null이다. 그 밖의 일시정지 작업은 paused_tasks에 본문 없이 온다. 내용·결과는 앞 200자만 오고, 전문은 include_details: true.",
       inputSchema: z.object({ include_details: detailsInput }),
       annotations: readOnly,
     },
     async ({ include_details }) => {
-      const t = await currentTask(ctx);
-      const task = t && taskView(t, now(), include_details ? "full" : "preview");
+      const [t, paused] = await Promise.all([currentTask(ctx), pausedTasks(ctx)]);
+      const at = now();
+      const task = t && taskView(t, at, include_details ? "full" : "preview");
+      const others = paused.filter((p) => p.id !== t?.id).map((p) => taskView(p, at, "compact"));
       return ok(
-        task
+        (task
           ? `${task.status === "running" ? "진행 중" : "일시정지"}: ${task.minutes}분 경과`
-          : "진행 중인 작업이 없습니다.",
-        { task },
+          : "진행 중인 작업이 없습니다.") +
+          (others.length ? ` (그 밖의 일시정지 작업 ${others.length}건)` : ""),
+        { task, paused_tasks: others },
       );
     },
   );
