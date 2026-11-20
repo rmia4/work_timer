@@ -877,10 +877,11 @@ $("f-title").addEventListener("input", renderTimer);
 $("f-start").addEventListener("click", () => {
   if ($("task-form").reportValidity()) save(true);
 });
-$("task-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  save(false);
+// 폼에 제출 버튼을 두지 않아 입력 칸에서 엔터를 눌러도 저장되지 않는다(저장·시작은 버튼이나 Ctrl+Enter로만).
+$("f-save").addEventListener("click", () => {
+  if ($("task-form").reportValidity()) save(false);
 });
+$("task-form").addEventListener("submit", (event) => event.preventDefault());
 // Ctrl+Enter로 폼의 주 버튼을 누른다. click()은 disabled 버튼을 무시하므로 기존 조건을 그대로 따른다.
 function ctrlEnter(form, button) {
   $(form).addEventListener("keydown", (event) => {
