@@ -321,6 +321,25 @@
   color: var(--c-muted);
   font-size: 13px;
 }
+/* 결과 종류 표시: 기록은 강조색, 메모는 테두리만 */
+.stats-search-kind {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.stats-search-kind.task {
+  border-color: transparent;
+  background: var(--c-tint);
+  color: var(--c-accent);
+}
+.stats-search-kind.memo {
+  color: var(--c-text);
+}
 .stats-search-snippet {
   max-width: 100%;
   overflow: hidden;
