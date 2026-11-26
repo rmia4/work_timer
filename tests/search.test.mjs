@@ -13,7 +13,7 @@ async function load(path, imports = "", exports = "") {
   return import("data:text/javascript;base64," + Buffer.from(js).toString("base64"));
 }
 
-test("task search: fields, owner and range isolation, literal LIKE, snippets, paging and route validation", async () => {
+test("record search: task and memo fields, scope, owner and range isolation, literal LIKE, snippets, paging and route validation", async () => {
   const db = new DatabaseSync(":memory:");
   for (const name of readdirSync(new URL("../drizzle", import.meta.url))
     .filter((name) => /^000[0-8]_.*\.sql$/.test(name))
@@ -57,7 +57,7 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
   );
   const route = await load(
     "app/api/tasks/search/route.ts",
-    "const {getCodeUser,database,validRange,searchTasks}=globalThis.searchFixture;",
+    "const {getCodeUser,database,validRange,searchRecords,SEARCH_SCOPES}=globalThis.searchFixture;",
   );
   const add = (
     id,
@@ -78,8 +78,8 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
         "INSERT INTO tasks (id,owner,day,title,note,result,elapsed,started,status,created) VALUES (?,?,?,?,?,?,?,?,?,?)",
       )
       .run(id, owner, day, title, note, result, elapsed, started, status, created);
-  const search = (q, from, to, { offset = 0, now = 0 } = {}) =>
-    fx.searchTasks(adapter, "owner", q, from, to, offset, now);
+  const search = (q, from, to, { offset = 0, now = 0, scope = "task" } = {}) =>
+    fx.searchRecords(adapter, "owner", q, from, to, scope, offset, now);
   const get = async (params) => {
     const r = await route.GET(
       new Request("http://localhost/api/tasks/search?" + new URLSearchParams(params)),
@@ -115,7 +115,7 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
   assert.equal(found.results[0].elapsed, 180000, "running task counts up to now");
   assert.deepEqual(
     Object.keys(found.results[1]).sort(),
-    ["day", "elapsed", "field", "id", "snippet", "status", "title"],
+    ["day", "elapsed", "field", "id", "kind", "snippet", "status", "title"],
     "no full note/result in response",
   );
 
@@ -174,6 +174,67 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
     "11 left vs exactly 10 left",
   );
 
+  // 일일메모: 제목·본문 일치와 발췌, 본인·기간 격리, 대상(scope)별 결과, 「전부」는 날짜·created 순으로 섞인다.
+  const memo = (id, day, title, body = "", { owner = "owner", created = 1 } = {}) =>
+    db
+      .prepare(
+        "INSERT INTO daily_memos (id,owner,day,title,body,position,version,created,updated) VALUES (?,?,?,?,?,?,?,?,?)",
+      )
+      .run(id, owner, day, title, body, created, 0, created, created);
+  memo("m-title", "2027-01-02", "장보기 목록", "", { created: 5 });
+  memo("m-body", "2027-01-01", "", a(50) + "장보기", { created: 2 });
+  memo("m-other", "2027-01-02", "장보기", "", { owner: "someone" });
+  memo("m-old", "2026-01-01", "장보기");
+  add("t-mix", "2027-01-02", "장보기 업무", { created: 3 });
+  add("t-mix2", "2027-01-01", "x", { note: "장보기", created: 9 });
+  const shopping = (scope) => search("장보기", "2027-01-01", "2027-01-31", { scope });
+  const mixed = await shopping("all");
+  assert.deepEqual(
+    mixed.results.map((t) => [t.kind, t.id, t.field, t.snippet]),
+    [
+      ["memo", "m-title", "title", null],
+      ["task", "t-mix", "title", null],
+      ["task", "t-mix2", "note", "장보기"],
+      ["memo", "m-body", "body", "…" + a(40) + "장보기"],
+    ],
+  );
+  assert.equal(mixed.total, 4, "total sums both tables, other owner and out-of-range excluded");
+  assert.deepEqual(
+    [mixed.results[0].status, mixed.results[0].elapsed],
+    [null, null],
+    "memo has no status or elapsed",
+  );
+  assert.deepEqual(
+    [await shopping("task"), await shopping("memo")].map((p) => [
+      p.results.map((t) => t.id),
+      p.total,
+    ]),
+    [
+      [["t-mix", "t-mix2"], 2],
+      [["m-title", "m-body"], 2],
+    ],
+  );
+  // 「전부」 페이지: 두 테이블에 걸쳐도 겹침·누락 없이 이어진다.
+  const interleaved = [];
+  for (let i = 0; i < 6; i++) {
+    add("mt" + i, "2027-02-01", "섞기", { created: 2 * i });
+    memo("mm" + i, "2027-02-01", "섞기", "", { created: 2 * i + 1 });
+    interleaved.unshift("mt" + i);
+    interleaved.unshift("mm" + i);
+  }
+  const mixPages = [0, 10].map((offset) =>
+    search("섞기", "2027-02-01", "2027-02-01", { scope: "all", offset }),
+  );
+  const [mix0, mix1] = await Promise.all(mixPages);
+  assert.deepEqual(
+    [mix0.results.length, mix0.more, mix0.total, mix1.results.length, mix1.more],
+    [10, true, 12, 2, false],
+  );
+  assert.deepEqual(
+    [...mix0.results, ...mix1.results].map((t) => t.id),
+    interleaved,
+  );
+
   // 라우트: 검색어 trim, 특수문자 전달, 검증, 인증, 오류, no-store
   add("special", "2026-10-10", "a+b&c#d%e\\f");
   let r = await get({ q: " +b&c#d%e\\ ", from: "2026-10-01", to: "2026-10-31" });
@@ -191,7 +252,23 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
   r = await get({ q: "반복", from: "2026-12-01", to: "2026-12-01", offset: "20" });
   assert.equal(r.status, 200);
   assert.deepEqual([r.body.results.length, r.body.more, r.body.total], [5, false, 25]);
+  r = await get({ q: "장보기", from: "2027-01-01", to: "2027-01-31", scope: "memo" });
+  assert.equal(r.status, 200);
+  assert.deepEqual(
+    r.body.results.map((t) => t.id),
+    ["m-title", "m-body"],
+  );
+  r = await get({ q: "장보기", from: "2027-01-01", to: "2027-01-31", scope: "all" });
+  assert.equal(r.body.total, 4);
+  r = await get({ q: "장보기", from: "2027-01-01", to: "2027-01-31" });
+  assert.equal(r.body.total, 2, "scope defaults to task");
   for (const params of [
+    ...["", "memos", "ALL"].map((scope) => ({
+      q: "회의",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      scope,
+    })),
     { q: "   ", from: "2026-10-01", to: "2026-10-31" },
     { q: "가".repeat(101), from: "2026-10-01", to: "2026-10-31" },
     { q: "회의", to: "2026-10-31" },
@@ -243,7 +320,7 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
   const sql = raw.postgresSql(sqlLog.find((q) => q.includes("LIKE") && q.includes("ORDER BY")));
   assert.match(
     raw.postgresSql(sqlLog.find((q) => q.includes("LIKE") && q.includes("COUNT(*)"))),
-    /owner=\$1 AND day>=\$2 AND day<=\$3 AND .*LIKE \$6 ESCAPE '\\'\)$/,
+    /owner=\$1 AND day>=\$2 AND day<=\$3 AND .*LIKE \$6 ESCAPE '\\'\)\) AS count$/,
   );
   assert.match(sql, /GREATEST\(0, \$1-started\)/);
   assert.match(
@@ -251,6 +328,16 @@ test("task search: fields, owner and range isolation, literal LIKE, snippets, pa
     /owner=\$2 AND day>=\$3 AND day<=\$4 AND \(LOWER\(title\) LIKE \$5 ESCAPE '\\' OR LOWER\(note\) LIKE \$6 ESCAPE '\\' OR LOWER\(result\) LIKE \$7 ESCAPE '\\'\)/,
   );
   assert.match(sql, /ORDER BY day DESC,created DESC,id DESC LIMIT \$8 OFFSET \$9$/);
+  // 「전부」: 두 SELECT를 UNION ALL로 잇고, 자리표시자는 SELECT 순서대로 이어진다.
+  const union = raw.postgresSql(sqlLog.find((q) => q.includes("UNION ALL")));
+  assert.match(
+    union,
+    /FROM tasks WHERE owner=\$2 .* UNION ALL SELECT 'memo' AS kind,.* FROM daily_memos WHERE owner=\$8 AND day>=\$9 AND day<=\$10 AND \(LOWER\(title\) LIKE \$11 ESCAPE '\\' OR LOWER\(body\) LIKE \$12 ESCAPE '\\'\) ORDER BY day DESC,created DESC,id DESC LIMIT \$13 OFFSET \$14$/,
+  );
+  assert.match(
+    raw.postgresSql(sqlLog.find((q) => q.includes("COUNT(*) FROM tasks") && q.includes("+"))),
+    /^SELECT \(SELECT COUNT\(\*\) FROM tasks WHERE owner=\$1 .*\)\+\(SELECT COUNT\(\*\) FROM daily_memos WHERE owner=\$7 .* LIKE \$11 ESCAPE '\\'\)\) AS count$/,
+  );
   delete globalThis.rawFixture;
   delete globalThis.searchFixture;
 });
