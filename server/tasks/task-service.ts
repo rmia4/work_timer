@@ -118,30 +118,35 @@ export async function exportRows(db: Db, owner: string, from: string, to: string
     .all<ExportRow>();
   return result.results;
 }
-// 기록 검색(통계 > 검색). 기간 안의 업무 중 제목·내용·결과에 검색어가 있는 것을 최근 순으로 offset부터 SEARCH_PAGE건 돌려준다.
-// 내용·결과 전문 대신 일치한 필드(field)와 앞뒤 SNIPPET_CHARS자 발췌(snippet)만 보낸다. 기간·offset은 호출하는 쪽에서 검증한다.
+// 기록 검색(통계 > 검색). 기간 안의 업무(제목·내용·결과)와 일일메모(제목·본문) 중 검색어가 있는 것을
+// scope에 따라 골라 최근 순으로 offset부터 SEARCH_PAGE건 돌려준다. 「전부」는 두 테이블을 UNION ALL로 섞는다.
+// 본문 전문 대신 일치한 필드(field)와 앞뒤 SNIPPET_CHARS자 발췌(snippet)만 보낸다. 기간·offset·scope는 호출하는 쪽에서 검증한다.
 // id까지 정렬해 같은 시각에 만든 기록도 페이지 사이에서 겹치거나 빠지지 않게 한다.
 const SEARCH_PAGE = 10;
 const SNIPPET_CHARS = 40;
+export const SEARCH_SCOPES = ["all", "task", "memo"] as const;
+export type SearchScope = (typeof SEARCH_SCOPES)[number];
 type SearchRow = {
+  kind: "task" | "memo";
   id: string;
   day: string;
   title: string;
   note: string;
   result: string;
-  status: string;
-  elapsed: number;
+  status: string | null;
+  elapsed: number | null;
 };
+// 메모는 본문을 note 자리에 실어 오므로, 응답에서는 body로 이름을 바꿔 준다.
 function matchedField(t: SearchRow, query: string) {
   if (findMatch(t.title, query) >= 0) return { field: "title", snippet: null };
-  for (const field of ["note", "result"] as const) {
+  for (const field of t.kind === "memo" ? (["note"] as const) : (["note", "result"] as const)) {
     const text = t[field],
       i = findMatch(text, query);
     if (i < 0) continue;
     const start = Math.max(0, i - SNIPPET_CHARS),
       end = i + query.length + SNIPPET_CHARS;
     return {
-      field,
+      field: t.kind === "memo" ? "body" : field,
       snippet: (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : ""),
     };
   }
@@ -149,33 +154,53 @@ function matchedField(t: SearchRow, query: string) {
   return { field: null, snippet: null };
 }
 // 총 건수(total)는 페이지마다 다시 세어 「더 보기」 사이에 바뀐 기록도 반영한다.
-export async function searchTasks(
+// 두 테이블의 SELECT는 컬럼 순서·이름을 맞춘다(UNION ALL). Postgres에서도 출력 컬럼 이름으로 정렬하도록 created를 같이 고른다.
+export async function searchRecords(
   db: Db,
   owner: string,
   query: string,
   from: string,
   to: string,
+  scope: SearchScope,
   offset: number,
   now: number,
 ) {
   const pattern = likePattern(query),
-    where = `owner=? AND day>=? AND day<=? AND ${likeAny(["title", "note", "result"])}`,
-    args = [owner, from, to, pattern, pattern, pattern];
+    range = "owner=? AND day>=? AND day<=?";
+  const parts = [
+    scope !== "memo" && {
+      select: `SELECT 'task' AS kind,id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed,created FROM tasks`,
+      selectArgs: [now],
+      table: "tasks",
+      where: `${range} AND ${likeAny(["title", "note", "result"])}`,
+      args: [owner, from, to, pattern, pattern, pattern],
+    },
+    scope !== "task" && {
+      select: `SELECT 'memo' AS kind,id,day,title,body AS note,'' AS result,NULL AS status,NULL AS elapsed,created FROM daily_memos`,
+      selectArgs: [],
+      table: "daily_memos",
+      where: `${range} AND ${likeAny(["title", "body"])}`,
+      args: [owner, from, to, pattern, pattern],
+    },
+  ].filter((p) => !!p);
   const [result, count] = await Promise.all([
     db
       .prepare(
-        `SELECT id,day,title,note,result,status,elapsed+CASE WHEN started IS NULL THEN 0 ELSE MAX(0,?-started) END AS elapsed FROM tasks WHERE ${where} ORDER BY day DESC,created DESC,id DESC LIMIT ? OFFSET ?`,
+        `${parts.map((p) => `${p.select} WHERE ${p.where}`).join(" UNION ALL ")} ORDER BY day DESC,created DESC,id DESC LIMIT ? OFFSET ?`,
       )
-      .bind(now, ...args, SEARCH_PAGE + 1, offset)
+      .bind(...parts.flatMap((p) => [...p.selectArgs, ...p.args]), SEARCH_PAGE + 1, offset)
       .all<SearchRow>(),
     db
-      .prepare(`SELECT COUNT(*) AS count FROM tasks WHERE ${where}`)
-      .bind(...args)
+      .prepare(
+        `SELECT ${parts.map((p) => `(SELECT COUNT(*) FROM ${p.table} WHERE ${p.where})`).join("+")} AS count`,
+      )
+      .bind(...parts.flatMap((p) => p.args))
       .all<{ count: number }>(),
   ]);
   const rows = result.results;
   return {
     results: rows.slice(0, SEARCH_PAGE).map((t) => ({
+      kind: t.kind,
       id: t.id,
       day: t.day,
       title: t.title,

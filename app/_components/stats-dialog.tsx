@@ -429,16 +429,25 @@ function ExportView({ anchor }: { anchor: string }) {
   );
 }
 
+// 검색 결과 1건. 메모(kind: "memo")는 상태·소요 시간이 없다(null).
 type SearchResult = {
+  kind: "task" | "memo";
   id: string;
   day: string;
   title: string;
-  status: string;
-  elapsed: number;
-  field: "title" | "note" | "result" | null;
+  status: string | null;
+  elapsed: number | null;
+  field: "title" | "note" | "result" | "body" | null;
   snippet: string | null;
 };
-type SearchQuery = { q: string; from: string; to: string };
+type SearchScope = "all" | "task" | "memo";
+type SearchQuery = { q: string; from: string; to: string; scope: SearchScope };
+const searchScopes: { id: SearchScope; label: string }[] = [
+  { id: "all", label: "전부" },
+  { id: "task", label: "기록" },
+  { id: "memo", label: "메모" },
+];
+const snippetLabels = { note: "내용", result: "결과", body: "본문" } as const;
 
 // 검색어와 처음 일치한 부분을 <mark>로 감싼다. 대소문자는 서버와 같이 ASCII 영문만 무시한다.
 function Highlight({ text, query }: { text: string; query: string }) {
@@ -453,19 +462,17 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
-// 「자세히」 팝업: 메인 화면 일지 카드와 같은 모양의 읽기 전용 보기. 전문은 그날 기록 API(/api/tasks?day=)에서 받는다.
-function TaskDetail({
-  item,
-  onClose,
-  onSelect,
-}: {
-  item: SearchResult | null;
-  onClose: () => void;
-  onSelect?: (day: string) => void;
-}) {
+// 「자세히」 팝업이 쓰는 전문. 그날 목록 API(path?day=)의 key 배열에서 검색 결과와 같은 id를 찾는다.
+// noun은 오류 문구에 넣을 대상 이름(조사 포함)이다.
+function useDayItem<T extends { id: string }>(
+  item: SearchResult | null,
+  path: string,
+  key: string,
+  noun: string,
+) {
   const [state, setState] = useState<{
     id: string;
-    task: Task | null;
+    value: T | null;
     now: number;
     error: string;
   } | null>(null);
@@ -474,24 +481,25 @@ function TaskDetail({
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await fetch(`/api/tasks?day=${item.day}`);
-        const data = (await r.json()) as { tasks?: Task[]; now?: number; error?: string };
-        if (!r.ok || !data.tasks) throw Error(data.error || "기록을 불러오지 못했습니다.");
-        const task = data.tasks.find((t) => t.id === item.id) ?? null;
+        const r = await fetch(`${path}?day=${item.day}`);
+        const data = (await r.json()) as Record<string, unknown> & { now?: number; error?: string };
+        const list = data[key] as T[] | undefined;
+        if (!r.ok || !list) throw Error(data.error || `${noun} 불러오지 못했습니다.`);
+        const value = list.find((t) => t.id === item.id) ?? null;
         if (!cancelled)
           setState({
             id: item.id,
-            task,
+            value,
             now: data.now ?? Date.now(),
-            error: task ? "" : "기록을 찾을 수 없습니다. 삭제되었을 수 있습니다.",
+            error: value ? "" : `${noun} 찾을 수 없습니다. 삭제되었을 수 있습니다.`,
           });
       } catch (e) {
         if (!cancelled)
           setState({
             id: item.id,
-            task: null,
+            value: null,
             now: 0,
-            error: e instanceof Error ? e.message : "기록을 불러오지 못했습니다.",
+            error: e instanceof Error ? e.message : `${noun} 불러오지 못했습니다.`,
           });
       }
     };
@@ -499,10 +507,25 @@ function TaskDetail({
     return () => {
       cancelled = true;
     };
-  }, [item]);
-  const current = item && state?.id === item.id ? state : null,
-    t = current?.task,
-    now = current?.now ?? 0;
+  }, [item, path, key, noun]);
+  return item && state?.id === item.id ? state : null;
+}
+
+type DetailProps = {
+  item: SearchResult | null;
+  onClose: () => void;
+  onSelect?: (day: string) => void;
+};
+
+// 「자세히」 팝업 틀: 날짜 제목, 불러오기 상태, 「이 날짜로 이동」 버튼.
+function DetailDialog({
+  item,
+  onClose,
+  onSelect,
+  current,
+  description,
+  children,
+}: DetailProps & { current: { error: string } | null; description: string; children: ReactNode }) {
   return (
     <Dialog open={!!item} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="stats-detail">
@@ -510,55 +533,10 @@ function TaskDetail({
           <DialogTitle>
             {item && `${dotted(item.day)} (${WEEKDAYS[weekdayIndex(item.day)]})`}
           </DialogTitle>
-          <DialogDescription className="sr-only">검색한 업무 기록의 전체 내용</DialogDescription>
+          <DialogDescription className="sr-only">{description}</DialogDescription>
         </DialogHeader>
         <LoadState ready={!!current} error={current?.error ?? ""}>
-          {t && (
-            <article className="record">
-              <div className="record-head">
-                <h3>{t.title}</h3>
-                <div className="record-times">
-                  {t.target > 0 && (
-                    <span>
-                      <small>목표</small>
-                      <strong>{duration(t.target)}</strong>
-                    </span>
-                  )}
-                  <span>
-                    <small>소요</small>
-                    <strong>
-                      {duration(
-                        t.elapsed + (t.started === null ? 0 : Math.max(0, now - t.started)),
-                      )}
-                    </strong>
-                  </span>
-                </div>
-              </div>
-              <span className="status">{statusLabel(t.status)}</span>
-              <dl className="task-times">
-                <div>
-                  <dt>시작</dt>
-                  <dd>{timeLabel(t.started_at)}</dd>
-                </div>
-                <div>
-                  <dt>종료</dt>
-                  <dd>{t.status === "done" ? timeLabel(t.ended_at) : "진행 중"}</dd>
-                </div>
-              </dl>
-              {t.note && (
-                <div className="journal-block">
-                  <strong>업무 내용</strong>
-                  <p className="note">{t.note}</p>
-                </div>
-              )}
-              {t.result && (
-                <div className="journal-block result-block">
-                  <strong>업무 결과</strong>
-                  <p className="note">{t.result}</p>
-                </div>
-              )}
-            </article>
-          )}
+          {children}
         </LoadState>
         {item && onSelect && (
           <DialogFooter>
@@ -572,10 +550,89 @@ function TaskDetail({
   );
 }
 
+// 일일메모 「자세히」: 제목과 본문 전문을 읽기 전용으로 보인다. 전문은 그날 메모 API(/api/daily-memos?day=)에서 받는다.
+function MemoDetail(props: DetailProps) {
+  const current = useDayItem<{ id: string; title: string; body: string }>(
+      props.item,
+      "/api/daily-memos",
+      "memos",
+      "메모를",
+    ),
+    m = current?.value;
+  return (
+    <DetailDialog {...props} current={current} description="검색한 일일메모의 전체 내용">
+      {m && (
+        <article className="record">
+          <div className="record-head">
+            <h3>{m.title || "(제목 없음)"}</h3>
+          </div>
+          {m.body && <p className="note">{m.body}</p>}
+        </article>
+      )}
+    </DetailDialog>
+  );
+}
+
+// 업무 기록 「자세히」: 메인 화면 일지 카드와 같은 모양의 읽기 전용 보기. 전문은 그날 기록 API(/api/tasks?day=)에서 받는다.
+function TaskDetail(props: DetailProps) {
+  const current = useDayItem<Task>(props.item, "/api/tasks", "tasks", "기록을"),
+    t = current?.value,
+    now = current?.now ?? 0;
+  return (
+    <DetailDialog {...props} current={current} description="검색한 업무 기록의 전체 내용">
+      {t && (
+        <article className="record">
+          <div className="record-head">
+            <h3>{t.title}</h3>
+            <div className="record-times">
+              {t.target > 0 && (
+                <span>
+                  <small>목표</small>
+                  <strong>{duration(t.target)}</strong>
+                </span>
+              )}
+              <span>
+                <small>소요</small>
+                <strong>
+                  {duration(t.elapsed + (t.started === null ? 0 : Math.max(0, now - t.started)))}
+                </strong>
+              </span>
+            </div>
+          </div>
+          <span className="status">{statusLabel(t.status)}</span>
+          <dl className="task-times">
+            <div>
+              <dt>시작</dt>
+              <dd>{timeLabel(t.started_at)}</dd>
+            </div>
+            <div>
+              <dt>종료</dt>
+              <dd>{t.status === "done" ? timeLabel(t.ended_at) : "진행 중"}</dd>
+            </div>
+          </dl>
+          {t.note && (
+            <div className="journal-block">
+              <strong>업무 내용</strong>
+              <p className="note">{t.note}</p>
+            </div>
+          )}
+          {t.result && (
+            <div className="journal-block result-block">
+              <strong>업무 결과</strong>
+              <p className="note">{t.result}</p>
+            </div>
+          )}
+        </article>
+      )}
+    </DetailDialog>
+  );
+}
+
 function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: string) => void }) {
   const [q, setQ] = useState(""),
     [from, setFrom] = useState(() => addDays(anchor, -89)),
     [to, setTo] = useState(anchor),
+    [scope, setScope] = useState<SearchScope>("all"),
     [found, setFound] = useState<{
       query: SearchQuery;
       results: SearchResult[];
@@ -607,7 +664,7 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
     event.preventDefault();
     if (!term || invalid) return;
     const id = ++request.current,
-      query = { q: term, from, to };
+      query = { q: term, from, to, scope };
     setBusy(true);
     setLoadingMore(false);
     setError("");
@@ -642,7 +699,9 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
   return (
     <>
       <h3 className="stats-heading">기록 검색</h3>
-      <p className="stats-message">선택한 기간의 작업 제목·내용·결과에서 찾습니다. (최대 366일)</p>
+      <p className="stats-message">
+        선택한 기간의 작업 제목·내용·결과와 일일메모 제목·본문에서 찾습니다. (최대 366일)
+      </p>
       <form className="stats-export" onSubmit={search}>
         <label className="dialog-label stats-search-query">
           검색어
@@ -660,6 +719,21 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
           검색
         </button>
       </form>
+      <fieldset className="stats-scope">
+        <legend className="sr-only">검색 대상</legend>
+        {searchScopes.map((option) => (
+          <label key={option.id}>
+            <input
+              type="radio"
+              name="search-scope"
+              value={option.id}
+              checked={scope === option.id}
+              onChange={() => setScope(option.id)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </fieldset>
       {invalid && from && to && (
         <p className="stats-message stats-error">기간을 확인해 주세요. (최대 366일)</p>
       )}
@@ -675,16 +749,21 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
                 <li key={t.id}>
                   <div className="stats-search-body">
                     <span className="stats-search-meta">
-                      {dotted(t.day)} ({WEEKDAYS[weekdayIndex(t.day)]}) · {hoursLabel(t.elapsed)}
-                      {t.status !== "done" &&
+                      <span className={`stats-search-kind ${t.kind}`}>
+                        {t.kind === "memo" ? "메모" : "기록"}
+                      </span>
+                      {dotted(t.day)} ({WEEKDAYS[weekdayIndex(t.day)]})
+                      {t.kind === "task" && ` · ${hoursLabel(t.elapsed ?? 0)}`}
+                      {t.kind === "task" &&
+                        t.status !== "done" &&
                         ` · ${t.status === "running" ? "측정 중" : "일시정지"}`}
                     </span>
                     <strong>
-                      <Highlight text={t.title} query={found.query.q} />
+                      {t.title ? <Highlight text={t.title} query={found.query.q} /> : "(제목 없음)"}
                     </strong>
-                    {t.snippet && (
+                    {t.snippet && t.field && t.field !== "title" && (
                       <span className="stats-search-snippet">
-                        <b>{t.field === "note" ? "내용" : "결과"}</b>
+                        <b>{snippetLabels[t.field]}</b>
                         <Highlight text={t.snippet} query={found.query.q} />
                       </span>
                     )}
@@ -716,7 +795,16 @@ function SearchView({ anchor, onSelect }: { anchor: string; onSelect?: (day: str
           {error}
         </p>
       )}
-      <TaskDetail item={detail} onClose={() => setDetail(null)} onSelect={onSelect} />
+      <TaskDetail
+        item={detail?.kind === "task" ? detail : null}
+        onClose={() => setDetail(null)}
+        onSelect={onSelect}
+      />
+      <MemoDetail
+        item={detail?.kind === "memo" ? detail : null}
+        onClose={() => setDetail(null)}
+        onSelect={onSelect}
+      />
     </>
   );
 }
